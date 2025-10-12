@@ -1,0 +1,95 @@
+-- 1. 创建科室表 (department)
+CREATE TABLE `department` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '科室唯一ID',
+    `name` VARCHAR(100) NOT NULL COMMENT '科室名称',
+    `description` TEXT NULL COMMENT '科室的详细介绍',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_department_name` (`name`)
+) COMMENT='一级科室信息表';
+
+-- 2. 创建门诊表 (clinic)
+CREATE TABLE `clinic` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '门诊唯一ID',
+    `department_id` BIGINT NOT NULL COMMENT '所属科室的ID',
+    `name` VARCHAR(100) NOT NULL COMMENT '门诊名称',
+    `description` TEXT NULL COMMENT '门诊的详细介绍',
+    PRIMARY KEY (`id`),
+    -- 外键引用已更新为 department
+    FOREIGN KEY (`department_id`) REFERENCES `department`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    UNIQUE KEY `uk_clinic_dept_name` (`department_id`, `name`)
+) COMMENT='二级门诊信息表';
+
+-- 3. 创建医生表 (doctor)
+CREATE TABLE `doctor` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '医生唯一ID',
+    `login_id` VARCHAR(50) NOT NULL COMMENT '登录凭证 (由管理员分配)',
+    `password` VARCHAR(255) NOT NULL COMMENT '加密后的密码',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'pending_approval' COMMENT '账户状态 (pending_approval, active, inactive)',
+    `clinic_id` BIGINT NOT NULL COMMENT '所属门诊的ID',
+    `name` VARCHAR(50) NOT NULL COMMENT '医生姓名',
+    `title` VARCHAR(50) NULL COMMENT '医生职称',
+    `specialty` TEXT NULL COMMENT '擅长领域',
+    `bio` TEXT NULL COMMENT '个人简介',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_doctor_login_id` (`login_id`),
+    -- 外键引用已更新为 clinic
+    FOREIGN KEY (`clinic_id`) REFERENCES `clinic`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT='医生信息表';
+
+-- 4. 创建患者表 (patient)
+CREATE TABLE `patient` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '患者唯一ID',
+    `login_id` VARCHAR(50) NOT NULL COMMENT '登录凭证 (学号/工号)',
+    `password` VARCHAR(255) NOT NULL COMMENT '加密后的密码',
+    `name` VARCHAR(50) NOT NULL COMMENT '患者真实姓名',
+    `role` VARCHAR(20) NOT NULL COMMENT '角色 (student/teacher) ',
+    `id_status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '身份认证状态 (pending/verified)',
+    `phone_number` VARCHAR(20) NULL COMMENT '手机号码',
+    `id_card_number` VARCHAR(255) NULL COMMENT '身份证号 (需加密存储)',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_patient_login_id` (`login_id`)
+) COMMENT='患者(师生)信息表';
+
+-- 5. 创建管理员表 (admin)
+CREATE TABLE `admin` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '管理员唯一ID',
+    `username` VARCHAR(50) NOT NULL COMMENT '管理员登录用户名',
+    `password` VARCHAR(255) NOT NULL COMMENT '加密后的密码',
+    `name` VARCHAR(50) NOT NULL COMMENT '管理员姓名',
+    `admin_role` VARCHAR(30) NULL COMMENT '管理员具体角色 (如：超级管理员)',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_username` (`username`)
+) COMMENT='管理员信息表';
+
+-- 6. 创建排班表 (schedule)
+CREATE TABLE `schedule` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '排班唯一ID',
+    `doctor_id` BIGINT NOT NULL COMMENT '医生ID',
+    `schedule_date` DATE NOT NULL COMMENT '出诊日期',
+    `time_slot` VARCHAR(20) NOT NULL COMMENT '时间段 (morning/afternoon)',
+    `slot_type` VARCHAR(20) NOT NULL DEFAULT 'normal' COMMENT '号别 (normal, expert, vip)',
+    `total_slots` INT NOT NULL COMMENT '总号源数',
+    `available_slots` INT NOT NULL COMMENT '剩余号源数',
+    PRIMARY KEY (`id`),
+    -- 外键引用已更新为 doctor
+    FOREIGN KEY (`doctor_id`) REFERENCES `doctor`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE KEY `uk_doctor_schedule` (`doctor_id`, `schedule_date`, `time_slot`) -- 一个医生在一个时间段只能有一个排班
+) COMMENT='医生排班表';
+
+-- 7. 创建预约记录表 (appointment)
+CREATE TABLE `appointment` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '预约唯一ID',
+    `patient_id` BIGINT NOT NULL COMMENT '患者ID (外键关联patient表)',
+    `doctor_id` BIGINT NOT NULL COMMENT '医生ID',
+    `schedule_id` BIGINT NOT NULL COMMENT '排班ID',
+    `appointment_time` DATETIME NOT NULL COMMENT '预约成功后确定的就诊时间',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'scheduled' COMMENT '状态 (scheduled/cancelled/completed)',
+    `fee` DECIMAL(10,2) NOT NULL COMMENT '原始挂号费',
+    `actual_fee` DECIMAL(10,2) NOT NULL COMMENT '根据角色报销后的实际支付费用',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+    PRIMARY KEY (`id`),
+    -- 外键引用已更新为 patient, doctor, schedule
+    FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`doctor_id`) REFERENCES `doctor`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT='预约记录表';
