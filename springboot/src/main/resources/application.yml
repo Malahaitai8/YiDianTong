@@ -4,7 +4,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
-    url: jdbc:mysql://localhost:3306/web01?useUnicode=true&characterEncoding=utf-8&8allowWMulti
+    url: jdbc:mysql://localhost:3306/yi_dian_tong?useUnicode=true&characterEncoding=utf-8&8allowWMulti
 
 
 # ?????
