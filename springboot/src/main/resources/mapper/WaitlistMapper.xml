@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.WaitlistMapper">
+    <select id="selectAll" resultType="com.example.springboot.entity.Waitlist">
+        select * from waitlist
+    </select>
+
+    <select id="selectById" resultType="com.example.springboot.entity.Waitlist">
+        select * from waitlist where id = #{id}
+    </select>
+
+</mapper>
+

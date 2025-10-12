@@ -93,3 +93,43 @@ CREATE TABLE `appointment` (
     FOREIGN KEY (`doctor_id`) REFERENCES `doctor`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
     FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='预约记录表';
+
+-- 8. 创建候补队列表 (waitlist)
+CREATE TABLE `waitlist` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '候补记录唯一ID',
+    `schedule_id` BIGINT NOT NULL COMMENT '目标排班ID',
+    `patient_id` BIGINT NOT NULL COMMENT '候补的患者ID',
+    `join_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入候补队列的时间 (用于确定优先级)',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'WAITING' COMMENT '候补状态 (WAITING, NOTIFIED, GRANTED, EXPIRED)',
+    
+    PRIMARY KEY (`id`),
+    
+    -- 确保一个患者不能为同一个排班重复加入候补
+    UNIQUE KEY `uk_waitlist_unique` (`schedule_id`, `patient_id`), 
+    
+    -- 外键关联到排班表 (schedule)
+    FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    -- 外键关联到患者表 (patient)
+    FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT='预约候补队列记录表';
+
+
+-- 9. 创建系统配置与规则表 (system_config)
+CREATE TABLE `system_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '配置唯一ID',
+    `key` VARCHAR(100) NOT NULL COMMENT '配置项键名 (如：STUDENT_REIMBURSEMENT_RATE)',
+    `value` VARCHAR(500) NOT NULL COMMENT '配置项值',
+    `description` VARCHAR(255) NULL COMMENT '配置项描述',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+    
+    PRIMARY KEY (`id`),
+    -- 配置键名必须唯一
+    UNIQUE KEY `uk_config_key` (`key`)
+) COMMENT='系统全局配置与规则表';
+
+-- 插入初始数据示例 (参考设计文档中的规则)
+INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
+('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例 [cite: 120]'),
+('TEACHER_REIMBURSEMENT_RATE', '0.90', '教师挂号费报销比例 [cite: 120]'),
+('CANCELLATION_FREE_HOURS', '24', '就诊前多久取消可免费退号，否则记录爽约（单位：小时） [cite: 125]');
