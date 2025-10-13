@@ -12,4 +12,13 @@
         select * from patient where id = #{id}
     </select>
 
+    <select id="selectByPhoneNumber" resultType="com.example.springboot.entity.Patient">
+        select * from patient where phone_number = #{phoneNumber}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into patient(password, name, role, id_status, phone_number, id_card_number)
+        values(#{password}, #{name}, #{role}, #{idStatus}, #{phoneNumber}, #{idCardNumber})
+    </insert>
+
 </mapper>

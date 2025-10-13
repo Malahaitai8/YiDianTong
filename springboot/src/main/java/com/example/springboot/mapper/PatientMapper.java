@@ -8,5 +8,11 @@ public interface PatientMapper {
     List<Patient> selectAll();
 
     Patient selectById(Long id);
+    
+    // 根据手机号查询病人
+    Patient selectByPhoneNumber(String phoneNumber);
+    
+    // 添加新病人
+    int insert(Patient patient);
 }
 

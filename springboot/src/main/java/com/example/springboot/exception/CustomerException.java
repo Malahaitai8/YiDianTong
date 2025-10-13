@@ -9,6 +9,11 @@ public class CustomerException extends RuntimeException{
         this.msg = msg;
     }
 
+    public CustomerException(String msg) {
+        this.code = "500";
+        this.msg = msg;
+    }
+
     public String getCode() {
         return code;
     }

@@ -2,7 +2,6 @@ package com.example.springboot.entity;
 
 public class Doctor {
     private Long id;
-    private String loginId;
     private String password;
     private String status;
     private Long clinicId;
@@ -19,13 +18,6 @@ public class Doctor {
         this.id = id;
     }
 
-    public String getLoginId() {
-        return loginId;
-    }
-
-    public void setLoginId(String loginId) {
-        this.loginId = loginId;
-    }
 
     public String getPassword() {
         return password;
