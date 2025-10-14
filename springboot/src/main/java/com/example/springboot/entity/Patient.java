@@ -2,12 +2,13 @@ package com.example.springboot.entity;
 
 public class Patient {
     private Long id;
-    private String password;
+    private Long userId;
     private String name;
-    private String role;
+    private String specificRole;
     private String idStatus;
     private String phoneNumber;
     private String idCardNumber;
+    private User user;
 
     public Long getId() {
         return id;
@@ -17,12 +18,12 @@ public class Patient {
         this.id = id;
     }
 
-    public String getPassword() {
-        return password;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getName() {
@@ -33,12 +34,12 @@ public class Patient {
         this.name = name;
     }
 
-    public String getRole() {
-        return role;
+    public String getSpecificRole() {
+        return specificRole;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setSpecificRole(String specificRole) {
+        this.specificRole = specificRole;
     }
 
     public String getIdStatus() {
@@ -63,6 +64,14 @@ public class Patient {
 
     public void setIdCardNumber(String idCardNumber) {
         this.idCardNumber = idCardNumber;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }
 

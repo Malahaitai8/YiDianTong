@@ -2,13 +2,14 @@ package com.example.springboot.entity;
 
 public class Doctor {
     private Long id;
-    private String password;
-    private String status;
+    private Long userId;
     private Long clinicId;
     private String name;
     private String title;
     private String specialty;
     private String bio;
+    private User user;
+    private Clinic clinic;
 
     public Long getId() {
         return id;
@@ -18,21 +19,12 @@ public class Doctor {
         this.id = id;
     }
 
-
-    public String getPassword() {
-        return password;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public Long getClinicId() {
@@ -73,6 +65,22 @@ public class Doctor {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Clinic getClinic() {
+        return clinic;
+    }
+
+    public void setClinic(Clinic clinic) {
+        this.clinic = clinic;
     }
 }
 

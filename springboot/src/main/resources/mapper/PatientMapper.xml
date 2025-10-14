@@ -4,21 +4,46 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.example.springboot.mapper.PatientMapper">
-    <select id="selectAll" resultType="com.example.springboot.entity.Patient">
-        select * from patient
+    <resultMap id="PatientResultMap" type="com.example.springboot.entity.Patient">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="name" property="name"/>
+        <result column="specific_role" property="specificRole"/>
+        <result column="id_status" property="idStatus"/>
+        <result column="phone_number" property="phoneNumber"/>
+        <result column="id_card_number" property="idCardNumber"/>
+        <association property="user" javaType="com.example.springboot.entity.User">
+            <id column="user_id" property="id"/>
+            <result column="username" property="username"/>
+            <result column="role" property="role"/>
+            <result column="status" property="status"/>
+            <result column="created_at" property="createdAt"/>
+        </association>
+    </resultMap>
+
+    <select id="selectAll" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
     </select>
 
-    <select id="selectById" resultType="com.example.springboot.entity.Patient">
-        select * from patient where id = #{id}
+    <select id="selectById" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
+        where p.id = #{id}
     </select>
 
-    <select id="selectByPhoneNumber" resultType="com.example.springboot.entity.Patient">
-        select * from patient where phone_number = #{phoneNumber}
+    <select id="selectByPhoneNumber" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
+        where p.phone_number = #{phoneNumber}
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        insert into patient(password, name, role, id_status, phone_number, id_card_number)
-        values(#{password}, #{name}, #{role}, #{idStatus}, #{phoneNumber}, #{idCardNumber})
+        insert into patient(user_id, name, specific_role, id_status, phone_number, id_card_number)
+        values(#{userId}, #{name}, #{specificRole}, #{idStatus}, #{phoneNumber}, #{idCardNumber})
     </insert>
 
 </mapper>

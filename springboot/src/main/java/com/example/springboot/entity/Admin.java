@@ -2,10 +2,10 @@ package com.example.springboot.entity;
 
 public class Admin {
     private Long id;
-    private String username;
-    private String password;
+    private Long userId;
     private String name;
     private String adminRole;
+    private User user;
 
     public Long getId() {
         return id;
@@ -15,20 +15,12 @@ public class Admin {
         this.id = id;
     }
 
-    public String getUsername() {
-        return username;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getName() {
@@ -45,6 +37,14 @@ public class Admin {
 
     public void setAdminRole(String adminRole) {
         this.adminRole = adminRole;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }
 

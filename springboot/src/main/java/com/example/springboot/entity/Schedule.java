@@ -1,10 +1,12 @@
 package com.example.springboot.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.util.Date;
 
 public class Schedule {
     private Long id;
     private Long doctorId;
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
     private Date scheduleDate;
     private String timeSlot;
     private String slotType;
