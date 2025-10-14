@@ -148,3 +148,5 @@ INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例'),
 ('TEACHER_REIMBURSEMENT_RATE', '0.90', '教师挂号费报销比例'),
 ('CANCELLATION_FREE_HOURS', '24', '就诊前多久取消可免费退号，否则记录爽约（单位：小时）');
+
+alter table appointment add column source_type varchar(20);

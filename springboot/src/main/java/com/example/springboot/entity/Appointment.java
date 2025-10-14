@@ -13,6 +13,7 @@ public class Appointment {
     private BigDecimal fee;
     private BigDecimal actualFee;
     private Date createdAt;
+    private String sourceType;
 
     public Long getId() {
         return id;
@@ -84,6 +85,14 @@ public class Appointment {
 
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getSourceType() {
+        return sourceType;
+    }
+
+    public void setSourceType(String sourceType) {
+        this.sourceType = sourceType;
     }
 }
 
