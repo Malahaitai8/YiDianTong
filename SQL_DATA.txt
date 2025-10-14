@@ -1,6 +1,3 @@
--- ***********************************************
--- 1. INSERT INTO department (一级科室)
--- ***********************************************
 INSERT INTO `department` (`name`, `description`) VALUES
 ('内科', '负责内脏器官疾病诊断与非手术治疗，包括常见疾病和慢性病管理。'),
 ('外科', '负责外伤、肿瘤、感染等需手术治疗的疾病。'),
@@ -9,132 +6,238 @@ INSERT INTO `department` (`name`, `description`) VALUES
 ('中医科', '提供传统中医疗法，如针灸、推拿和中药调理。'),
 ('五官科', '耳鼻喉、眼科及口腔疾病的诊断与治疗。');
 
-
--- ***********************************************
--- 2. INSERT INTO clinic (二级门诊)
--- ***********************************************
--- 内科 (department_id = 1)
 INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
 (1, '呼吸内科门诊', '常见呼吸道感染、哮喘、慢性阻塞性肺疾病等诊治。'),
 (1, '心血管内科门诊', '高血压、冠心病、心律失常等诊治。'),
 (1, '消化内科门诊', '胃炎、肠炎、消化道出血等诊治。'),
 (1, '内分泌科门诊', '糖尿病、甲状腺疾病、肥胖等诊治。'),
-(1, '神经内科门诊', '头痛、眩晕、失眠等神经系统常见疾病诊治。');
-
--- 外科 (department_id = 2)
-INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
+(1, '神经内科门诊', '头痛、眩晕、失眠等神经系统常见疾病诊治。'),
 (2, '普通外科门诊', '体表肿物、甲状腺、乳腺疾病及腹股沟疝等诊治。'),
 (2, '骨科门诊', '骨折、脱位、运动损伤、颈肩腰腿痛等诊治。'),
 (2, '泌尿外科门诊', '泌尿系统结石、感染等诊治。'),
 (2, '烧伤整形外科门诊', '各类烧伤、创面处理及体表美容咨询。'),
-(2, '肛肠外科门诊', '痔疮、肛裂等常见肛肠疾病诊治。');
-
--- 妇产科 (department_id = 3)
-INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
-(3, '妇科门诊', '月经不调、妇科炎症、宫颈疾病等诊治。');
-
--- 儿科 (department_id = 4)
-INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
-(4, '儿科普通门诊', '儿童常见感冒、发烧、腹泻等疾病诊治。');
-
--- 中医科 (department_id = 5)
-INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
-(5, '中医内科门诊', '中医体质调理、慢性病的中药治疗。');
-
--- 五官科 (department_id = 6)
-INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
+(2, '肛肠外科门诊', '痔疮、肛裂等常见肛肠疾病诊治。'),
+(3, '妇科门诊', '月经不调、妇科炎症、宫颈疾病等诊治。'),
+(4, '儿科普通门诊', '儿童常见感冒、发烧、腹泻等疾病诊治。'),
+(5, '中医内科门诊', '中医体质调理、慢性病的中药治疗。'),
 (6, '耳鼻喉科门诊', '鼻炎、咽炎、扁桃体炎等疾病诊治。'),
 (6, '眼科门诊', '近视、结膜炎、干眼症等诊治。');
 
+INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
+('doctor_lwh1', '123456', 'doctor', 'active'),
+('doctor_zxw2', '123456', 'doctor', 'active'),
+('doctor_wjj3', '123456', 'doctor', 'active'),
+('doctor_zm4', '123456', 'doctor', 'active'),
+('doctor_lq5', '123456', 'doctor', 'active'),
+('doctor_cl6', '123456', 'doctor', 'active'),
+('doctor_sdw7', '123456', 'doctor', 'active'),
+('doctor_zm8', '123456', 'doctor', 'active'),
+('doctor_wf9', '123456', 'doctor', 'active'),
+('doctor_zw10', '123456', 'doctor', 'active'),
+('doctor_ql11', '123456', 'doctor', 'active'),
+('doctor_ft12', '123456', 'doctor', 'active'),
+('doctor_gy13', '123456', 'doctor', 'active'),
+('doctor_wd14', '123456', 'doctor', 'active'),
+('doctor_xhy15', '123456', 'doctor', 'active'),
+('doctor_xl16', '123456', 'doctor', 'active'),
+('doctor_zb17', '123456', 'doctor', 'active'),
+('doctor_qy18', '123456', 'doctor', 'active'),
+('doctor_cy19', '123456', 'doctor', 'active'),
+('doctor_yy20', '123456', 'doctor', 'active'),
+('doctor_yj21', '123456', 'doctor', 'active'),
+('doctor_xm22', '123456', 'doctor', 'active'),
+('doctor_hj23', '123456', 'doctor', 'active'),
+('doctor_cl24', '123456', 'doctor', 'active'),
+('doctor_dh25', '123456', 'doctor', 'active'),
+('doctor_xq26', '123456', 'doctor', 'active'),
+('doctor_lp27', '123456', 'doctor', 'active'),
+('doctor_gml28', '123456', 'doctor', 'active'),
+('doctor_tl29', '123456', 'doctor', 'active'),
+('doctor_hw30', '123456', 'doctor', 'active'),
+('doctor_mt31', '123456', 'doctor', 'active'),
+('doctor_zy32', '123456', 'doctor', 'active'),
+('doctor_cl33', '123456', 'doctor', 'active'),
+('doctor_pg34', '123456', 'doctor', 'active'),
+('doctor_hj35', '123456', 'doctor', 'active'),
+('doctor_jh36', '123456', 'doctor', 'active'),
+('doctor_xf37', '123456', 'doctor', 'active');
 
+INSERT INTO `doctor` (`user_id`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
+(1, 1, '李文华', '主任医师', '慢性咳嗽、哮喘、肺部感染', '资深呼吸内科专家，擅长呼吸系统疑难病诊治。'),
+(2, 1, '张晓雯', '副主任医师', '戒烟咨询、肺功能检查解读', '专注于呼吸健康宣教和慢病管理。'),
+(3, 1, '王建军', '主治医师', '常见感冒、支气管炎', '内科常见疾病诊疗经验丰富。'),
+(4, 1, '赵梅', '主治医师', '呼吸系统慢病管理', '耐心细致，提供个性化慢病指导。'),
+(5, 2, '刘强', '主任医师', '高血压、冠心病、心绞痛', '心血管领域权威，侧重高危患者管理。'),
+(6, 2, '陈琳', '副主任医师', '心律失常及心电图判读', '精通心律失常的药物治疗。'),
+(7, 2, '孙大为', '主治医师', '基础心血管疾病筛查', '擅长早期风险评估与生活方式干预。'),
+(8, 3, '周明', '主任医师', '胃肠道常见疾病、幽门螺杆菌感染', '擅长消化系统常见病和多发病。'),
+(9, 3, '吴芳', '主治医师', '功能性胃肠病、腹痛腹泻', '专治各种非器质性消化道不适。'),
+(10, 4, '郑伟', '副主任医师', '糖尿病诊断与个体化治疗', '对代谢综合征有深入研究。'),
+(11, 4, '钱丽', '主治医师', '甲状腺功能异常、内分泌失调', '关注年轻群体内分泌健康。'),
+(12, 5, '冯涛', '主任医师', '头痛、偏头痛、睡眠障碍', '神经内科专家，尤其擅长慢性疼痛管理。'),
+(13, 5, '顾悦', '主治医师', '眩晕症、焦虑状态', '提供神经心理咨询与治疗。'),
+(14, 6, '魏东', '主任医师', '体表肿物、小创伤处理、疝气', '普通外科领域经验丰富，处理各种小手术。'),
+(15, 6, '徐海燕', '副主任医师', '甲状腺、乳腺疾病筛查', '侧重女性外科疾病的早期诊断。'),
+(16, 6, '许磊', '主治医师', '基础外科疾病、换药及术后随访', '细致耐心，擅长创面护理。'),
+(17, 7, '朱斌', '副主任医师', '运动损伤、关节疼痛、颈椎病', '擅长非手术治疗各类骨科疼痛。'),
+(18, 7, '秦雨', '主治医师', '软组织损伤、骨折复位后随诊', '专注于急性损伤和康复指导。'),
+(19, 8, '曹阳', '主任医师', '泌尿系统感染、前列腺疾病', '泌尿生殖系统常见疾病诊治专家。'),
+(20, 8, '袁圆', '主治医师', '尿路结石、血尿初筛', '擅长泌尿系超声检查与结果分析。'),
+(21, 9, '杨洁', '副主任医师', '轻度烧烫伤处理、慢性创面修复', '精于皮肤损伤的紧急与后期处理。'),
+(22, 9, '薛明', '主治医师', '外伤缝合、疤痕咨询', '提供专业的美容与疤痕预防建议。'),
+(23, 10, '韩建', '主治医师', '痔疮、肛裂、肛周脓肿', '擅长常见肛肠疾病的诊疗与保守治疗。'),
+(24, 10, '程璐', '主治医师', '便秘、排便异常咨询', '注重饮食与生活方式的干预指导。'),
+(25, 11, '丁慧', '主任医师', '妇科常见炎症、月经病', '经验丰富，专注于女性生殖健康。'),
+(26, 11, '肖晴', '副主任医师', '妇科内分泌调理、更年期综合征', '擅长激素替代疗法和内分泌平衡。'),
+(27, 11, '陆萍', '主治医师', '避孕指导、宫颈疾病初筛', '年轻有活力，提供贴心的健康指导。'),
+(28, 12, '郭美玲', '主任医师', '儿童呼吸道、消化道常见病', '对小儿常见病有全面的诊治能力。'),
+(29, 12, '谭磊', '副主任医师', '儿童生长发育评估', '专注于儿童健康管理和发育监测。'),
+(30, 12, '何薇', '主治医师', '小儿发热、感染性疾病', '善于处理急性感染和发热。'),
+(31, 12, '孟涛', '主治医师', '疫苗接种咨询及常见过敏', '提供专业的儿童免疫和过敏咨询。'),
+(32, 13, '庄严', '主任中医师', '中医体质辨识、亚健康调理', '资深中医师，注重整体调理。'),
+(33, 13, '崔丽', '主治中医师', '中药、针灸、推拿', '擅长将传统疗法与现代医学结合。'),
+(34, 14, '彭刚', '副主任医师', '鼻炎、鼻窦炎、咽喉炎', '专注于上呼吸道感染和炎症治疗。'),
+(35, 14, '侯静', '主治医师', '突发耳聋、眩晕初诊', '擅长耳部疾病的检查和初筛。'),
+(36, 15, '江海', '主任医师', '屈光不正、干眼症、视疲劳', '眼科常见病诊治专家，尤其擅长青少年近视管理。'),
+(37, 15, '夏芳', '主治医师', '结膜炎、麦粒肿等眼部感染', '提供眼部日常护理与咨询。');
 
--- ***********************************************
--- 3. INSERT INTO doctor (已移除 login_id 字段)
--- ***********************************************
--- 默认密码使用占位符 'encrypted_password_placeholder'
--- 医生账户默认状态为 'active'
+-- 排班数据
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(1, '2025-10-14', 'morning', 'expert', 10, 10),
+(5, '2025-10-14', 'morning', 'expert', 10, 10),
+(8, '2025-10-14', 'morning', 'normal', 20, 20),
+(10, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(12, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(14, '2025-10-14', 'morning', 'expert', 10, 10),
+(17, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(19, '2025-10-14', 'morning', 'normal', 20, 20),
+(21, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(23, '2025-10-14', 'morning', 'normal', 20, 20),
+(25, '2025-10-14', 'morning', 'expert', 10, 10),
+(28, '2025-10-14', 'afternoon', 'expert', 10, 10),
+(32, '2025-10-14', 'morning', 'normal', 20, 20),
+(34, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(36, '2025-10-14', 'morning', 'normal', 20, 20),
+(2, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(15, '2025-10-14', 'afternoon', 'normal', 20, 20),
+(29, '2025-10-14', 'morning', 'normal', 20, 20);
 
--- 门诊ID 1：呼吸内科门诊 (热门：4名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 1, '李文华', '主任医师', '慢性咳嗽、哮喘、肺部感染', '资深呼吸内科专家，擅长呼吸系统疑难病诊治。'),
-('encrypted_password_placeholder', 'active', 1, '张晓雯', '副主任医师', '戒烟咨询、肺功能检查解读', '专注于呼吸健康宣教和慢病管理。'),
-('encrypted_password_placeholder', 'active', 1, '王建军', '主治医师', '常见感冒、支气管炎', '内科常见疾病诊疗经验丰富。'),
-('encrypted_password_placeholder', 'active', 1, '赵梅', '主治医师', '呼吸系统慢病管理', '耐心细致，提供个性化慢病指导。');
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(3, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(6, '2025-10-15', 'morning', 'normal', 20, 20),
+(9, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(11, '2025-10-15', 'morning', 'normal', 20, 20),
+(13, '2025-10-15', 'morning', 'normal', 20, 20),
+(16, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(18, '2025-10-15', 'morning', 'normal', 20, 20),
+(20, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(22, '2025-10-15', 'morning', 'normal', 20, 20),
+(24, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(26, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(30, '2025-10-15', 'morning', 'normal', 20, 20),
+(33, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(35, '2025-10-15', 'morning', 'normal', 20, 20),
+(37, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(4, '2025-10-15', 'morning', 'normal', 20, 20),
+(7, '2025-10-15', 'afternoon', 'normal', 20, 20),
+(27, '2025-10-15', 'morning', 'normal', 20, 20);
 
--- 门诊ID 2：心血管内科门诊 (热门：3名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 2, '刘强', '主任医师', '高血压、冠心病、心绞痛', '心血管领域权威，侧重高危患者管理。'),
-('encrypted_password_placeholder', 'active', 2, '陈琳', '副主任医师', '心律失常及心电图判读', '精通心律失常的药物治疗。'),
-('encrypted_password_placeholder', 'active', 2, '孙大为', '主治医师', '基础心血管疾病筛查', '擅长早期风险评估与生活方式干预。');
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(1, '2025-10-16', 'morning', 'expert', 10, 10),
+(5, '2025-10-16', 'afternoon', 'expert', 10, 10),
+(8, '2025-10-16', 'morning', 'normal', 20, 20),
+(10, '2025-10-16', 'afternoon', 'normal', 20, 20),
+(12, '2025-10-16', 'morning', 'normal', 20, 20),
+(14, '2025-10-16', 'afternoon', 'expert', 10, 10),
+(17, '2025-10-16', 'morning', 'normal', 20, 20),
+(19, '2025-10-16', 'afternoon', 'normal', 20, 20),
+(21, '2025-10-16', 'morning', 'normal', 20, 20),
+(23, '2025-10-16', 'afternoon', 'normal', 20, 20),
+(25, '2025-10-16', 'morning', 'expert', 10, 10),
+(28, '2025-10-16', 'afternoon', 'expert', 10, 10),
+(32, '2025-10-16', 'morning', 'normal', 20, 20),
+(34, '2025-10-16', 'afternoon', 'normal', 20, 20),
+(36, '2025-10-16', 'morning', 'normal', 20, 20),
+(3, '2025-10-16', 'afternoon', 'normal', 20, 20),
+(16, '2025-10-16', 'morning', 'normal', 20, 20),
+(31, '2025-10-16', 'morning', 'normal', 20, 20);
 
--- 门诊ID 3：消化内科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 3, '周明', '主任医师', '胃肠道常见疾病、幽门螺杆菌感染', '擅长消化系统常见病和多发病。'),
-('encrypted_password_placeholder', 'active', 3, '吴芳', '主治医师', '功能性胃肠病、腹痛腹泻', '专治各种非器质性消化道不适。');
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(2, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(6, '2025-10-17', 'morning', 'normal', 20, 20),
+(9, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(11, '2025-10-17', 'morning', 'normal', 20, 20),
+(13, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(15, '2025-10-17', 'morning', 'normal', 20, 20),
+(18, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(20, '2025-10-17', 'morning', 'normal', 20, 20),
+(22, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(24, '2025-10-17', 'morning', 'normal', 20, 20),
+(26, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(29, '2025-10-17', 'morning', 'normal', 20, 20),
+(33, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(35, '2025-10-17', 'morning', 'normal', 20, 20),
+(37, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(4, '2025-10-17', 'morning', 'normal', 20, 20),
+(7, '2025-10-17', 'afternoon', 'normal', 20, 20),
+(27, '2025-10-17', 'morning', 'normal', 20, 20);
 
--- 门诊ID 4：内分泌科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 4, '郑伟', '副主任医师', '糖尿病诊断与个体化治疗', '对代谢综合征有深入研究。'),
-('encrypted_password_placeholder', 'active', 4, '钱丽', '主治医师', '甲状腺功能异常、内分泌失调', '关注年轻群体内分泌健康。');
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(1, '2025-10-18', 'morning', 'expert', 10, 10),
+(5, '2025-10-18', 'morning', 'expert', 10, 10),
+(8, '2025-10-18', 'morning', 'normal', 20, 20),
+(10, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(12, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(14, '2025-10-18', 'morning', 'expert', 10, 10),
+(17, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(19, '2025-10-18', 'morning', 'normal', 20, 20),
+(21, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(23, '2025-10-18', 'morning', 'normal', 20, 20),
+(25, '2025-10-18', 'morning', 'expert', 10, 10),
+(28, '2025-10-18', 'afternoon', 'expert', 10, 10),
+(32, '2025-10-18', 'morning', 'normal', 20, 20),
+(34, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(36, '2025-10-18', 'morning', 'normal', 20, 20),
+(2, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(15, '2025-10-18', 'afternoon', 'normal', 20, 20),
+(30, '2025-10-18', 'morning', 'normal', 20, 20);
 
--- 门诊ID 5：神经内科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 5, '冯涛', '主任医师', '头痛、偏头痛、睡眠障碍', '神经内科专家，尤其擅长慢性疼痛管理。'),
-('encrypted_password_placeholder', 'active', 5, '顾悦', '主治医师', '眩晕症、焦虑状态', '提供神经心理咨询与治疗。');
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(3, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(6, '2025-10-19', 'morning', 'normal', 20, 20),
+(9, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(11, '2025-10-19', 'morning', 'normal', 20, 20),
+(13, '2025-10-19', 'morning', 'normal', 20, 20),
+(16, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(18, '2025-10-19', 'morning', 'normal', 20, 20),
+(20, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(22, '2025-10-19', 'morning', 'normal', 20, 20),
+(24, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(26, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(29, '2025-10-19', 'morning', 'normal', 20, 20),
+(33, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(35, '2025-10-19', 'morning', 'normal', 20, 20),
+(37, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(4, '2025-10-19', 'morning', 'normal', 20, 20),
+(7, '2025-10-19', 'afternoon', 'normal', 20, 20),
+(27, '2025-10-19', 'morning', 'normal', 20, 20);
 
--- 门诊ID 6：普通外科门诊 (热门：3名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 6, '魏东', '主任医师', '体表肿物、小创伤处理、疝气', '普通外科领域经验丰富，处理各种小手术。'),
-('encrypted_password_placeholder', 'active', 6, '徐海燕', '副主任医师', '甲状腺、乳腺疾病筛查', '侧重女性外科疾病的早期诊断。'),
-('encrypted_password_placeholder', 'active', 6, '许磊', '主治医师', '基础外科疾病、换药及术后随访', '细致耐心，擅长创面护理。');
-
--- 门诊ID 7：骨科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 7, '朱斌', '副主任医师', '运动损伤、关节疼痛、颈椎病', '擅长非手术治疗各类骨科疼痛。'),
-('encrypted_password_placeholder', 'active', 7, '秦雨', '主治医师', '软组织损伤、骨折复位后随诊', '专注于急性损伤和康复指导。');
-
--- 门诊ID 8：泌尿外科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 8, '曹阳', '主任医师', '泌尿系统感染、前列腺疾病', '泌尿生殖系统常见疾病诊治专家。'),
-('encrypted_password_placeholder', 'active', 8, '袁圆', '主治医师', '尿路结石、血尿初筛', '擅长泌尿系超声检查与结果分析。');
-
--- 门诊ID 9：烧伤整形外科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 9, '杨洁', '副主任医师', '轻度烧烫伤处理、慢性创面修复', '精于皮肤损伤的紧急与后期处理。'),
-('encrypted_password_placeholder', 'active', 9, '薛明', '主治医师', '外伤缝合、疤痕咨询', '提供专业的美容与疤痕预防建议。');
-
--- 门诊ID 10：肛肠外科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 10, '韩建', '主治医师', '痔疮、肛裂、肛周脓肿', '擅长常见肛肠疾病的诊疗与保守治疗。'),
-('encrypted_password_placeholder', 'active', 10, '程璐', '主治医师', '便秘、排便异常咨询', '注重饮食与生活方式的干预指导。');
-
--- 门诊ID 11：妇科门诊 (热门：3名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 11, '丁慧', '主任医师', '妇科常见炎症、月经病', '经验丰富，专注于女性生殖健康。'),
-('encrypted_password_placeholder', 'active', 11, '肖晴', '副主任医师', '妇科内分泌调理、更年期综合征', '擅长激素替代疗法和内分泌平衡。'),
-('encrypted_password_placeholder', 'active', 11, '陆萍', '主治医师', '避孕指导、宫颈疾病初筛', '年轻有活力，提供贴心的健康指导。');
-
--- 门诊ID 12：儿科普通门诊 (热门：4名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 12, '郭美玲', '主任医师', '儿童呼吸道、消化道常见病', '对小儿常见病有全面的诊治能力。'),
-('encrypted_password_placeholder', 'active', 12, '谭磊', '副主任医师', '儿童生长发育评估', '专注于儿童健康管理和发育监测。'),
-('encrypted_password_placeholder', 'active', 12, '何薇', '主治医师', '小儿发热、感染性疾病', '善于处理急性感染和发热。'),
-('encrypted_password_placeholder', 'active', 12, '孟涛', '主治医师', '疫苗接种咨询及常见过敏', '提供专业的儿童免疫和过敏咨询。');
-
--- 门诊ID 13：中医内科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 13, '庄严', '主任中医师', '中医体质辨识、亚健康调理', '资深中医师，注重整体调理。'),
-('encrypted_password_placeholder', 'active', 13, '崔丽', '主治中医师', '中药、针灸、推拿', '擅长将传统疗法与现代医学结合。');
-
--- 门诊ID 14：耳鼻喉科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 14, '彭刚', '副主任医师', '鼻炎、鼻窦炎、咽喉炎', '专注于上呼吸道感染和炎症治疗。'),
-('encrypted_password_placeholder', 'active', 14, '侯静', '主治医师', '突发耳聋、眩晕初诊', '擅长耳部疾病的检查和初筛。');
-
--- 门诊ID 15：眼科门诊 (普通：2名医生)
-INSERT INTO `doctor` (`password`, `status`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
-('encrypted_password_placeholder', 'active', 15, '江海', '主任医师', '屈光不正、干眼症、视疲劳', '眼科常见病诊治专家，尤其擅长青少年近视管理。'),
-('encrypted_password_placeholder', 'active', 15, '夏芳', '主治医师', '结膜炎、麦粒肿等眼部感染', '提供眼部日常护理与咨询。');
-
-
-update doctor set password = '123456' where true;
+INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, `total_slots`, `available_slots`) VALUES
+(1, '2025-10-20', 'morning', 'expert', 10, 10),
+(5, '2025-10-20', 'afternoon', 'expert', 10, 10),
+(8, '2025-10-20', 'morning', 'normal', 20, 20),
+(10, '2025-10-20', 'afternoon', 'normal', 20, 20),
+(12, '2025-10-20', 'morning', 'normal', 20, 20),
+(14, '2025-10-20', 'afternoon', 'expert', 10, 10),
+(17, '2025-10-20', 'morning', 'normal', 20, 20),
+(19, '2025-10-20', 'afternoon', 'normal', 20, 20),
+(21, '2025-10-20', 'morning', 'normal', 20, 20),
+(23, '2025-10-20', 'afternoon', 'normal', 20, 20),
+(25, '2025-10-20', 'morning', 'expert', 10, 10),
+(28, '2025-10-20', 'afternoon', 'expert', 10, 10),
+(32, '2025-10-20', 'morning', 'normal', 20, 20),
+(34, '2025-10-20', 'afternoon', 'normal', 20, 20),
+(36, '2025-10-20', 'morning', 'normal', 20, 20),
+(2, '2025-10-20', 'afternoon', 'normal', 20, 20),
+(16, '2025-10-20', 'morning', 'normal', 20, 20),
+(31, '2025-10-20', 'morning', 'normal', 20, 20);
