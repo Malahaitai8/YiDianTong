@@ -8,5 +8,11 @@ public interface DepartmentMapper {
     List<Department> selectAll();
 
     Department selectById(Long id);
+
+    int insert(Department department);
+
+    int update(Department department);
+
+    int delete(Long id);
 }
 

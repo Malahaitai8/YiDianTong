@@ -9,6 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -20,20 +24,26 @@ public class WaitlistController {
     private WaitlistService waitlistService;
 
 
-    @GetMapping("/selectAll")
-    public Result selectAll() {
-
-        List<Waitlist> list = waitlistService.selectAll();
-
-        return Result.success(list);
+    /** 加入候补队列 */
+    @PostMapping
+    public Result addToQueue(@RequestBody Waitlist request) {
+        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        Waitlist w = waitlistService.addToQueue(patientId, request.getScheduleId());
+        return Result.success(w);
     }
 
-    @GetMapping("/selectById/{id}")
-    public Result selectById(@PathVariable Long id) {
-
-        Waitlist waitlist = waitlistService.selectById(id);
-        return Result.success(waitlist);
+    /** 查看我的候补列表 */
+    @GetMapping("/me")
+    public Result myQueue() {
+        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        return Result.success(waitlistService.listByPatient(patientId));
     }
 
+    /** 弹出队首（管理员或系统任务） */
+    @PostMapping("/next/{scheduleId}")
+    public Result popNext(@PathVariable Long scheduleId) {
+        Waitlist next = waitlistService.popNext(scheduleId);
+        return Result.success(next);
+    }
 }
 

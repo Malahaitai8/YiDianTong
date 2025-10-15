@@ -8,6 +8,8 @@ import com.example.springboot.dto.LoginResponse;
 import com.example.springboot.dto.RegisterRequest;
 import com.example.springboot.entity.User;
 import com.example.springboot.mapper.UserMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
  * 认证控制器
  * 处理登录、登出等认证相关请求
  */
+@Tag(name = "认证管理", description = "用户登录、注册、登出相关接口")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -37,10 +40,7 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    /**
-     * 统一登录接口
-     * 支持patient、doctor、admin三种角色登录
-     */
+    @Operation(summary = "统一登录", description = "支持患者、医生、管理员三种角色登录，返回JWT Token")
     @PostMapping("/login")
     public Result login(@RequestBody LoginRequest loginRequest) {
         try {
@@ -86,34 +86,25 @@ public class AuthController {
         }
     }
 
-    /**
-     * 患者登录接口（兼容性，实际调用统一登录）
-     */
+    @Operation(summary = "患者登录", description = "患者专用登录接口（兼容性接口）")
     @PostMapping("/patient/login")
     public Result patientLogin(@RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
-    /**
-     * 医生登录接口（兼容性，实际调用统一登录）
-     */
+    @Operation(summary = "医生登录", description = "医生专用登录接口（兼容性接口）")
     @PostMapping("/doctor/login")
     public Result doctorLogin(@RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
-    /**
-     * 管理员登录接口（兼容性，实际调用统一登录）
-     */
+    @Operation(summary = "管理员登录", description = "管理员专用登录接口（兼容性接口）")
     @PostMapping("/admin/login")
     public Result adminLogin(@RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
-    /**
-     * 用户注册接口
-     * 注册时密码会自动加密
-     */
+    @Operation(summary = "用户注册", description = "患者自助注册接口，密码会自动加密")
     @PostMapping("/register")
     public Result register(@RequestBody RegisterRequest registerRequest) {
         try {
@@ -123,11 +114,15 @@ public class AuthController {
                 return Result.error("用户名已存在");
             }
 
-            // 验证角色
-            String role = registerRequest.getRole();
-            if (!role.equals("patient") && !role.equals("doctor") && !role.equals("admin")) {
-                return Result.error("无效的角色类型");
+            // 仅允许患者自助注册
+            // 仅允许患者自助注册
+            String reqRole = registerRequest.getRole();
+            if (reqRole != null && !"patient".equals(reqRole)) {
+                return Result.error("仅患者账号允许自助注册");
             }
+
+            // 角色固定为 patient
+            String role = "patient";
 
             // 创建新用户
             User user = new User();
@@ -135,12 +130,8 @@ public class AuthController {
             // 密码加密
             user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
             user.setRole(role);
-            // 根据角色设置不同的初始状态
-            if ("doctor".equals(role) || "admin".equals(role)) {
-                user.setStatus("pending_approval");  // 医生和管理员需要审批
-            } else {
-                user.setStatus("active");  // 患者直接激活
-            }
+            // 患者直接激活
+            user.setStatus("active");
 
             userMapper.insert(user);
 
@@ -151,11 +142,7 @@ public class AuthController {
         }
     }
 
-    /**
-     * 登出接口
-     * JWT是无状态的，登出主要由前端处理（删除本地token）
-     * 后端可以记录登出日志或将token加入黑名单
-     */
+    @Operation(summary = "用户登出", description = "登出接口，JWT是无状态的，主要由前端删除token")
     @PostMapping("/logout")
     public Result logout() {
         // 清除SecurityContext

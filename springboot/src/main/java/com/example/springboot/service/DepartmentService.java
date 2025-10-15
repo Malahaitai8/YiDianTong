@@ -24,5 +24,17 @@ public class DepartmentService {
         Department department = departmentMapper.selectById(id);
         return department;
     }
+
+    public int create(Department department) {
+        return departmentMapper.insert(department);
+    }
+
+    public int update(Department department) {
+        return departmentMapper.update(department);
+    }
+
+    public int delete(Long id) {
+        return departmentMapper.delete(id);
+    }
 }
 

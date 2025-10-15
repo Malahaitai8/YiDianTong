@@ -24,5 +24,17 @@ public class DoctorService {
         Doctor doctor = doctorMapper.selectById(id);
         return doctor;
     }
+
+    public int create(Doctor doctor) {
+        return doctorMapper.insert(doctor);
+    }
+
+    public int update(Doctor doctor) {
+        return doctorMapper.update(doctor);
+    }
+
+    public int delete(Long id) {
+        return doctorMapper.delete(id);
+    }
 }
 

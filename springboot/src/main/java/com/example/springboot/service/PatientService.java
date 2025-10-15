@@ -24,5 +24,16 @@ public class PatientService {
         return patient;
     }
 
+    public int create(Patient patient) {
+        return patientMapper.insert(patient);
+    }
+
+    public int update(Patient patient) {
+        return patientMapper.update(patient);
+    }
+
+    public int delete(Long id) {
+        return patientMapper.delete(id);
+    }
 }
 

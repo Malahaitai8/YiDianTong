@@ -15,6 +15,10 @@ mybatis:
     map-underscore-to-camel-case: true
 
 # JWT配置
+# 全局API前缀
+server:
+  servlet:
+    context-path: /api/v1
 jwt:
   secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
   expiration: 86400000  # 24小时(毫秒)

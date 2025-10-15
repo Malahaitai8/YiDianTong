@@ -46,4 +46,20 @@
         values(#{userId}, #{name}, #{specificRole}, #{idStatus}, #{phoneNumber}, #{idCardNumber})
     </insert>
 
+    <update id="update">
+        update patient
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="specificRole != null">specific_role = #{specificRole},</if>
+            <if test="idStatus != null">id_status = #{idStatus},</if>
+            <if test="phoneNumber != null">phone_number = #{phoneNumber},</if>
+            <if test="idCardNumber != null">id_card_number = #{idCardNumber},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="delete">
+        delete from patient where id = #{id}
+    </delete>
+
 </mapper>

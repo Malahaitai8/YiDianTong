@@ -12,5 +12,50 @@
         select * from waitlist where id = #{id}
     </select>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into waitlist(schedule_id, patient_id, join_time, status)
+        values(#{scheduleId}, #{patientId}, #{joinTime}, #{status})
+    </insert>
+
+    <update id="update">
+        update waitlist
+        <set>
+            <if test="scheduleId != null">schedule_id = #{scheduleId},</if>
+            <if test="patientId != null">patient_id = #{patientId},</if>
+            <if test="joinTime != null">join_time = #{joinTime},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="delete">
+        delete from waitlist where id = #{id}
+    </delete>
+
+    <!-- 根据患者ID查询候补列表 -->
+    <select id="selectByPatientId" resultType="com.example.springboot.entity.Waitlist">
+        select *
+        from waitlist
+        where patient_id = #{patientId}
+        order by join_time
+    </select>
+
+    <!-- 查询排班下最早 WAITING 状态记录 -->
+    <select id="selectNextWaiting" resultType="com.example.springboot.entity.Waitlist">
+        select *
+        from waitlist
+        where schedule_id = #{scheduleId}
+          and status = 'WAITING'
+        order by join_time
+        limit 1
+    </select>
+
+    <!-- 更新候补记录状态 -->
+    <update id="updateStatus">
+        update waitlist
+        set status = #{status}
+        where id = #{id}
+    </update>
+
 </mapper>
 

@@ -12,4 +12,21 @@
         select * from department where id = #{id}
     </select>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into department(name, description) values(#{name}, #{description})
+    </insert>
+
+    <update id="update">
+        update department
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="description != null">description = #{description},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="delete">
+        delete from department where id = #{id}
+    </delete>
+
 </mapper>

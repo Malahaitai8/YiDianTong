@@ -1,8 +1,10 @@
 package com.example.springboot.entity;
 
+import lombok.Data;
 import java.math.BigDecimal;
 import java.util.Date;
 
+@Data
 public class Appointment {
     private Long id;
     private Long patientId;
@@ -14,85 +16,5 @@ public class Appointment {
     private BigDecimal actualFee;
     private Date createdAt;
     private String sourceType;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getPatientId() {
-        return patientId;
-    }
-
-    public void setPatientId(Long patientId) {
-        this.patientId = patientId;
-    }
-
-    public Long getDoctorId() {
-        return doctorId;
-    }
-
-    public void setDoctorId(Long doctorId) {
-        this.doctorId = doctorId;
-    }
-
-    public Long getScheduleId() {
-        return scheduleId;
-    }
-
-    public void setScheduleId(Long scheduleId) {
-        this.scheduleId = scheduleId;
-    }
-
-    public Date getAppointmentTime() {
-        return appointmentTime;
-    }
-
-    public void setAppointmentTime(Date appointmentTime) {
-        this.appointmentTime = appointmentTime;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public BigDecimal getFee() {
-        return fee;
-    }
-
-    public void setFee(BigDecimal fee) {
-        this.fee = fee;
-    }
-
-    public BigDecimal getActualFee() {
-        return actualFee;
-    }
-
-    public void setActualFee(BigDecimal actualFee) {
-        this.actualFee = actualFee;
-    }
-
-    public Date getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getSourceType() {
-        return sourceType;
-    }
-
-    public void setSourceType(String sourceType) {
-        this.sourceType = sourceType;
-    }
 }
 

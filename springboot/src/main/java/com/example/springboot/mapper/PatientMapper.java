@@ -14,5 +14,9 @@ public interface PatientMapper {
     
     // 添加新病人
     int insert(Patient patient);
+
+    int update(Patient patient);
+
+    int delete(Long id);
 }
 
