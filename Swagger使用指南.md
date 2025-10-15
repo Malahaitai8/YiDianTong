@@ -5,16 +5,14 @@
 启动项目后，访问以下地址：
 
 ```
-http://localhost:8080/api/v1/swagger-ui.html
+http://localhost:8080/swagger-ui.html
 ```
 
 或者：
 
 ```
-http://localhost:8080/api/v1/swagger-ui/index.html
+http://localhost:8080/swagger-ui/index.html
 ```
-
-> **注意**：项目配置了全局API前缀 `/api/v1`，所以访问路径需要加上这个前缀
 
 ## 使用步骤
 
@@ -27,7 +25,7 @@ mvn spring-boot:run
 
 ### 2. 访问 Swagger UI
 
-在浏览器中打开 `http://localhost:8080/api/v1/swagger-ui.html`
+在浏览器中打开 `http://localhost:8080/swagger-ui.html`
 
 ### 3. 测试接口（带JWT认证）
 
@@ -141,8 +139,7 @@ mvn spring-boot:run
 **解决**：
 1. 确认项目已启动
 2. 检查 `application.yml` 中的端口配置（默认8080）
-3. 注意项目有全局API前缀 `/api/v1`
-4. 访问 `http://localhost:8080/api/v1/swagger-ui.html`
+3. 访问 `http://localhost:8080/swagger-ui.html`
 
 ### Q4: 如何查看接口返回的数据结构？
 在 Swagger UI 中：
@@ -155,7 +152,7 @@ mvn spring-boot:run
 除了 Swagger UI，您还可以访问原始的 OpenAPI JSON 文档：
 
 ```
-http://localhost:8080/api/v1/v3/api-docs
+http://localhost:8080/v3/api-docs
 ```
 
 这个JSON文档可以导入到 Postman、Apifox 等API测试工具中使用。

@@ -127,9 +127,9 @@ public class SecurityConfig {
             // 配置授权规则
             .authorizeHttpRequests(auth -> auth
                 // 允许所有人访问登录接口
-                .requestMatchers("/auth/**", "/api/v1/auth/**").permitAll()
+                .requestMatchers("/auth/**").permitAll()
                 
-                // 允许访问Swagger文档（注意：由于有context-path，路径会自动加上/api/v1前缀）
+                // 允许访问Swagger文档
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/v3/api-docs/**",
@@ -140,13 +140,13 @@ public class SecurityConfig {
                 ).permitAll()
                 
                 // 患者相关接口需要PATIENT角色
-                .requestMatchers("/patient/**", "/api/v1/patient/**").hasRole("PATIENT")
+                .requestMatchers("/patient/**").hasRole("PATIENT")
                 
                 // 医生相关接口需要DOCTOR角色
-                .requestMatchers("/doctor/**", "/api/v1/doctor/**").hasRole("DOCTOR")
+                .requestMatchers("/doctor/**").hasRole("DOCTOR")
                 
                 // 管理员相关接口需要ADMIN角色
-                .requestMatchers("/admin/**", "/api/v1/admin/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**").hasRole("ADMIN")
                 
                 // 其他所有请求都需要认证
                 .anyRequest().authenticated()
