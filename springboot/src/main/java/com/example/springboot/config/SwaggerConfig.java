@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Swagger配置类
- * 访问地址: http://localhost:9090/swagger-ui.html
+ * 访问地址: http://localhost:8080/swagger-ui.html
  */
 @Configuration
 public class SwaggerConfig {

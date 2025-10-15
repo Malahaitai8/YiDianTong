@@ -3,7 +3,7 @@
 ## 📌 基本信息
 
 - **项目名称**: YiDianTong 医院预约系统
-- **Base URL**: `http://localhost:9090`
+- **Base URL**: `http://localhost:8080`
 - **认证方式**: JWT Token (Bearer Token)
 - **数据格式**: JSON
 

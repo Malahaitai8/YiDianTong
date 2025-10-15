@@ -16,6 +16,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Spring Security配置类
@@ -60,6 +66,51 @@ public class SecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
+    /**
+     * CORS 跨域配置
+     * 允许前端跨域访问后端API
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // 允许的前端地址（开发环境）
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",      // React 默认端口
+            "http://localhost:5173",      // Vite 默认端口
+            "http://localhost:8080",      // Vue CLI 默认端口
+            "http://localhost:8081",      // 备用端口
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:8080",
+            "http://127.0.0.1:8081"
+        ));
+        
+        // 允许的HTTP方法
+        configuration.setAllowedMethods(Arrays.asList(
+            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+        
+        // 允许的请求头
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // 允许携带认证信息（cookies、authorization headers等）
+        configuration.setAllowCredentials(true);
+        
+        // 预检请求的有效期（秒）
+        configuration.setMaxAge(3600L);
+        
+        // 暴露的响应头（前端可以访问的响应头）
+        configuration.setExposedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type",
+            "X-Requested-With"
+        ));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 
     /**
      * 安全过滤器链配置
@@ -67,6 +118,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // 启用CORS配置
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
             // 禁用CSRF（使用JWT不需要CSRF保护）
             .csrf(AbstractHttpConfigurer::disable)
             
