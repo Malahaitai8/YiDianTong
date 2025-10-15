@@ -1147,7 +1147,7 @@ Authorization: Bearer <your_token_here>
    mvn spring-boot:run
    ```
 
-2. 默认端口: `9090`
+2. 默认端口: `8080`
 
 3. 数据库配置: 查看 `application.yml`
 
