@@ -63,4 +63,8 @@
     <update id="updatePassword">
         update user set password = #{password} where id = #{id}
     </update>
+
+    <update id="updateAllPasswords">
+        update user set password = #{password}
+    </update>
 </mapper>

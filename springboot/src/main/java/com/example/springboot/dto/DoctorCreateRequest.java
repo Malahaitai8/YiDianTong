@@ -1,5 +1,6 @@
 package com.example.springboot.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -11,6 +12,8 @@ import lombok.AllArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DoctorCreateRequest {
+    @NotBlank(message = "username不能为空")
     private String username;
+    @NotBlank(message = "password不能为空")
     private String password;
 }

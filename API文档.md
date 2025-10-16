@@ -168,7 +168,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /patient/selectAll`
 
-**权限**: 需要登录
+**权限**: 仅管理员
 
 **响应示例**:
 ```json
@@ -196,7 +196,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /patient/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 管理员或患者本人
 
 **路径参数**:
 - `id`: 患者ID
@@ -224,7 +224,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /patient`
 
-**权限**: 需要登录
+**权限**: 仅管理员
 
 **请求体**:
 ```json
@@ -253,7 +253,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `PUT /patient`
 
-**权限**: 需要登录
+**权限**: 管理员或患者本人
 
 **请求体**:
 ```json
@@ -357,7 +357,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /doctor`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **请求体**:
 ```json
@@ -377,7 +377,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `PUT /doctor`
 
-**权限**: 需要管理员权限
+**权限**: 管理员或医生本人
 
 **请求体**:
 ```json
@@ -395,7 +395,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `DELETE /doctor/{id}`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **路径参数**:
 - `id`: 医生ID
@@ -493,7 +493,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /clinic/selectAll`
 
-**权限**: 需要登录
+**权限**: 管理员或患者本人
 
 **响应示例**:
 ```json
@@ -517,7 +517,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /clinic/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 登录
 
 **路径参数**:
 - `id`: 门诊ID
@@ -574,7 +574,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /appointment/selectAll`
 
-**权限**: 需要登录（管理员）
+**权限**: 仅管理员
 
 **响应示例**:
 ```json
@@ -607,7 +607,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /appointment/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 登录
 
 **路径参数**:
 - `id`: 预约ID
@@ -618,7 +618,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /appointment/me`
 
-**权限**: 需要登录（患者）
+**权限**: 患者
 
 **说明**: 自动获取当前登录患者的所有预约记录
 
@@ -647,7 +647,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /appointment`
 
-**权限**: 需要登录（患者）
+**权限**: 患者
 
 **说明**: 患者身份创建预约，系统自动获取当前患者ID
 
@@ -655,8 +655,7 @@ Authorization: Bearer <your_token_here>
 ```json
 {
   "scheduleId": 1,
-  "appointmentDate": "2025-10-15",
-  "timeSlot": "上午"
+  "appointmentTime": "2025-10-15 09:30:00"
 }
 ```
 
@@ -669,8 +668,7 @@ Authorization: Bearer <your_token_here>
     "id": 1,
     "patientId": 1,
     "scheduleId": 1,
-    "appointmentDate": "2025-10-15",
-    "timeSlot": "上午",
+    "appointmentTime": "2025-10-15 09:30:00",
     "status": "PENDING",
     "createTime": "2025-10-14 10:00:00"
   }
@@ -683,7 +681,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `PUT /appointment/{id}/cancel`
 
-**权限**: 需要登录（患者本人）
+**权限**: 患者本人
 
 **说明**: 将预约状态更新为 CANCELLED
 
@@ -705,7 +703,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `DELETE /appointment/{id}`
 
-**权限**: 需要登录（患者本人或管理员）
+**权限**: 患者本人或管理员
 
 **说明**: 物理删除预约记录
 
@@ -729,7 +727,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /waitlist`
 
-**权限**: 需要登录（患者）
+**权限**: 患者
 
 **说明**: 当预约已满时，患者可加入候补队列
 
@@ -766,7 +764,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /waitlist/me`
 
-**权限**: 需要登录（患者）
+**权限**: 患者
 
 **说明**: 查看当前患者的所有候补记录
 
@@ -794,7 +792,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /waitlist/next/{scheduleId}`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **说明**: 当有空位时，弹出队首患者并自动创建预约
 
@@ -825,7 +823,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /admin/selectAll`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **响应示例**:
 ```json
@@ -849,7 +847,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /admin/selectById/{id}`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **路径参数**:
 - `id`: 管理员ID
@@ -860,7 +858,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /admin/doctor/create`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **说明**: 管理员为医生创建登录账号
 
@@ -896,7 +894,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /admin/doctor/{id}/disable`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **说明**: 将医生账号状态设置为 disabled
 
@@ -918,7 +916,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /admin/doctor/{id}/reset-password`
 
-**权限**: 需要管理员权限
+**权限**: 仅管理员
 
 **路径参数**:
 - `id`: 用户ID（User表的ID）
@@ -947,7 +945,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectAll`
 
-**权限**: 需要登录
+**权限**: 登录
 
 **响应示例**:
 ```json
@@ -971,7 +969,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 登录
 
 **路径参数**:
 - `id`: 配置ID
@@ -982,7 +980,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectByKey/{key}`
 
-**权限**: 需要登录
+**权限**: 登录
 
 **路径参数**:
 - `key`: 配置键名

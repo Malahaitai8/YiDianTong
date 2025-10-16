@@ -10,10 +10,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(title = "医点通接口文档", version = "1.0"),
-        security = @SecurityRequirement(name = "BearerAuth")
+        security = @SecurityRequirement(name = "bearer-jwt")
 )
 @SecurityScheme(
-        name = "BearerAuth",
+        name = "bearer-jwt",
         type = SecuritySchemeType.HTTP,
         scheme = "bearer",
         bearerFormat = "JWT"

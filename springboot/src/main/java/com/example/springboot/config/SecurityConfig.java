@@ -73,40 +73,40 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // 允许的前端地址（开发环境）
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",      // React 默认端口
-            "http://localhost:5173",      // Vite 默认端口
-            "http://localhost:8080",      // Vue CLI 默认端口
-            "http://localhost:8081",      // 备用端口
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:8080",
-            "http://127.0.0.1:8081"
+                "http://localhost:3000",      // React 默认端口
+                "http://localhost:5173",      // Vite 默认端口
+                "http://localhost:8080",      // Vue CLI 默认端口
+                "http://localhost:8081",      // 备用端口
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:8080",
+                "http://127.0.0.1:8081"
         ));
-        
+
         // 允许的HTTP方法
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
         ));
-        
+
         // 允许的请求头
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
+
         // 允许携带认证信息（cookies、authorization headers等）
         configuration.setAllowCredentials(true);
-        
+
         // 预检请求的有效期（秒）
         configuration.setMaxAge(3600L);
-        
+
         // 暴露的响应头（前端可以访问的响应头）
         configuration.setExposedHeaders(Arrays.asList(
-            "Authorization", 
-            "Content-Type",
-            "X-Requested-With"
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With"
         ));
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -118,49 +118,50 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 启用CORS配置
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // 禁用CSRF（使用JWT不需要CSRF保护）
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 配置授权规则
-            .authorizeHttpRequests(auth -> auth
-                // 允许所有人访问登录接口
-                .requestMatchers("/auth/**").permitAll()
-                
-                // 允许访问Swagger文档
-                .requestMatchers(
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**",
-                    "/v3/api-docs",
-                    "/swagger-ui.html",
-                    "/swagger-resources/**",
-                    "/webjars/**"
-                ).permitAll()
-                
-                // 患者相关接口需要PATIENT角色
-                .requestMatchers("/patient/**").hasRole("PATIENT")
-                
-                // 医生相关接口需要DOCTOR角色
-                .requestMatchers("/doctor/**").hasRole("DOCTOR")
-                
-                // 管理员相关接口需要ADMIN角色
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                
-                // 其他所有请求都需要认证
-                .anyRequest().authenticated()
-            )
-            
-            // 配置会话管理为无状态（使用JWT）
-            .sessionManagement(session -> 
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            
-            // 添加JWT过滤器，在UsernamePasswordAuthenticationFilter之前
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // 启用CORS配置
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // 禁用CSRF（使用JWT不需要CSRF保护）
+                .csrf(AbstractHttpConfigurer::disable)
+
+                // 配置授权规则
+                .authorizeHttpRequests(auth -> auth
+                        // 允许所有人访问登录接口
+                        .requestMatchers("/auth/**").permitAll()
+
+                        // 允许访问Swagger文档
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs",
+                                "/swagger-ui.html",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
+
+                        // ----------- [修改] -----------
+                        // 患者相关接口 (移除)
+                        // .requestMatchers("/patient/**").hasRole("PATIENT")
+
+                        // 医生相关接口 (移除)
+                        // .requestMatchers("/doctor/**").hasRole("DOCTOR")
+                        // -----------------------------
+
+                        // 管理员相关接口需要ADMIN角色
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // 其他所有请求都需要认证
+                        .anyRequest().authenticated()
+                )
+
+                // 配置会话管理为无状态（使用JWT）
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                // 添加JWT过滤器，在UsernamePasswordAuthenticationFilter之前
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 }
-

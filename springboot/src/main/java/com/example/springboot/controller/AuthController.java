@@ -42,7 +42,7 @@ public class AuthController {
 
     @Operation(summary = "统一登录", description = "支持患者、医生、管理员三种角色登录，返回JWT Token")
     @PostMapping("/login")
-    public Result login(@RequestBody LoginRequest loginRequest) {
+    public Result login(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest) {
         try {
             // 使用Spring Security进行认证
             Authentication authentication = authenticationManager.authenticate(
@@ -88,25 +88,25 @@ public class AuthController {
 
     @Operation(summary = "患者登录", description = "患者专用登录接口（兼容性接口）")
     @PostMapping("/patient/login")
-    public Result patientLogin(@RequestBody LoginRequest loginRequest) {
+    public Result patientLogin(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
     @Operation(summary = "医生登录", description = "医生专用登录接口（兼容性接口）")
     @PostMapping("/doctor/login")
-    public Result doctorLogin(@RequestBody LoginRequest loginRequest) {
+    public Result doctorLogin(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
     @Operation(summary = "管理员登录", description = "管理员专用登录接口（兼容性接口）")
     @PostMapping("/admin/login")
-    public Result adminLogin(@RequestBody LoginRequest loginRequest) {
+    public Result adminLogin(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest) {
         return login(loginRequest);
     }
 
     @Operation(summary = "用户注册", description = "患者自助注册接口，密码会自动加密")
     @PostMapping("/register")
-    public Result register(@RequestBody RegisterRequest registerRequest) {
+    public Result register(@jakarta.validation.Valid @RequestBody RegisterRequest registerRequest) {
         try {
             // 检查用户名是否已存在
             User existingUser = userMapper.selectByUsername(registerRequest.getUsername());
