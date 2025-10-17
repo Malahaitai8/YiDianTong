@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.AppointmentMapper">
+    <select id="selectAll" resultType="com.example.springboot.entity.Appointment">
+        select * from appointment
+    </select>
+
+    <!-- 根据患者查询预约列表 -->
+    <select id="selectByPatientId" resultType="com.example.springboot.entity.Appointment" parameterType="long">
+        select * from appointment where patient_id = #{patientId}
+    </select>
+
+    <!-- 新增预约，返回自增 ID -->
+    <insert id="insert" parameterType="com.example.springboot.entity.Appointment" useGeneratedKeys="true" keyProperty="id">
+        insert into appointment(patient_id, doctor_id, schedule_id, appointment_time, status, fee, actual_fee, created_at, source_type)
+        values (#{patientId}, #{doctorId}, #{scheduleId}, #{appointmentTime}, #{status}, #{fee}, #{actualFee}, now(), #{sourceType})
+    </insert>
+
+    <!-- 删除预约 -->
+    <delete id="deleteById" parameterType="long">
+        delete from appointment where id = #{id}
+    </delete>
+
+    <select id="selectById" resultType="com.example.springboot.entity.Appointment">
+        select * from appointment where id = #{id}
+    </select>
+
+    <!-- 更新预约状态 -->
+    <update id="updateStatus">
+        update appointment set status = #{status} where id = #{id}
+    </update>
+
+</mapper>
