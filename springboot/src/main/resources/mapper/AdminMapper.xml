@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.AdminMapper">
+    <resultMap id="AdminResultMap" type="com.example.springboot.entity.Admin">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="name" property="name"/>
+        <result column="admin_role" property="adminRole"/>
+        <association property="user" javaType="com.example.springboot.entity.User">
+            <id column="user_id" property="id"/>
+            <result column="username" property="username"/>
+            <result column="role" property="role"/>
+            <result column="status" property="status"/>
+            <result column="created_at" property="createdAt"/>
+        </association>
+    </resultMap>
+
+    <select id="selectAll" resultMap="AdminResultMap">
+        select a.*, u.username, u.role, u.status, u.created_at
+        from admin a
+        left join user u on a.user_id = u.id
+    </select>
+
+    <select id="selectById" resultMap="AdminResultMap">
+        select a.*, u.username, u.role, u.status, u.created_at
+        from admin a
+        left join user u on a.user_id = u.id
+        where a.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into admin(user_id, name, admin_role)
+        values(#{userId}, #{name}, #{adminRole})
+    </insert>
+
+    <update id="update">
+        update admin
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="adminRole != null">admin_role = #{adminRole},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

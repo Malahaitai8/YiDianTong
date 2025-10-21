@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.DoctorMapper">
+    <resultMap id="DoctorResultMap" type="com.example.springboot.entity.Doctor">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="clinic_id" property="clinicId"/>
+        <result column="name" property="name"/>
+        <result column="title" property="title"/>
+        <result column="specialty" property="specialty"/>
+        <result column="bio" property="bio"/>
+        <association property="user" javaType="com.example.springboot.entity.User">
+            <id column="user_id" property="id"/>
+            <result column="username" property="username"/>
+            <result column="role" property="role"/>
+            <result column="status" property="status"/>
+            <result column="created_at" property="createdAt"/>
+        </association>
+        <association property="clinic" javaType="com.example.springboot.entity.Clinic">
+            <id column="clinic_id" property="id"/>
+            <result column="clinic_name" property="name"/>
+            <result column="clinic_description" property="description"/>
+        </association>
+    </resultMap>
+
+    <select id="selectAll" resultMap="DoctorResultMap">
+        select d.*, u.username, u.role, u.status, u.created_at,
+               c.name as clinic_name, c.description as clinic_description
+        from doctor d
+        left join user u on d.user_id = u.id
+        left join clinic c on d.clinic_id = c.id
+    </select>
+
+    <select id="selectById" resultMap="DoctorResultMap">
+        select d.*, u.username, u.role, u.status, u.created_at,
+               c.name as clinic_name, c.description as clinic_description
+        from doctor d
+        left join user u on d.user_id = u.id
+        left join clinic c on d.clinic_id = c.id
+        where d.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into doctor(user_id, clinic_id, name, title, specialty, bio)
+        values(#{userId}, #{clinicId}, #{name}, #{title}, #{specialty}, #{bio})
+    </insert>
+
+    <update id="update">
+        update doctor
+        <set>
+            <if test="clinicId != null">clinic_id = #{clinicId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="specialty != null">specialty = #{specialty},</if>
+            <if test="bio != null">bio = #{bio},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="delete">
+        delete from doctor where id = #{id}
+    </delete>
+
+</mapper>

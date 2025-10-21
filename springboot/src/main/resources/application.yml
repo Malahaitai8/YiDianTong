@@ -1,0 +1,24 @@
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+    url: jdbc:mysql://localhost:3306/yi_dian_tong_2?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+
+# 服务器配置
+server:
+  port: 8080  # 后端服务端口
+
+# JWT配置
+jwt:
+  secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
+  expiration: 86400000  # 24小时(毫秒)
