@@ -36,7 +36,11 @@ mvn spring-boot:run
    ```json
    {
      "username": "testpatient",
-     "password": "123456"
+     "password": "123456",
+     "name": "测试患者",
+     "specificRole": "普通患者",
+     "phoneNumber": "13800138000",
+     "idCardNumber": "110101199001011234"
    }
    ```
 

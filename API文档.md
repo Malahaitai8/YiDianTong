@@ -118,7 +118,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `POST /auth/register`
 
-**说明**: 仅支持患者自助注册
+**说明**: 仅支持患者自助注册，系统会自动创建患者记录
 
 **请求头**: 无需认证
 
@@ -126,9 +126,21 @@ Authorization: Bearer <your_token_here>
 ```json
 {
   "username": "newpatient",
-  "password": "123456"
+  "password": "123456",
+  "name": "张三",
+  "specificRole": "普通患者",
+  "phoneNumber": "13800138000",
+  "idCardNumber": "110101199001011234"
 }
 ```
+
+**字段说明**:
+- `username`: 用户名（必填，唯一）
+- `password`: 密码（必填）
+- `name`: 真实姓名（可选，默认使用username）
+- `specificRole`: 具体角色（可选，默认"普通患者"）
+- `phoneNumber`: 手机号（可选）
+- `idCardNumber`: 身份证号（可选）
 
 **响应示例**:
 ```json
@@ -147,6 +159,11 @@ Authorization: Bearer <your_token_here>
   "data": null
 }
 ```
+
+**业务逻辑**:
+1. 创建User记录（角色强制设为"patient"）
+2. 创建Patient记录（包含患者详细信息）
+3. 返回成功信息
 
 ---
 
@@ -1137,15 +1154,29 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 **权限**: 仅管理员
 
-**说明**: 管理员为医生创建登录账号
+**说明**: 管理员为医生创建登录账号和医生档案
 
 **请求体**:
 ```json
 {
   "username": "doctor001",
-  "password": "123456"
+  "password": "123456",
+  "name": "王医生",
+  "title": "主任医师",
+  "specialty": "心内科",
+  "bio": "擅长心血管疾病诊疗，从医20年",
+  "clinicId": 1
 }
 ```
+
+**字段说明**:
+- `username`: 用户名（必填，唯一）
+- `password`: 密码（必填）
+- `name`: 医生姓名（必填）
+- `title`: 职称（必填）
+- `specialty`: 专长（必填）
+- `bio`: 个人简介（可选）
+- `clinicId`: 所属门诊ID（必填）
 
 **响应示例**:
 ```json
@@ -1165,42 +1196,12 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 }
 ```
 
+**业务逻辑**:
+1. 创建User记录（角色设为"doctor"）
+2. 创建Doctor记录（包含医生详细信息）
+3. 返回成功信息
+
 ---
-
-### 9.4 创建管理员账号
-
-**接口**: `POST /admin/admin/create`
-
-**权限**: 仅管理员
-
-**说明**: 管理员为其他管理员创建登录账号
-
-**请求体**:
-```json
-{
-  "username": "admin002",
-  "password": "123456",
-  "name": "副管理员"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": "200",
-  "msg": "管理员账号创建成功",
-  "data": null
-}
-```
-
-**错误示例**:
-```json
-{
-  "code": "500",
-  "msg": "用户名已存在",
-  "data": null
-}
-```
 
 ---
 
@@ -1354,7 +1355,11 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
    ```json
    {
      "username": "patient001",
-     "password": "123456"
+     "password": "123456",
+     "name": "张三",
+     "specificRole": "普通患者",
+     "phoneNumber": "13800138000",
+     "idCardNumber": "110101199001011234"
    }
    ```
 
@@ -1418,7 +1423,12 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
    ```json
    {
      "username": "doctor001",
-     "password": "123456"
+     "password": "123456",
+     "name": "王医生",
+     "title": "主任医师",
+     "specialty": "心内科",
+     "bio": "擅长心血管疾病诊疗，从医20年",
+     "clinicId": 1
    }
    ```
 
