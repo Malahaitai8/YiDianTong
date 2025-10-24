@@ -1,23 +1,29 @@
 package com.example.springboot.controller;
 
+import com.example.springboot.common.Result;
 import com.example.springboot.dto.*;
 import com.example.springboot.entity.Schedule;
 import com.example.springboot.service.ScheduleService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 管理端排班管理控制器
  */
+@Tag(name = "管理端排班管理", description = "管理员排班管理相关接口")
 @RestController
 @RequestMapping("/api/admin/schedules")
-@CrossOrigin(origins = "*")
+@PreAuthorize("hasRole('ADMIN')")
+@SecurityRequirement(name = "bearer-jwt")
 public class AdminScheduleController {
 
     @Resource
@@ -27,20 +33,14 @@ public class AdminScheduleController {
      * 创建单个排班
      * POST /api/admin/schedules
      */
+    @Operation(summary = "创建单个排班", description = "为指定医生创建单个排班记录")
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createSchedule(@Valid @RequestBody CreateScheduleRequest request) {
+    public Result createSchedule(@Valid @RequestBody CreateScheduleRequest request) {
         try {
             Schedule schedule = scheduleService.createSchedule(request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("message", "排班创建成功");
-            response.put("data", schedule);
-            return ResponseEntity.ok(response);
+            return Result.success(schedule);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 400);
-            response.put("message", "创建失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            return Result.error("创建失败: " + e.getMessage());
         }
     }
 
@@ -48,20 +48,14 @@ public class AdminScheduleController {
      * 批量创建排班
      * POST /api/admin/schedules/batch
      */
+    @Operation(summary = "批量创建排班", description = "为指定医生批量创建多个排班记录")
     @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> batchCreateSchedule(@Valid @RequestBody BatchScheduleRequest request) {
+    public Result batchCreateSchedule(@Valid @RequestBody BatchScheduleRequest request) {
         try {
             Map<String, Object> result = scheduleService.batchCreateSchedule(request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("message", "批量创建完成");
-            response.put("data", result);
-            return ResponseEntity.ok(response);
+            return Result.success(result);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 400);
-            response.put("message", "批量创建失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            return Result.error("批量创建失败: " + e.getMessage());
         }
     }
 
@@ -69,22 +63,16 @@ public class AdminScheduleController {
      * 更新排班
      * PUT /api/admin/schedules/{id}
      */
+    @Operation(summary = "更新排班", description = "更新指定排班的信息")
     @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateSchedule(
-            @PathVariable Long id,
+    public Result updateSchedule(
+            @Parameter(description = "排班ID", required = true) @PathVariable Long id,
             @Valid @RequestBody UpdateScheduleRequest request) {
         try {
             Schedule schedule = scheduleService.updateSchedule(id, request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("message", "排班更新成功");
-            response.put("data", schedule);
-            return ResponseEntity.ok(response);
+            return Result.success(schedule);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 400);
-            response.put("message", "更新失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            return Result.error("更新失败: " + e.getMessage());
         }
     }
 
@@ -92,19 +80,14 @@ public class AdminScheduleController {
      * 删除排班
      * DELETE /api/admin/schedules/{id}
      */
+    @Operation(summary = "删除排班", description = "删除指定的排班记录")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteSchedule(@PathVariable Long id) {
+    public Result deleteSchedule(@Parameter(description = "排班ID", required = true) @PathVariable Long id) {
         try {
             scheduleService.deleteSchedule(id);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("message", "排班删除成功");
-            return ResponseEntity.ok(response);
+            return Result.success();
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 400);
-            response.put("message", "删除失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            return Result.error("删除失败: " + e.getMessage());
         }
     }
 
@@ -112,19 +95,14 @@ public class AdminScheduleController {
      * 根据ID查询排班详情
      * GET /api/admin/schedules/{id}
      */
+    @Operation(summary = "查询排班详情", description = "根据ID查询单个排班的详细信息")
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getScheduleById(@PathVariable Long id) {
+    public Result getScheduleById(@Parameter(description = "排班ID", required = true) @PathVariable Long id) {
         try {
             Schedule schedule = scheduleService.getScheduleById(id);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("data", schedule);
-            return ResponseEntity.ok(response);
+            return Result.success(schedule);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 404);
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(404).body(response);
+            return Result.error(e.getMessage());
         }
     }
 
@@ -142,19 +120,14 @@ public class AdminScheduleController {
      * - page: 页码（默认1）
      * - pageSize: 每页大小（默认20）
      */
+    @Operation(summary = "条件查询排班列表", description = "根据多种条件筛选和查询排班列表，支持分页")
     @GetMapping
-    public ResponseEntity<Map<String, Object>> querySchedules(ScheduleQueryRequest request) {
+    public Result querySchedules(ScheduleQueryRequest request) {
         try {
             Map<String, Object> result = scheduleService.querySchedules(request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("data", result);
-            return ResponseEntity.ok(response);
+            return Result.success(result);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 500);
-            response.put("message", "查询失败: " + e.getMessage());
-            return ResponseEntity.status(500).body(response);
+            return Result.error("查询失败: " + e.getMessage());
         }
     }
 
@@ -162,20 +135,18 @@ public class AdminScheduleController {
      * 根据医生ID查询排班列表
      * GET /api/admin/schedules/doctor/{doctorId}
      */
+    @Operation(summary = "查询医生的所有排班", description = "查询指定医生的所有排班记录")
     @GetMapping("/doctor/{doctorId}")
-    public ResponseEntity<Map<String, Object>> getSchedulesByDoctorId(@PathVariable Long doctorId) {
+    public Result getSchedulesByDoctorId(@Parameter(description = "医生ID", required = true) @PathVariable Long doctorId) {
         try {
             List<Schedule> schedules = scheduleService.getSchedulesByDoctorId(doctorId);
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 200);
-            response.put("data", schedules);
-            response.put("total", schedules.size());
-            return ResponseEntity.ok(response);
+            Map<String, Object> data = Map.of(
+                "data", schedules,
+                "total", schedules.size()
+            );
+            return Result.success(data);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("code", 500);
-            response.put("message", "查询失败: " + e.getMessage());
-            return ResponseEntity.status(500).body(response);
+            return Result.error("查询失败: " + e.getMessage());
         }
     }
 }

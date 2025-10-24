@@ -58,7 +58,7 @@ public class DoctorController {
 
     @Operation(summary = "更新医生", description = "管理员或医生本人可更新医生信息")
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')") // <-- [新增] 管理员或医生本人 (Service层应做ID校验)
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')") //管理员或医生本人 (Service层应做ID校验)
     public Result update(
             @Parameter(description = "医生ID", required = true) @PathVariable Long id,
             @jakarta.validation.Valid @RequestBody Doctor doctor) {
