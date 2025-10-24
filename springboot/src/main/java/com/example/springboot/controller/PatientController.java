@@ -53,10 +53,13 @@ public class PatientController {
     }
 
     @Operation(summary = "更新患者", description = "管理员或本人可更新患者信息")
-    @PutMapping
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')") // <-- [新增] 管理员或患者本人 (Service层应做ID校验)
-    public Result update(@jakarta.validation.Valid @RequestBody Patient patient) {
+    public Result update(
+            @Parameter(description = "患者ID", required = true) @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody Patient patient) {
         // TODO: Service层应检查是否为本人操作
+        patient.setId(id); // 使用路径参数中的ID
         patientService.update(patient);
         return Result.success();
     }

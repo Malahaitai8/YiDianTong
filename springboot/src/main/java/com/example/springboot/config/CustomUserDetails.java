@@ -1,5 +1,6 @@
 package com.example.springboot.config;
 
+import com.example.springboot.constants.RoleConstants;
 import com.example.springboot.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,9 +23,9 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // 返回用户角色，添加ROLE_前缀（Spring Security约定）
+        // 返回用户角色，使用统一的角色转换方法
         return Collections.singletonList(
-                new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase())
+                new SimpleGrantedAuthority(RoleConstants.toSpringRole(user.getRole()))
         );
     }
 

@@ -13,7 +13,7 @@
 
 ### Token 使用方式
 
-除了登录、注册等公开接口外，其他接口都需要在请求头中携带 JWT Token：
+除了登录、注册接口外，其他所有接口都需要在请求头中携带 JWT Token：
 
 ```
 Authorization: Bearer <your_token_here>
@@ -62,13 +62,20 @@ Authorization: Bearer <your_token_here>
   "msg": "成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "id": 1,
+    "userId": 1,
     "username": "patient001",
     "role": "patient",
     "status": "active"
   }
 }
 ```
+
+**字段说明**:
+- `token`: JWT认证令牌
+- `userId`: 用户ID（User表ID）
+- `username`: 用户名
+- `role`: 角色类型（patient/doctor/admin）
+- `status`: 账户状态（active/disabled）
 
 **角色说明**:
 - `patient`: 患者
@@ -178,17 +185,32 @@ Authorization: Bearer <your_token_here>
   "data": [
     {
       "id": 1,
+      "userId": 10,
       "name": "张三",
-      "idCard": "110101199001011234",
-      "phone": "13800138000",
-      "gender": "男",
-      "birthDate": "1990-01-01",
-      "address": "北京市朝阳区",
-      "createTime": "2025-01-01 10:00:00"
+      "specificRole": "普通患者",
+      "idStatus": "已认证",
+      "phoneNumber": "13800138000",
+      "idCardNumber": "110101199001011234",
+      "user": {
+        "id": 10,
+        "username": "patient001",
+        "role": "patient",
+        "status": "active"
+      }
     }
   ]
 }
 ```
+
+**字段说明**:
+- `id`: 患者ID（Patient表ID）
+- `userId`: 关联的用户ID（User表ID）
+- `name`: 患者姓名
+- `specificRole`: 具体角色（如"普通患者"）
+- `idStatus`: 身份认证状态
+- `phoneNumber`: 联系电话
+- `idCardNumber`: 身份证号
+- `user`: 关联的用户账户信息
 
 ---
 
@@ -208,12 +230,18 @@ Authorization: Bearer <your_token_here>
   "msg": "成功",
   "data": {
     "id": 1,
+    "userId": 10,
     "name": "张三",
-    "idCard": "110101199001011234",
-    "phone": "13800138000",
-    "gender": "男",
-    "birthDate": "1990-01-01",
-    "address": "北京市朝阳区"
+    "specificRole": "普通患者",
+    "idStatus": "已认证",
+    "phoneNumber": "13800138000",
+    "idCardNumber": "110101199001011234",
+    "user": {
+      "id": 10,
+      "username": "patient001",
+      "role": "patient",
+      "status": "active"
+    }
   }
 }
 ```
@@ -229,14 +257,22 @@ Authorization: Bearer <your_token_here>
 **请求体**:
 ```json
 {
+  "userId": 11,
   "name": "李四",
-  "idCard": "110101199002021234",
-  "phone": "13900139000",
-  "gender": "女",
-  "birthDate": "1990-02-02",
-  "address": "北京市海淀区"
+  "specificRole": "普通患者",
+  "idStatus": "待认证",
+  "phoneNumber": "13900139000",
+  "idCardNumber": "110101199002021234"
 }
 ```
+
+**字段说明**:
+- `userId`: 关联的用户账户ID（必须先创建User账户）
+- `name`: 患者姓名
+- `specificRole`: 具体角色
+- `idStatus`: 身份认证状态
+- `phoneNumber`: 联系电话
+- `idCardNumber`: 身份证号
 
 **响应示例**:
 ```json
@@ -251,19 +287,24 @@ Authorization: Bearer <your_token_here>
 
 ### 2.4 更新患者信息
 
-**接口**: `PUT /patient`
+**接口**: `PUT /patient/{id}`
 
 **权限**: 管理员或患者本人
+
+**路径参数**:
+- `id`: 患者ID
 
 **请求体**:
 ```json
 {
-  "id": 1,
   "name": "张三",
-  "phone": "13800138001",
-  "address": "北京市朝阳区新地址"
+  "specificRole": "VIP患者",
+  "phoneNumber": "13800138001",
+  "idCardNumber": "110101199001011234"
 }
 ```
+
+**说明**: 可部分更新字段，不传的字段保持不变
 
 **响应示例**:
 ```json
@@ -302,7 +343,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /doctor/selectAll`
 
-**权限**: 需要登录
+**权限**: 需要登录（任何角色）
 
 **响应示例**:
 ```json
@@ -312,16 +353,39 @@ Authorization: Bearer <your_token_here>
   "data": [
     {
       "id": 1,
+      "userId": 20,
+      "clinicId": 1,
       "name": "王医生",
-      "departmentId": 1,
       "title": "主任医师",
       "specialty": "心内科",
-      "phone": "13700137000",
-      "email": "wangdr@hospital.com"
+      "bio": "擅长心血管疾病诊疗，从医20年",
+      "user": {
+        "id": 20,
+        "username": "doctor001",
+        "role": "doctor",
+        "status": "active"
+      },
+      "clinic": {
+        "id": 1,
+        "departmentId": 1,
+        "name": "普通门诊",
+        "description": "普通门诊服务"
+      }
     }
   ]
 }
 ```
+
+**字段说明**:
+- `id`: 医生ID（Doctor表ID）
+- `userId`: 关联的用户ID
+- `clinicId`: 所属门诊ID
+- `name`: 医生姓名
+- `title`: 职称
+- `specialty`: 专长
+- `bio`: 个人简介
+- `user`: 关联的用户账户信息
+- `clinic`: 所属门诊信息（包含departmentId）
 
 ---
 
@@ -329,7 +393,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /doctor/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 需要登录（任何角色）
 
 **路径参数**:
 - `id`: 医生ID
@@ -341,12 +405,24 @@ Authorization: Bearer <your_token_here>
   "msg": "成功",
   "data": {
     "id": 1,
+    "userId": 20,
+    "clinicId": 1,
     "name": "王医生",
-    "departmentId": 1,
     "title": "主任医师",
     "specialty": "心内科",
-    "phone": "13700137000",
-    "email": "wangdr@hospital.com"
+    "bio": "擅长心血管疾病诊疗，从医20年",
+    "user": {
+      "id": 20,
+      "username": "doctor001",
+      "role": "doctor",
+      "status": "active"
+    },
+    "clinic": {
+      "id": 1,
+      "departmentId": 1,
+      "name": "普通门诊",
+      "description": "普通门诊服务"
+    }
   }
 }
 ```
@@ -362,32 +438,45 @@ Authorization: Bearer <your_token_here>
 **请求体**:
 ```json
 {
+  "userId": 21,
+  "clinicId": 1,
   "name": "李医生",
-  "departmentId": 2,
   "title": "副主任医师",
   "specialty": "骨科",
-  "phone": "13700137001",
-  "email": "lidr@hospital.com"
+  "bio": "专注骨科疾病治疗"
 }
 ```
+
+**字段说明**:
+- `userId`: 关联的用户账户ID（必须先创建User账户）
+- `clinicId`: 所属门诊ID
+- `name`: 医生姓名
+- `title`: 职称
+- `specialty`: 专长
+- `bio`: 个人简介
 
 ---
 
 ### 3.4 更新医生信息
 
-**接口**: `PUT /doctor`
+**接口**: `PUT /doctor/{id}`
 
 **权限**: 管理员或医生本人
+
+**路径参数**:
+- `id`: 医生ID
 
 **请求体**:
 ```json
 {
-  "id": 1,
   "name": "王医生",
   "title": "主任医师",
-  "phone": "13700137002"
+  "specialty": "心血管内科",
+  "bio": "更新后的个人简介"
 }
 ```
+
+**说明**: 可部分更新字段，不传的字段保持不变
 
 ---
 
@@ -408,7 +497,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /department/selectAll`
 
-**权限**: 需要登录
+**权限**: 需要登录（任何角色）
 
 **响应示例**:
 ```json
@@ -419,13 +508,16 @@ Authorization: Bearer <your_token_here>
     {
       "id": 1,
       "name": "心内科",
-      "description": "心血管疾病诊治",
-      "location": "门诊楼3层",
-      "phone": "010-12345678"
+      "description": "心血管疾病诊治"
     }
   ]
 }
 ```
+
+**字段说明**:
+- `id`: 科室ID
+- `name`: 科室名称
+- `description`: 科室描述
 
 ---
 
@@ -433,7 +525,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /department/selectById/{id}`
 
-**权限**: 需要登录
+**权限**: 需要登录（任何角色）
 
 **路径参数**:
 - `id`: 科室ID
@@ -450,9 +542,7 @@ Authorization: Bearer <your_token_here>
 ```json
 {
   "name": "骨科",
-  "description": "骨骼疾病诊治",
-  "location": "门诊楼4层",
-  "phone": "010-12345679"
+  "description": "骨骼疾病诊治"
 }
 ```
 
@@ -460,19 +550,22 @@ Authorization: Bearer <your_token_here>
 
 ### 4.4 更新科室信息
 
-**接口**: `PUT /department`
+**接口**: `PUT /department/{id}`
 
 **权限**: 需要管理员权限
+
+**路径参数**:
+- `id`: 科室ID
 
 **请求体**:
 ```json
 {
-  "id": 1,
   "name": "心内科",
-  "location": "门诊楼3层A区",
-  "phone": "010-12345680"
+  "description": "心血管疾病诊治与预防"
 }
 ```
+
+**说明**: 可部分更新字段，不传的字段保持不变
 
 ---
 
@@ -493,7 +586,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /clinic/selectAll`
 
-**权限**: 管理员或患者本人
+**权限**: 需要登录（任何角色）
 
 **响应示例**:
 ```json
@@ -503,13 +596,19 @@ Authorization: Bearer <your_token_here>
   "data": [
     {
       "id": 1,
+      "departmentId": 1,
       "name": "普通门诊",
-      "type": "GENERAL",
       "description": "普通门诊服务"
     }
   ]
 }
 ```
+
+**字段说明**:
+- `id`: 门诊ID
+- `departmentId`: 所属科室ID
+- `name`: 门诊名称
+- `description`: 门诊描述
 
 ---
 
@@ -517,7 +616,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /clinic/selectById/{id}`
 
-**权限**: 登录
+**权限**: 需要登录（任何角色）
 
 **路径参数**:
 - `id`: 门诊ID
@@ -530,7 +629,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /schedule/week`
 
-**权限**: 需要登录
+**权限**: 需要登录（任何角色）
 
 **响应示例**:
 ```json
@@ -541,30 +640,30 @@ Authorization: Bearer <your_token_here>
     {
       "id": 1,
       "doctorId": 1,
-      "doctorName": "王医生",
-      "departmentId": 1,
-      "departmentName": "心内科",
-      "clinicId": 1,
-      "clinicName": "普通门诊",
-      "scheduleDate": "2025-10-15",
+      "scheduleDate": "2025-10-23",
       "timeSlot": "上午",
-      "startTime": "08:00:00",
-      "endTime": "12:00:00",
-      "maxAppointments": 20,
-      "bookedCount": 15,
-      "availableCount": 5,
-      "status": "AVAILABLE"
+      "slotType": "MORNING",
+      "totalSlots": 20,
+      "availableSlots": 5,
+      "dayOfWeek": "星期三"
     }
   ]
 }
 ```
 
 **字段说明**:
-- `timeSlot`: 时间段（上午/下午/晚上）
-- `maxAppointments`: 最大预约数
-- `bookedCount`: 已预约数
-- `availableCount`: 剩余可预约数
-- `status`: 状态（AVAILABLE-可预约/FULL-已满/CANCELLED-已取消）
+- `id`: 排班ID
+- `doctorId`: 医生ID
+- `scheduleDate`: 排班日期（yyyy-MM-dd）
+- `timeSlot`: 时间段描述（如"上午"、"下午"、"晚上"）
+- `slotType`: 时间段类型（MORNING/AFTERNOON/EVENING）
+- `totalSlots`: 总号源数
+- `availableSlots`: 剩余可预约号源数
+- `dayOfWeek`: 星期几
+
+**关联说明**:
+- 通过 `doctorId` 可关联查询医生详情（包含clinicId和departmentId）
+- Doctor → Clinic → Department 形成三级关联
 
 ---
 
@@ -585,15 +684,30 @@ Authorization: Bearer <your_token_here>
     {
       "id": 1,
       "patientId": 1,
+      "doctorId": 1,
       "scheduleId": 1,
-      "appointmentDate": "2025-10-15",
-      "timeSlot": "上午",
+      "appointmentTime": "2025-10-23 09:30:00",
       "status": "PENDING",
-      "createTime": "2025-10-14 10:00:00"
+      "fee": 50.00,
+      "actualFee": 45.00,
+      "createdAt": "2025-10-22 14:30:00",
+      "sourceType": "ONLINE"
     }
   ]
 }
 ```
+
+**字段说明**:
+- `id`: 预约ID
+- `patientId`: 患者ID
+- `doctorId`: 医生ID（冗余字段，方便查询）
+- `scheduleId`: 排班ID（核心关联字段）
+- `appointmentTime`: 预约时间（yyyy-MM-dd HH:mm:ss）
+- `status`: 预约状态
+- `fee`: 挂号费
+- `actualFee`: 实际费用（优惠后）
+- `createdAt`: 创建时间
+- `sourceType`: 预约来源（ONLINE-线上/OFFLINE-线下）
 
 **状态说明**:
 - `PENDING`: 待就诊
@@ -601,13 +715,18 @@ Authorization: Bearer <your_token_here>
 - `COMPLETED`: 已完成
 - `CANCELLED`: 已取消
 
+**关联说明**:
+- 通过 `scheduleId` 关联排班信息
+- 通过 `patientId` 关联患者信息
+- 通过 `doctorId` 关联医生信息
+
 ---
 
 ### 7.2 根据ID查询预约
 
 **接口**: `GET /appointment/selectById/{id}`
 
-**权限**: 登录
+**权限**: 管理员、患者本人或该预约关联医生
 
 **路径参数**:
 - `id`: 预约ID
@@ -631,11 +750,14 @@ Authorization: Bearer <your_token_here>
     {
       "id": 1,
       "patientId": 1,
+      "doctorId": 1,
       "scheduleId": 1,
-      "appointmentDate": "2025-10-15",
-      "timeSlot": "上午",
+      "appointmentTime": "2025-10-23 09:30:00",
       "status": "PENDING",
-      "createTime": "2025-10-14 10:00:00"
+      "fee": 50.00,
+      "actualFee": 45.00,
+      "createdAt": "2025-10-22 14:30:00",
+      "sourceType": "ONLINE"
     }
   ]
 }
@@ -643,7 +765,65 @@ Authorization: Bearer <your_token_here>
 
 ---
 
-### 7.4 创建预约
+### 7.4 搜索可预约时段
+
+**接口**: `GET /appointment/search`
+
+**权限**: 患者
+
+**说明**: 按条件搜索可预约的时间段
+
+**查询参数**:
+- `departmentId`: 科室ID (可选)
+- `doctorId`: 医生ID (可选)
+- `startDate`: 开始日期 (必填，格式: yyyy-MM-dd)
+- `endDate`: 结束日期 (必填，格式: yyyy-MM-dd)
+- `timeSlot`: 时间段 (可选: 上午/下午/晚上)
+
+**示例请求**:
+```
+GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeSlot=上午
+```
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "scheduleId": 1,
+      "doctorName": "王医生",
+      "departmentName": "心内科",
+      "date": "2025-10-23",
+      "timeSlot": "上午",
+      "startTime": "08:00",
+      "endTime": "12:00",
+      "availableSlots": 5,
+      "totalSlots": 20,
+      "fee": 50.0,
+      "discountedFee": 45.0
+    }
+  ]
+}
+```
+
+**字段说明**:
+- `scheduleId`: 排班ID（用于创建预约）
+- `doctorName`: 医生姓名
+- `departmentName`: 科室名称
+- `date`: 排班日期
+- `timeSlot`: 时间段
+- `startTime`: 开始时间
+- `endTime`: 结束时间
+- `availableSlots`: 剩余号源
+- `totalSlots`: 总号源
+- `fee`: 挂号费
+- `discountedFee`: 优惠后费用
+
+---
+
+### 7.5 创建预约
 
 **接口**: `POST /appointment`
 
@@ -655,9 +835,20 @@ Authorization: Bearer <your_token_here>
 ```json
 {
   "scheduleId": 1,
-  "appointmentTime": "2025-10-15 09:30:00"
+  "appointmentTime": "2025-10-23 09:30:00"
 }
 ```
+
+**字段说明**:
+- `scheduleId`: 排班ID（必填，从搜索接口获取）
+- `appointmentTime`: 预约时间（必填，格式: yyyy-MM-dd HH:mm:ss）
+
+**业务逻辑**:
+1. 系统自动获取当前登录患者ID
+2. 从排班中获取医生ID
+3. 扣减排班的可用号源数（availableSlots - 1）
+4. 计算挂号费和优惠费用
+5. 创建预约记录
 
 **响应示例**:
 ```json
@@ -667,26 +858,103 @@ Authorization: Bearer <your_token_here>
   "data": {
     "id": 1,
     "patientId": 1,
+    "doctorId": 1,
     "scheduleId": 1,
-    "appointmentTime": "2025-10-15 09:30:00",
+    "appointmentTime": "2025-10-23 09:30:00",
     "status": "PENDING",
-    "createTime": "2025-10-14 10:00:00"
+    "fee": 50.00,
+    "actualFee": 45.00,
+    "createdAt": "2025-10-22 14:30:00",
+    "sourceType": "ONLINE"
   }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "号源已满，无法预约",
+  "data": null
 }
 ```
 
 ---
 
-### 7.5 取消预约
+### 7.6 改约
+
+**接口**: `PUT /appointment/{id}/reschedule`
+
+**权限**: 患者本人
+
+**说明**: 修改预约到新的时间段
+
+**路径参数**:
+- `id`: 预约ID
+
+**请求体**:
+```json
+{
+  "newScheduleId": 123
+}
+```
+
+**字段说明**:
+- `newScheduleId`: 新的排班ID（必填）
+
+**业务逻辑**:
+1. 验证预约是否属于当前患者
+2. 恢复原排班的号源数（availableSlots + 1）
+3. 扣减新排班的号源数（availableSlots - 1）
+4. 更新预约的scheduleId和doctorId
+5. 保持预约状态不变
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "patientId": 1,
+    "doctorId": 2,
+    "scheduleId": 123,
+    "appointmentTime": "2025-10-25 09:00:00",
+    "status": "PENDING",
+    "fee": 50.00,
+    "actualFee": 45.00,
+    "createdAt": "2025-10-22 14:30:00",
+    "sourceType": "ONLINE"
+  }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "无权限操作此预约",
+  "data": null
+}
+```
+
+---
+
+### 7.7 取消预约
 
 **接口**: `PUT /appointment/{id}/cancel`
 
 **权限**: 患者本人
 
-**说明**: 将预约状态更新为 CANCELLED
+**说明**: 将预约状态更新为 CANCELLED，并恢复号源
 
 **路径参数**:
 - `id`: 预约ID
+
+**业务逻辑**:
+1. 验证预约是否属于当前患者
+2. 将预约状态更新为 CANCELLED
+3. 恢复排班的号源数（availableSlots + 1）
 
 **响应示例**:
 ```json
@@ -697,9 +965,18 @@ Authorization: Bearer <your_token_here>
 }
 ```
 
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "预约不存在或已取消",
+  "data": null
+}
+```
+
 ---
 
-### 7.6 删除预约
+### 7.8 删除预约
 
 **接口**: `DELETE /appointment/{id}`
 
@@ -890,7 +1167,44 @@ Authorization: Bearer <your_token_here>
 
 ---
 
-### 9.4 停用医生账号
+### 9.4 创建管理员账号
+
+**接口**: `POST /admin/admin/create`
+
+**权限**: 仅管理员
+
+**说明**: 管理员为其他管理员创建登录账号
+
+**请求体**:
+```json
+{
+  "username": "admin002",
+  "password": "123456",
+  "name": "副管理员"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "管理员账号创建成功",
+  "data": null
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "用户名已存在",
+  "data": null
+}
+```
+
+---
+
+### 9.5 停用医生账号
 
 **接口**: `POST /admin/doctor/{id}/disable`
 
@@ -937,6 +1251,25 @@ Authorization: Bearer <your_token_here>
 }
 ```
 
+### 9.7 重置所有用户密码
+
+**接口**: `POST /admin/users/reset-all-passwords`
+
+**权限**: 管理员
+
+**说明**: 管理员一键重置所有用户密码为123456
+
+**请求体**: 无
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": "已重置密码的用户数量: 15"
+}
+```
+
 ---
 
 ## 🔟 系统配置模块
@@ -945,7 +1278,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectAll`
 
-**权限**: 登录
+**权限**: 需要登录（任何角色）
 
 **响应示例**:
 ```json
@@ -969,7 +1302,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectById/{id}`
 
-**权限**: 登录
+**权限**: 需要登录（任何角色）
 
 **路径参数**:
 - `id`: 配置ID
@@ -980,7 +1313,7 @@ Authorization: Bearer <your_token_here>
 
 **接口**: `GET /systemConfig/selectByKey/{key}`
 
-**权限**: 登录
+**权限**: 需要登录（任何角色）
 
 **路径参数**:
 - `key`: 配置键名
@@ -1047,8 +1380,7 @@ Authorization: Bearer <your_token_here>
    ```json
    {
      "scheduleId": 1,
-     "appointmentDate": "2025-10-15",
-     "timeSlot": "上午"
+     "appointmentTime": "2025-10-15 09:30:00"
    }
    ```
 

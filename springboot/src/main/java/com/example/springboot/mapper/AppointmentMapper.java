@@ -20,5 +20,8 @@ public interface AppointmentMapper {
 
     /** 更新预约状态 */
     int updateStatus(Long id, String status);
+
+    /** 根据主键更新预约信息 */
+    int updateById(Appointment appointment);
 }
 

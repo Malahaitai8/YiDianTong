@@ -16,4 +16,11 @@ public class DoctorCreateRequest {
     private String username;
     @NotBlank(message = "password不能为空")
     private String password;
+    @jakarta.validation.constraints.NotNull(message = "clinicId不能为空")
+    private Long clinicId;
+    @NotBlank(message = "name不能为空")
+    private String name;
+    private String title;
+    private String specialty;
+    private String bio;
 }

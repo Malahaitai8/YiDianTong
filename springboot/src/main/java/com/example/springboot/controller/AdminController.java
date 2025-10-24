@@ -2,6 +2,7 @@ package com.example.springboot.controller;
 
 
 import com.example.springboot.common.Result;
+import com.example.springboot.constants.RoleConstants;
 import com.example.springboot.entity.Admin;
 import com.example.springboot.service.AdminService;
 import com.example.springboot.dto.DoctorCreateRequest;
@@ -39,6 +40,9 @@ public class AdminController {
     @Resource
     private PasswordEncoder passwordEncoder;
 
+    @Resource
+    private com.example.springboot.mapper.DoctorMapper doctorMapper;
+
 
     @Operation(summary = "查询所有管理员", description = "管理员列表")
     @GetMapping("/selectAll")
@@ -60,22 +64,40 @@ public class AdminController {
     /**
      * 管理员创建医生账号
      */
-    @Operation(summary = "创建医生账号", description = "为医生创建登录账号")
+    @Operation(summary = "创建医生账号", description = "管理员为医生创建登录账号及医生详细信息")
     @PostMapping("/doctor/create")
     public Result createDoctor(@jakarta.validation.Valid @RequestBody DoctorCreateRequest request) {
-        // 检查用户名重复
-        if (userMapper.selectByUsername(request.getUsername()) != null) {
-            return Result.error("用户名已存在");
+        try {
+            // 检查用户名重复
+            if (userMapper.selectByUsername(request.getUsername()) != null) {
+                return Result.error("用户名已存在");
+            }
+            
+            // 1. 创建用户账号
+            User user = new User();
+            user.setUsername(request.getUsername());
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setRole(RoleConstants.DB_ROLE_DOCTOR);
+            user.setStatus("active");
+            userMapper.insert(user);
+            
+            // 2. 创建医生详细信息
+            com.example.springboot.entity.Doctor doctor = new com.example.springboot.entity.Doctor();
+            doctor.setUserId(user.getId());
+            doctor.setClinicId(request.getClinicId());
+            doctor.setName(request.getName());
+            doctor.setTitle(request.getTitle());
+            doctor.setSpecialty(request.getSpecialty());
+            doctor.setBio(request.getBio());
+            
+            doctorMapper.insert(doctor);
+            
+            return Result.success("医生账号创建成功");
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return Result.error("用户名已存在，请使用其他用户名");
+        } catch (Exception e) {
+            return Result.error("创建医生账号失败: " + e.getMessage());
         }
-        // 创建医生账号
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("doctor");
-        // 初始状态待审批，可根据业务需要改为active
-        user.setStatus("active");
-        userMapper.insert(user);
-        return Result.success("医生账号创建成功");
     }
 
     /**

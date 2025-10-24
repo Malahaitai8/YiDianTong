@@ -8,5 +8,9 @@ public interface AdminMapper {
     List<Admin> selectAll();
 
     Admin selectById(Long id);
+
+    int insert(Admin admin);
+
+    int update(Admin admin);
 }
 

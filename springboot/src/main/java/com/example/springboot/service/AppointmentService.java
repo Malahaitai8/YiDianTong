@@ -3,10 +3,13 @@ package com.example.springboot.service;
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.entity.Waitlist;
 import com.example.springboot.mapper.AppointmentMapper;
+import com.example.springboot.mapper.ScheduleMapper;
+import com.example.springboot.dto.AvailableSlotDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Date;
 
 @Service
 public class AppointmentService {
@@ -16,6 +19,9 @@ public class AppointmentService {
 
     @Resource
     private WaitlistService waitlistService;
+
+    @Resource
+    private ScheduleMapper scheduleMapper;
 
     public List<Appointment> selectAll() {
 
@@ -87,6 +93,22 @@ public class AppointmentService {
     public Appointment selectById(Long id) {
         Appointment appointment = appointmentMapper.selectById(id);
         return appointment;
+    }
+
+    /** 更新预约信息 */
+    public Appointment update(Appointment appointment) {
+        appointmentMapper.updateById(appointment);
+        return appointment;
+    }
+
+    /** 搜索可预约时段 */
+    public List<AvailableSlotDTO> searchAvailableSlots(
+            Long departmentId, 
+            Long doctorId, 
+            Date startDate, 
+            Date endDate, 
+            String timeSlot) {
+        return scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot);
     }
 }
 

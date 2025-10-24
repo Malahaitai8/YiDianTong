@@ -3,6 +3,7 @@ package com.example.springboot.controller;
 import com.example.springboot.common.Result;
 import com.example.springboot.config.CustomUserDetails;
 import com.example.springboot.config.JwtUtil;
+import com.example.springboot.constants.RoleConstants;
 import com.example.springboot.dto.LoginRequest;
 import com.example.springboot.dto.LoginResponse;
 import com.example.springboot.dto.RegisterRequest;
@@ -39,6 +40,9 @@ public class AuthController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private com.example.springboot.mapper.PatientMapper patientMapper;
 
     @Operation(summary = "统一登录", description = "支持患者、医生、管理员三种角色登录，返回JWT Token")
     @PostMapping("/login")
@@ -104,7 +108,7 @@ public class AuthController {
         return login(loginRequest);
     }
 
-    @Operation(summary = "用户注册", description = "患者自助注册接口，密码会自动加密")
+    @Operation(summary = "患者注册", description = "仅限患者自助注册，医生和管理员账号需由管理员创建")
     @PostMapping("/register")
     public Result register(@jakarta.validation.Valid @RequestBody RegisterRequest registerRequest) {
         try {
@@ -114,17 +118,16 @@ public class AuthController {
                 return Result.error("用户名已存在");
             }
 
-            // 仅允许患者自助注册
-            // 仅允许患者自助注册
+            // 严格限制：只允许患者自助注册
             String reqRole = registerRequest.getRole();
-            if (reqRole != null && !"patient".equals(reqRole)) {
-                return Result.error("仅患者账号允许自助注册");
+            if (reqRole != null && !RoleConstants.DB_ROLE_PATIENT.equals(reqRole)) {
+                return Result.error("仅支持患者账号注册，医生和管理员账号请联系管理员创建");
             }
 
-            // 角色固定为 patient
-            String role = "patient";
+            // 即使请求中没有指定角色，也强制设为患者
+            String role = RoleConstants.DB_ROLE_PATIENT;
 
-            // 创建新用户
+            // 1. 创建用户账号
             User user = new User();
             user.setUsername(registerRequest.getUsername());
             // 密码加密
@@ -135,19 +138,63 @@ public class AuthController {
 
             userMapper.insert(user);
 
-            return Result.success("注册成功");
+            // 2. 创建患者详细信息
+            com.example.springboot.entity.Patient patient = new com.example.springboot.entity.Patient();
+            patient.setUserId(user.getId());
+            
+            // 使用提供的姓名，若未提供则使用用户名
+            patient.setName(registerRequest.getName() != null ? registerRequest.getName() : registerRequest.getUsername());
+            
+            // 设置具体角色，默认为学生
+            patient.setSpecificRole(registerRequest.getSpecificRole() != null ? registerRequest.getSpecificRole() : "student");
+            
+            // 设置身份认证状态，默认待验证
+            patient.setIdStatus("pending");
+            
+            // 设置手机号和身份证号（可选）
+            patient.setPhoneNumber(registerRequest.getPhoneNumber());
+            patient.setIdCardNumber(registerRequest.getIdCardNumber());
 
+            patientMapper.insert(patient);
+
+            return Result.success("患者注册成功");
+
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 捕获数据库唯一索引冲突异常
+            return Result.error("用户名已存在，请使用其他用户名");
         } catch (Exception e) {
             return Result.error("注册失败: " + e.getMessage());
         }
     }
 
-    @Operation(summary = "用户登出", description = "登出接口，JWT是无状态的，主要由前端删除token")
+    @Operation(
+        summary = "用户登出", 
+        description = "登出接口。由于JWT是无状态认证，服务端不保存token状态，因此：\n" +
+                      "1. 前端需要删除本地存储的token（localStorage/sessionStorage）\n" +
+                      "2. 前端需要清除相关的用户状态\n" +
+                      "3. 服务端清除当前请求的安全上下文\n" +
+                      "注意：token在过期前仍然有效，如需立即失效可实现token黑名单机制（Redis）"
+    )
     @PostMapping("/logout")
     public Result logout() {
-        // 清除SecurityContext
-        // SecurityContextHolder.clearContext();
-        return Result.success("登出成功");
+        try {
+            // 清除当前请求的安全上下文
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            
+            // 注：JWT是无状态的，服务端不保存token
+            // 如需实现立即失效，可以：
+            // 1. 将token加入Redis黑名单，过期时间与token一致
+            // 2. 在JwtAuthenticationFilter中检查黑名单
+            // 示例代码：
+            // String token = request.getHeader("Authorization");
+            // if (token != null) {
+            //     redisTemplate.opsForValue().set("blacklist:" + token, "1", expiration, TimeUnit.MILLISECONDS);
+            // }
+            
+            return Result.success("登出成功，请清除本地token");
+        } catch (Exception e) {
+            return Result.error("登出失败: " + e.getMessage());
+        }
     }
 }
 

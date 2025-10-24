@@ -12,4 +12,46 @@
         select * from schedule where id = #{id}
     </select>
 
+    <!-- 搜索可预约时段 -->
+    <select id="searchAvailableSlots" resultType="com.example.springboot.dto.AvailableSlotDTO">
+        SELECT 
+            s.id as scheduleId,
+            d.name as doctorName,
+            c.name as departmentName,
+            s.schedule_date as date,
+            s.time_slot as timeSlot,
+            CASE 
+                WHEN s.time_slot = 'MORNING' THEN '09:00'
+                WHEN s.time_slot = 'AFTERNOON' THEN '14:00'
+                WHEN s.time_slot = 'EVENING' THEN '18:00'
+                ELSE '09:00'
+            END as startTime,
+            CASE 
+                WHEN s.time_slot = 'MORNING' THEN '12:00'
+                WHEN s.time_slot = 'AFTERNOON' THEN '17:00'
+                WHEN s.time_slot = 'EVENING' THEN '21:00'
+                ELSE '12:00'
+            END as endTime,
+            s.available_slots as availableSlots,
+            s.total_slots as totalSlots,
+            50.0 as fee,
+            5.0 as discountedFee
+        FROM schedule s
+        LEFT JOIN doctor d ON s.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        WHERE s.schedule_date &gt;= #{startDate} 
+          AND s.schedule_date &lt;= #{endDate}
+          AND s.available_slots &gt; 0
+        <if test="departmentId != null">
+          AND c.id = #{departmentId}
+        </if>
+        <if test="doctorId != null">
+          AND s.doctor_id = #{doctorId}
+        </if>
+        <if test="timeSlot != null and timeSlot != ''">
+          AND s.time_slot = #{timeSlot}
+        </if>
+        ORDER BY s.schedule_date, s.time_slot
+    </select>
+
 </mapper>

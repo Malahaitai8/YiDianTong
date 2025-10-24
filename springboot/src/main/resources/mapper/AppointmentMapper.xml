@@ -33,4 +33,18 @@
         update appointment set status = #{status} where id = #{id}
     </update>
 
+    <!-- 根据主键更新预约信息 -->
+    <update id="updateById" parameterType="com.example.springboot.entity.Appointment">
+        update appointment 
+        set patient_id = #{patientId},
+            doctor_id = #{doctorId},
+            schedule_id = #{scheduleId},
+            appointment_time = #{appointmentTime},
+            status = #{status},
+            fee = #{fee},
+            actual_fee = #{actualFee},
+            source_type = #{sourceType}
+        where id = #{id}
+    </update>
+
 </mapper>

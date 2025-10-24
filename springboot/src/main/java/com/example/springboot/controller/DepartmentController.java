@@ -62,10 +62,11 @@ public class DepartmentController {
     /**
      * 更新科室
      */
-    @PutMapping
+    @PutMapping("/{id}")
     @Operation(summary = "更新科室", description = "仅管理员可更新科室")
     @PreAuthorize("hasRole('ADMIN')")
-    public Result update(@RequestBody Department department) {
+    public Result update(@PathVariable Long id, @RequestBody Department department) {
+        department.setId(id); // 使用路径参数中的ID
         departmentService.update(department);
         return Result.success();
     }

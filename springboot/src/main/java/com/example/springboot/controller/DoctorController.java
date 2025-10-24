@@ -57,10 +57,13 @@ public class DoctorController {
     }
 
     @Operation(summary = "更新医生", description = "管理员或医生本人可更新医生信息")
-    @PutMapping
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')") // <-- [新增] 管理员或医生本人 (Service层应做ID校验)
-    public Result update(@jakarta.validation.Valid @RequestBody Doctor doctor) {
+    public Result update(
+            @Parameter(description = "医生ID", required = true) @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody Doctor doctor) {
         // TODO: Service层应检查是否为本人操作
+        doctor.setId(id); // 使用路径参数中的ID
         doctorService.update(doctor);
         return Result.success();
     }

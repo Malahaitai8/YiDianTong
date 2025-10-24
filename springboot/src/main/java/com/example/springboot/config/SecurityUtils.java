@@ -1,5 +1,6 @@
 package com.example.springboot.config;
 
+import com.example.springboot.constants.RoleConstants;
 import com.example.springboot.entity.User;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -50,21 +51,21 @@ public class SecurityUtils {
      * 判断当前用户是否为患者
      */
     public static boolean isPatient() {
-        return "patient".equals(getCurrentUserRole());
+        return RoleConstants.DB_ROLE_PATIENT.equals(getCurrentUserRole());
     }
 
     /**
      * 判断当前用户是否为医生
      */
     public static boolean isDoctor() {
-        return "doctor".equals(getCurrentUserRole());
+        return RoleConstants.DB_ROLE_DOCTOR.equals(getCurrentUserRole());
     }
 
     /**
      * 判断当前用户是否为管理员
      */
     public static boolean isAdmin() {
-        return "admin".equals(getCurrentUserRole());
+        return RoleConstants.DB_ROLE_ADMIN.equals(getCurrentUserRole());
     }
 }
 

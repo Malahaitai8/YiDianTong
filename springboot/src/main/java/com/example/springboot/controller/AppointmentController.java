@@ -13,18 +13,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.annotation.Resource;
 import org.springframework.security.access.prepost.PreAuthorize; // <-- [新增] 导入
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal; // <-- [新增] 导入
+import java.util.Date; // <-- [新增] 导入Date类
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import com.example.springboot.config.SecurityUtils;
+import com.example.springboot.dto.RescheduleAppointmentRequest;
+import com.example.springboot.dto.AvailableSlotDTO;
 
 @Tag(name = "预约管理", description = "预约挂号相关接口")
 @RestController
@@ -79,7 +76,9 @@ public class AppointmentController {
 
         // 4. [修复] 填充排班信息
         appointment.setDoctorId(schedule.getDoctorId());
-        appointment.setAppointmentTime(request.getAppointmentTime()); // 使用前端传入的精确时间
+        
+        // 使用前端传入的精确预约时间
+        appointment.setAppointmentTime(request.getAppointmentTime());
 
         // 5. [修复] 填充费用 (TODO: 业务逻辑缺失)
         // 假设费用在 Schedule 表中 (但 DB 实体没有)
@@ -131,4 +130,64 @@ public class AppointmentController {
         Long patientId = SecurityUtils.getCurrentUserId();
         return Result.success(appointmentService.listByPatient(patientId));
     }
+
+    @Operation(summary = "搜索可预约时段", description = "按条件搜索可预约的时间段")
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result searchAvailableSlots(
+            @Parameter(description = "科室ID", required = false) @RequestParam(required = false) Long departmentId,
+            @Parameter(description = "医生ID", required = false) @RequestParam(required = false) Long doctorId,
+            @Parameter(description = "开始日期", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @Parameter(description = "结束日期", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "时间段", required = false) @RequestParam(required = false) String timeSlot) {
+        
+        try {
+            List<AvailableSlotDTO> availableSlots = appointmentService.searchAvailableSlots(
+                departmentId, doctorId, startDate, endDate, timeSlot);
+            return Result.success(availableSlots);
+        } catch (Exception e) {
+            return Result.error("搜索失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "改约", description = "修改预约到新的时间段")
+    @SecurityRequirement(name = "bearer-jwt")
+    @PutMapping("/{id}/reschedule")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result reschedule(
+            @Parameter(description = "预约ID", required = true) @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody RescheduleAppointmentRequest request) {
+        
+        Long patientId = SecurityUtils.getCurrentUserId();
+        
+        // 1. 验证预约是否属于当前用户
+        Appointment appointment = appointmentService.selectById(id);
+        if (appointment == null) {
+            return Result.error("预约不存在");
+        }
+        if (!appointment.getPatientId().equals(patientId)) {
+            return Result.error("无权限操作此预约");
+        }
+        
+        // 2. 查询新的排班信息
+        Schedule newSchedule = scheduleMapper.selectById(request.getNewScheduleId());
+        if (newSchedule == null) {
+            return Result.error("新排班不存在");
+        }
+        
+        // 3. 更新预约信息（新的预约时间由新排班的默认时间决定）
+        appointment.setScheduleId(request.getNewScheduleId());
+        appointment.setDoctorId(newSchedule.getDoctorId());
+        // TODO: 根据新排班的时间段设置预约时间，这里暂时保持原时间
+        // appointment.setAppointmentTime(newSchedule.getScheduleDate());
+        
+        try {
+            // TODO: 调用Service层的改约方法（需要处理号源变更）
+            Appointment updated = appointmentService.update(appointment);
+            return Result.success(updated);
+        } catch (Exception e) {
+            return Result.error("改约失败: " + e.getMessage());
+        }
+    }
+
 }
