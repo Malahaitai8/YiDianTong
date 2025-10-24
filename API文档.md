@@ -684,6 +684,321 @@ Authorization: Bearer <your_token_here>
 
 ---
 
+### 6.2 创建单个排班（管理端）
+
+**接口**: `POST /api/admin/schedules`
+
+**权限**: 仅管理员
+
+**说明**: 为指定医生创建单个排班记录
+
+**请求体**:
+```json
+{
+  "doctorId": 1,
+  "scheduleDate": "2025-10-25",
+  "timeSlot": "morning",
+  "slotType": "expert",
+  "totalSlots": 20,
+  "availableSlots": 20
+}
+```
+
+**字段说明**:
+- `doctorId` (必填): 医生ID
+- `scheduleDate` (必填): 排班日期，格式：yyyy-MM-dd
+- `timeSlot` (必填): 时间段（morning/afternoon/evening）
+- `slotType` (必填): 号别（normal/expert/vip）
+- `totalSlots` (必填): 总号源数，必须大于0
+- `availableSlots` (可选): 可用号源数，不传则默认等于totalSlots
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "排班创建成功",
+  "data": {
+    "id": 123,
+    "doctorId": 1,
+    "scheduleDate": "2025-10-25",
+    "timeSlot": "morning",
+    "slotType": "expert",
+    "totalSlots": 20,
+    "availableSlots": 20
+  }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": 400,
+  "message": "创建失败: 该时间段已存在排班，请勿重复创建",
+  "data": null
+}
+```
+
+---
+
+### 6.3 批量创建排班（管理端）
+
+**接口**: `POST /api/admin/schedules/batch`
+
+**权限**: 仅管理员
+
+**说明**: 为指定医生批量创建多个排班记录
+
+**请求体**:
+```json
+{
+  "doctorId": 1,
+  "startDate": "2025-10-25",
+  "endDate": "2025-10-31",
+  "timeSlots": ["morning", "afternoon"],
+  "slotType": "expert",
+  "totalSlots": 20,
+  "skipWeekends": true,
+  "excludeDates": ["2025-10-27"]
+}
+```
+
+**字段说明**:
+- `doctorId` (必填): 医生ID
+- `startDate` (必填): 开始日期，格式：yyyy-MM-dd
+- `endDate` (必填): 结束日期，格式：yyyy-MM-dd
+- `timeSlots` (必填): 时间段列表，可包含多个值（morning/afternoon/evening）
+- `slotType` (必填): 号别（normal/expert/vip）
+- `totalSlots` (必填): 总号源数，必须大于0
+- `skipWeekends` (可选): 是否跳过周末，默认false
+- `excludeDates` (可选): 要排除的日期列表（如节假日）
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "批量创建完成",
+  "data": {
+    "successCount": 12,
+    "skipCount": 2,
+    "errorCount": 0,
+    "errors": [],
+    "message": "成功创建 12 个排班，跳过 2 个已存在的排班"
+  }
+}
+```
+
+**响应字段说明**:
+- `successCount`: 成功创建的排班数量
+- `skipCount`: 跳过的已存在排班数量
+- `errorCount`: 创建失败的数量
+- `errors`: 错误信息列表
+- `message`: 汇总信息
+
+---
+
+### 6.4 更新排班（管理端）
+
+**接口**: `PUT /api/admin/schedules/{id}`
+
+**权限**: 仅管理员
+
+**说明**: 更新指定排班的信息
+
+**路径参数**:
+- `id`: 排班ID
+
+**请求体**:
+```json
+{
+  "doctorId": 2,
+  "scheduleDate": "2025-10-26",
+  "timeSlot": "afternoon",
+  "slotType": "vip",
+  "totalSlots": 15,
+  "availableSlots": 10
+}
+```
+
+**字段说明**:
+- 所有字段都是可选的，只传需要修改的字段
+- `doctorId`: 医生ID
+- `scheduleDate`: 排班日期
+- `timeSlot`: 时间段（morning/afternoon/evening）
+- `slotType`: 号别（normal/expert/vip）
+- `totalSlots`: 总号源数，不能为负数
+- `availableSlots`: 可用号源数，不能为负数
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "排班更新成功",
+  "data": {
+    "id": 123,
+    "doctorId": 2,
+    "scheduleDate": "2025-10-26",
+    "timeSlot": "afternoon",
+    "slotType": "vip",
+    "totalSlots": 15,
+    "availableSlots": 10
+  }
+}
+```
+
+---
+
+### 6.5 删除排班（管理端）
+
+**接口**: `DELETE /api/admin/schedules/{id}`
+
+**权限**: 仅管理员
+
+**说明**: 删除指定的排班记录
+
+**路径参数**:
+- `id`: 排班ID
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "排班删除成功",
+  "data": null
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": 400,
+  "message": "删除失败: 该排班已有预约，无法删除",
+  "data": null
+}
+```
+
+**业务逻辑**:
+- 检查排班是否有已使用的号源
+- 如果有预约，拒绝删除
+- 如果无预约，执行删除操作
+
+---
+
+### 6.6 查询排班详情（管理端）
+
+**接口**: `GET /api/admin/schedules/{id}`
+
+**权限**: 仅管理员
+
+**说明**: 根据ID查询单个排班的详细信息
+
+**路径参数**:
+- `id`: 排班ID
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "id": 123,
+    "doctorId": 1,
+    "scheduleDate": "2025-10-25",
+    "timeSlot": "morning",
+    "slotType": "expert",
+    "totalSlots": 20,
+    "availableSlots": 15
+  }
+}
+```
+
+---
+
+### 6.7 条件查询排班列表（管理端）
+
+**接口**: `GET /api/admin/schedules`
+
+**权限**: 仅管理员
+
+**说明**: 根据多种条件筛选和查询排班列表，支持分页
+
+**查询参数**:
+- `doctorId`: 医生ID (可选)
+- `departmentId`: 科室ID (可选)
+- `startDate`: 开始日期 (可选，格式: yyyy-MM-dd)
+- `endDate`: 结束日期 (可选，格式: yyyy-MM-dd)
+- `timeSlot`: 时间段 (可选: morning/afternoon/evening)
+- `slotType`: 号别 (可选: normal/expert/vip)
+- `page`: 页码 (可选，默认1)
+- `pageSize`: 每页大小 (可选，默认20)
+
+**示例请求**:
+```
+GET /api/admin/schedules?doctorId=1&startDate=2025-10-25&endDate=2025-10-31&page=1&pageSize=20
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "list": [
+      {
+        "id": 123,
+        "doctorId": 1,
+        "scheduleDate": "2025-10-25",
+        "timeSlot": "morning",
+        "slotType": "expert",
+        "totalSlots": 20,
+        "availableSlots": 15
+      }
+    ],
+    "total": 45,
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 3
+  }
+}
+```
+
+**使用场景**:
+- 查询某个医生的所有排班
+- 查询某个科室的所有排班
+- 查询某个日期范围内的排班
+- 查询特定时间段或号别的排班
+
+---
+
+### 6.8 查询医生的所有排班（管理端）
+
+**接口**: `GET /api/admin/schedules/doctor/{doctorId}`
+
+**权限**: 仅管理员
+
+**说明**: 查询指定医生的所有排班记录
+
+**路径参数**:
+- `doctorId`: 医生ID
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "id": 123,
+      "doctorId": 1,
+      "scheduleDate": "2025-10-25",
+      "timeSlot": "morning",
+      "slotType": "expert",
+      "totalSlots": 20,
+      "availableSlots": 15
+    }
+  ],
+  "total": 10
+}
+```
+
+---
+
 ## 7️⃣ 预约管理模块
 
 ### 7.1 查询所有预约

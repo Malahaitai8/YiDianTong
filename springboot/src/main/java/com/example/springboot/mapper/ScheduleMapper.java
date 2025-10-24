@@ -1,10 +1,7 @@
 package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Schedule;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param; // <-- [新增] 导入
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update; // <-- [新增] 导入
+import org.apache.ibatis.annotations.*;
 
 import java.util.Date;
 import java.util.List;
@@ -14,8 +11,6 @@ import com.example.springboot.dto.AvailableSlotDTO;
 public interface ScheduleMapper {
     @Select("SELECT * FROM schedule WHERE schedule_date >= #{startDate} AND schedule_date < #{endDate}")
     List<Schedule> selectSchedulesByDateRange(Date startDate, Date endDate);
-
-
 
     /**
      * 根据ID查询排班
@@ -51,6 +46,68 @@ public interface ScheduleMapper {
         @Param("startDate") Date startDate,
         @Param("endDate") Date endDate,
         @Param("timeSlot") String timeSlot
+    );
+
+    // ========== 管理端排班管理接口 ==========
+    
+    /**
+     * 插入排班记录
+     */
+    @Insert("INSERT INTO schedule (doctor_id, schedule_date, time_slot, slot_type, total_slots, available_slots) " +
+            "VALUES (#{doctorId}, #{scheduleDate}, #{timeSlot}, #{slotType}, #{totalSlots}, #{availableSlots})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Schedule schedule);
+    
+    /**
+     * 更新排班记录
+     * (实现在 ScheduleMapper.xml 中，支持动态更新)
+     */
+    int updateById(Schedule schedule);
+    
+    /**
+     * 删除排班记录
+     */
+    @Delete("DELETE FROM schedule WHERE id = #{id}")
+    int deleteById(@Param("id") Long id);
+    
+    /**
+     * 根据医生ID查询排班列表
+     */
+    @Select("SELECT * FROM schedule WHERE doctor_id = #{doctorId} ORDER BY schedule_date, time_slot")
+    List<Schedule> selectByDoctorId(@Param("doctorId") Long doctorId);
+    
+    /**
+     * 检查排班是否已存在（防止重复创建）
+     */
+    @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date = #{scheduleDate} AND time_slot = #{timeSlot}")
+    int checkScheduleExists(@Param("doctorId") Long doctorId, 
+                           @Param("scheduleDate") Date scheduleDate, 
+                           @Param("timeSlot") String timeSlot);
+    
+    /**
+     * 条件查询排班（带分页和筛选）
+     * (实现在 ScheduleMapper.xml 中)
+     */
+    List<Schedule> selectByConditions(
+        @Param("doctorId") Long doctorId,
+        @Param("departmentId") Long departmentId,
+        @Param("startDate") Date startDate,
+        @Param("endDate") Date endDate,
+        @Param("timeSlot") String timeSlot,
+        @Param("slotType") String slotType
+    );
+    
+    /**
+     * 统计符合条件的排班数量
+     */
+    int countByConditions(
+        @Param("doctorId") Long doctorId,
+        @Param("departmentId") Long departmentId,
+        @Param("startDate") Date startDate,
+        @Param("endDate") Date endDate,
+        @Param("timeSlot") String timeSlot,
+        @Param("slotType") String slotType
     );
 
 }

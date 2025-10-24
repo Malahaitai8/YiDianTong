@@ -1,4 +1,4 @@
--- 1. 创建科室表 (department) - 无变动
+-- 1. 创建科室表 (department)
 CREATE TABLE `department` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '科室唯一ID',
     `name` VARCHAR(100) NOT NULL COMMENT '科室名称',
@@ -7,19 +7,18 @@ CREATE TABLE `department` (
     UNIQUE KEY `uk_department_name` (`name`)
 ) COMMENT='一级科室信息表';
 
--- 2. 创建门诊表 (clinic) - 无变动
+-- 2. 创建门诊表 (clinic)
 CREATE TABLE `clinic` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '门诊唯一ID',
     `department_id` BIGINT NOT NULL COMMENT '所属科室的ID',
     `name` VARCHAR(100) NOT NULL COMMENT '门诊名称',
     `description` TEXT NULL COMMENT '门诊的详细介绍',
     PRIMARY KEY (`id`),
-    -- 外键引用已更新为 department
     FOREIGN KEY (`department_id`) REFERENCES `department`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
     UNIQUE KEY `uk_clinic_dept_name` (`department_id`, `name`)
 ) COMMENT='二级门诊信息表';
 
--- 3. *新增* 统一用户表 (user)
+-- 3. 统一用户表 (user)
 CREATE TABLE `user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户唯一ID',
     `username` VARCHAR(50) NOT NULL COMMENT '登录用户名/凭证',
@@ -32,7 +31,7 @@ CREATE TABLE `user` (
 ) COMMENT='统一用户登录与身份信息表';
 
 
--- 4. *修改* 医生表 (doctor) - 移除登录字段，关联 user 表，移除 status 字段
+-- 4. 医生表 (doctor)
 CREATE TABLE `doctor` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '医生唯一ID',
     `user_id` BIGINT NOT NULL COMMENT '关联的用户ID (外键关联user表)',
@@ -49,7 +48,7 @@ CREATE TABLE `doctor` (
 ) COMMENT='医生信息表';
 
 
--- 5. *修改* 患者表 (patient) - 移除登录字段，关联 user 表，重命名 role 字段
+-- 5. 患者表 (patient)
 CREATE TABLE `patient` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '患者唯一ID',
     `user_id` BIGINT NOT NULL COMMENT '关联的用户ID (外键关联user表)',
@@ -59,13 +58,12 @@ CREATE TABLE `patient` (
     `phone_number` VARCHAR(20) NULL COMMENT '手机号码',
     `id_card_number` VARCHAR(255) NULL COMMENT '身份证号 (需加密存储)',
     PRIMARY KEY (`id`),
-    -- 患者信息与用户账户一一对应
     UNIQUE KEY `uk_patient_user_id` (`user_id`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) COMMENT='患者(师生)信息表';
 
 
--- 6. *修改* 管理员表 (admin) - 移除登录字段，关联 user 表
+-- 6. 管理员表 (admin)
 CREATE TABLE `admin` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '管理员唯一ID',
     `user_id` BIGINT NOT NULL COMMENT '关联的用户ID (外键关联user表)',
@@ -77,7 +75,7 @@ CREATE TABLE `admin` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) COMMENT='管理员信息表';
 
--- 7. 创建排班表 (schedule) - 无变动 (关联 doctor 表)
+-- 7. 创建排班表 (schedule)
 CREATE TABLE `schedule` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '排班唯一ID',
     `doctor_id` BIGINT NOT NULL COMMENT '医生ID',
@@ -92,7 +90,7 @@ CREATE TABLE `schedule` (
     UNIQUE KEY `uk_doctor_schedule` (`doctor_id`, `schedule_date`, `time_slot`) -- 一个医生在一个时间段只能有一个排班
 ) COMMENT='医生排班表';
 
--- 8. 创建预约记录表 (appointment) - 无变动 (关联 patient, doctor, schedule 表)
+-- 8. 创建预约记录表 (appointment)
 CREATE TABLE `appointment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '预约唯一ID',
     `patient_id` BIGINT NOT NULL COMMENT '患者ID (外键关联patient表)',
@@ -110,26 +108,26 @@ CREATE TABLE `appointment` (
     FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='预约记录表';
 
--- 9. 创建候补队列表 (waitlist) - 无变动 (关联 patient, schedule 表)
+-- 9. 创建候补队列表 (waitlist)
 CREATE TABLE `waitlist` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '候补记录唯一ID',
     `schedule_id` BIGINT NOT NULL COMMENT '目标排班ID',
     `patient_id` BIGINT NOT NULL COMMENT '候补的患者ID',
     `join_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入候补队列的时间 (用于确定优先级)',
     `status` VARCHAR(20) NOT NULL DEFAULT 'WAITING' COMMENT '候补状态 (WAITING, NOTIFIED, GRANTED, EXPIRED)',
-    
+
     PRIMARY KEY (`id`),
-    
+
     -- 确保一个患者不能为同一个排班重复加入候补
-    UNIQUE KEY `uk_waitlist_unique` (`schedule_id`, `patient_id`), 
-    
+    UNIQUE KEY `uk_waitlist_unique` (`schedule_id`, `patient_id`),
+
     -- 外键关联到排班表 (schedule)
     FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
     -- 外键关联到患者表 (patient)
     FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='预约候补队列记录表';
 
--- 10. 创建系统配置与规则表 (system_config) - 无变动
+-- 10. 创建系统配置与规则表 (system_config)
 CREATE TABLE `system_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '配置唯一ID',
     `key` VARCHAR(100) NOT NULL COMMENT '配置项键名 (如：STUDENT_REIMBURSEMENT_RATE)',
@@ -137,13 +135,13 @@ CREATE TABLE `system_config` (
     `description` VARCHAR(255) NULL COMMENT '配置项描述',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
-    
+
     PRIMARY KEY (`id`),
     -- 配置键名必须唯一
     UNIQUE KEY `uk_config_key` (`key`)
 ) COMMENT='系统全局配置与规则表';
 
--- 11. 插入初始数据示例 (保持不变)
+-- 11. 插入初始数据示例
 INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例'),
 ('TEACHER_REIMBURSEMENT_RATE', '0.90', '教师挂号费报销比例'),

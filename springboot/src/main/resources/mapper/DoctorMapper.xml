@@ -43,6 +43,15 @@
         where d.id = #{id}
     </select>
 
+    <select id="selectByUserId" resultMap="DoctorResultMap">
+        select d.*, u.username, u.role, u.status, u.created_at,
+               c.name as clinic_name, c.description as clinic_description
+        from doctor d
+        left join user u on d.user_id = u.id
+        left join clinic c on d.clinic_id = c.id
+        where d.user_id = #{userId}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into doctor(user_id, clinic_id, name, title, specialty, bio)
         values(#{userId}, #{clinicId}, #{name}, #{title}, #{specialty}, #{bio})

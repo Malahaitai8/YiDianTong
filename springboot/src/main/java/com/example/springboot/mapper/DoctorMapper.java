@@ -9,6 +9,8 @@ public interface DoctorMapper {
 
     Doctor selectById(Long id);
 
+    Doctor selectByUserId(Long userId);
+
     int insert(Doctor doctor);
 
     int update(Doctor doctor);

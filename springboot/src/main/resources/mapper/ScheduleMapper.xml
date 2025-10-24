@@ -54,4 +54,89 @@
         ORDER BY s.schedule_date, s.time_slot
     </select>
 
+    <!-- 动态更新排班记录 -->
+    <update id="updateById">
+        UPDATE schedule
+        <set>
+            <if test="doctorId != null">
+                doctor_id = #{doctorId},
+            </if>
+            <if test="scheduleDate != null">
+                schedule_date = #{scheduleDate},
+            </if>
+            <if test="timeSlot != null and timeSlot != ''">
+                time_slot = #{timeSlot},
+            </if>
+            <if test="slotType != null and slotType != ''">
+                slot_type = #{slotType},
+            </if>
+            <if test="totalSlots != null">
+                total_slots = #{totalSlots},
+            </if>
+            <if test="availableSlots != null">
+                available_slots = #{availableSlots},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 条件查询排班（管理端） -->
+    <select id="selectByConditions" resultType="com.example.springboot.entity.Schedule">
+        SELECT s.*
+        FROM schedule s
+        <if test="departmentId != null">
+            LEFT JOIN doctor d ON s.doctor_id = d.id
+        </if>
+        <where>
+            <if test="doctorId != null">
+                AND s.doctor_id = #{doctorId}
+            </if>
+            <if test="departmentId != null">
+                AND d.clinic_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND s.schedule_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND s.schedule_date &lt;= #{endDate}
+            </if>
+            <if test="timeSlot != null and timeSlot != ''">
+                AND s.time_slot = #{timeSlot}
+            </if>
+            <if test="slotType != null and slotType != ''">
+                AND s.slot_type = #{slotType}
+            </if>
+        </where>
+        ORDER BY s.schedule_date DESC, s.time_slot
+    </select>
+
+    <!-- 统计符合条件的排班数量 -->
+    <select id="countByConditions" resultType="int">
+        SELECT COUNT(*)
+        FROM schedule s
+        <if test="departmentId != null">
+            LEFT JOIN doctor d ON s.doctor_id = d.id
+        </if>
+        <where>
+            <if test="doctorId != null">
+                AND s.doctor_id = #{doctorId}
+            </if>
+            <if test="departmentId != null">
+                AND d.clinic_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND s.schedule_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND s.schedule_date &lt;= #{endDate}
+            </if>
+            <if test="timeSlot != null and timeSlot != ''">
+                AND s.time_slot = #{timeSlot}
+            </if>
+            <if test="slotType != null and slotType != ''">
+                AND s.slot_type = #{slotType}
+            </if>
+        </where>
+    </select>
+
 </mapper>
