@@ -16,5 +16,16 @@
         select * from system_config where `key` = #{key}
     </select>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into system_config(`key`, `value`, `description`, `created_at`, `updated_at`)
+        values(#{key}, #{value}, #{description}, now(), now())
+    </insert>
+
+    <update id="updateValueByKey">
+        update system_config
+        set `value` = #{value}, updated_at = now()
+        where `key` = #{key}
+    </update>
+
 </mapper>
 

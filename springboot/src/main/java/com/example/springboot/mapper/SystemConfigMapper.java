@@ -10,5 +10,9 @@ public interface SystemConfigMapper {
     SystemConfig selectById(Long id);
     
     SystemConfig selectByKey(String key);
+
+    int insert(SystemConfig config);
+
+    int updateValueByKey(String key, String value);
 }
 

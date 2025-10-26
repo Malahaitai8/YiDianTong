@@ -8,5 +8,7 @@ public interface ClinicMapper {
     List<Clinic> selectAll();
 
     Clinic selectById(Long id);
+
+    Clinic selectByName(String name);
 }
 

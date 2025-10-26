@@ -5,6 +5,8 @@ import com.example.springboot.common.Result;
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.entity.Schedule; // <-- [新增] 导入
 import com.example.springboot.mapper.ScheduleMapper; // <-- [新增] 导入
+import com.example.springboot.mapper.DoctorMapper;
+import com.example.springboot.entity.Doctor;
 import com.example.springboot.service.AppointmentService;
 import com.example.springboot.dto.CreateAppointmentRequest; // <-- [新增] 导入
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +36,9 @@ public class AppointmentController {
     @Resource
     private ScheduleMapper scheduleMapper; // <-- [新增] 注入
 
+    @Resource
+    private DoctorMapper doctorMapper;
+
     @Operation(summary = "查询所有预约", description = "获取系统中所有预约记录")
     @GetMapping("/selectAll")
     @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 权限
@@ -44,12 +49,42 @@ public class AppointmentController {
 
     @Operation(summary = "根据ID查询预约", description = "通过预约ID获取预约详情")
     @GetMapping("/selectById/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')") // <-- [新增] 权限
+    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT', 'DOCTOR')")
     public Result selectById(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
-        // TODO: Service层应检查是否为本人操作
         Appointment appointment = appointmentService.selectById(id);
-        return Result.success(appointment);
+        if (appointment == null) {
+            return Result.error("预约不存在");
+        }
+
+        // 管理员可直接查看
+        if (SecurityUtils.isAdmin()) {
+            return Result.success(appointment);
+        }
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+
+        // 患者仅能查看本人预约
+        if (SecurityUtils.isPatient()) {
+            if (!appointment.getPatientId().equals(currentUserId)) {
+                return Result.error("无权限查看该预约");
+            }
+            return Result.success(appointment);
+        }
+
+        // 医生仅能查看自己名下预约
+        if (SecurityUtils.isDoctor()) {
+            Doctor currentDoctor = doctorMapper.selectByUserId(currentUserId);
+            if (currentDoctor == null) {
+                return Result.error("当前医生信息不存在");
+            }
+            if (!appointment.getDoctorId().equals(currentDoctor.getId())) {
+                return Result.error("无权限查看非本人名下预约");
+            }
+            return Result.success(appointment);
+        }
+
+        return Result.error("无权限");
     }
 
     @Operation(summary = "创建预约", description = "患者创建新的预约记录，需要登录")

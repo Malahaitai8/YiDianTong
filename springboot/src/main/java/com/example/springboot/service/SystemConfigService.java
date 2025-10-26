@@ -29,5 +29,13 @@ public class SystemConfigService {
         SystemConfig systemConfig = systemConfigMapper.selectByKey(key);
         return systemConfig;
     }
+
+    public int insert(SystemConfig config) {
+        return systemConfigMapper.insert(config);
+    }
+
+    public int updateValueByKey(String key, String value) {
+        return systemConfigMapper.updateValueByKey(key, value);
+    }
 }
 

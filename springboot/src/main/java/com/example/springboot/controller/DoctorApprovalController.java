@@ -6,6 +6,13 @@ import com.example.springboot.entity.Doctor;
 import com.example.springboot.entity.User;
 import com.example.springboot.mapper.DoctorMapper;
 import com.example.springboot.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +29,8 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/admin/approval")
+@Tag(name = "医生注册审核", description = "管理员对医生注册账号的审核接口")
+@SecurityRequirement(name = "bearer-jwt")
 public class DoctorApprovalController {
 
     @Resource
@@ -36,6 +45,7 @@ public class DoctorApprovalController {
      */
     @GetMapping("/doctors/pending")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "获取待审核医生列表", description = "返回状态为pending_approval的医生用户及其资料")
     public ResponseEntity<Map<String, Object>> getPendingDoctors() {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -83,6 +93,19 @@ public class DoctorApprovalController {
      */
     @PostMapping("/doctors/approve")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "审核通过医生注册",
+            description = "将指定用户的状态从pending_approval更新为active",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = ApprovalRequest.class))
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "审核通过"),
+                    @ApiResponse(responseCode = "400", description = "参数错误"),
+                    @ApiResponse(responseCode = "500", description = "服务器错误")
+            }
+    )
     public ResponseEntity<Map<String, Object>> approveDoctor(@RequestBody ApprovalRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -132,6 +155,19 @@ public class DoctorApprovalController {
      */
     @PostMapping("/doctors/reject")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "审核拒绝医生注册",
+            description = "将指定用户的状态从pending_approval更新为inactive，并可记录拒绝原因",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = ApprovalRequest.class))
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "已拒绝"),
+                    @ApiResponse(responseCode = "400", description = "参数或状态错误"),
+                    @ApiResponse(responseCode = "500", description = "服务器错误")
+            }
+    )
     public ResponseEntity<Map<String, Object>> rejectDoctor(@RequestBody ApprovalRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -184,6 +220,14 @@ public class DoctorApprovalController {
      */
     @PostMapping("/doctors/approve/batch")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "批量审核通过医生注册",
+            description = "批量将多个用户从pending_approval更新为active",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = List.class))
+            )
+    )
     public ResponseEntity<Map<String, Object>> batchApprove(@RequestBody List<Long> userIds) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -240,6 +284,7 @@ public class DoctorApprovalController {
      */
     @GetMapping("/doctors/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "获取待审核医生详情", description = "根据用户ID获取医生的注册资料")
     public ResponseEntity<Map<String, Object>> getDoctorDetail(@PathVariable Long userId) {
         Map<String, Object> response = new HashMap<>();
         try {

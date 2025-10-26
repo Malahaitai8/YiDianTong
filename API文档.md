@@ -629,6 +629,31 @@ Authorization: Bearer <your_token_here>
 
 ---
 
+## 5.3 按名称查询门诊
+
+**接口**: `GET /clinic/selectByName/{name}`
+
+**权限**: 需要登录（任何角色）
+
+**路径参数**:
+- `name`: 门诊名称
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "departmentId": 1,
+    "name": "普通门诊",
+    "description": "普通门诊服务"
+  }
+}
+```
+
+---
+
 ### 5.2 根据ID查询门诊
 
 **接口**: `GET /clinic/selectById/{id}`
@@ -1452,6 +1477,157 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
+## 1️⃣0️⃣ 医生信息变更申请模块
+
+说明：医生提交信息变更申请，系统以 `system_config` JSON 存储，管理员审核后可更新医生资料。
+
+### 10.1 医生提交变更申请
+
+**接口**: `POST /api/doctor-change/submit`
+
+**权限**: 医生
+
+**说明**:
+- 系统自动使用当前登录用户的 `userId` 作为 `requestedByUserId`
+- 若未传 `doctorId`，后端将根据当前用户反查其 `doctorId`
+- 若未传 `clinicId` 但提供了 `clinicName`，后端会用名称解析出 `clinicId`
+
+**请求体**:
+```json
+{
+  "doctorId": 1,
+  "clinicId": 2,
+  "clinicName": "消化内科门诊",
+  "name": "王医生",
+  "title": "主任医师",
+  "specialty": "心血管内科",
+  "bio": "从医20年，擅长……"
+}
+```
+
+字段说明：
+- `doctorId` (可选): 不传则后端按当前用户反查医生ID
+- `clinicId` (可选): 与 `clinicName` 二选一，若都传则以 `clinicId` 为准
+- `clinicName` (可选): 当未提供 `clinicId` 时可用名称解析门诊
+- `name`/`title`/`specialty`/`bio` (可选): 申请变更的目标值
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": "e8b8b4a7-...",
+    "doctorId": 1,
+    "requestedByUserId": 20,
+    "clinicId": 2,
+    "name": "王医生",
+    "title": "主任医师",
+    "specialty": "心血管内科",
+    "bio": "从医20年，擅长……",
+    "status": "PENDING",
+    "createdAt": 1730000000000,
+    "updatedAt": 1730000000000
+  }
+}
+```
+
+**错误示例**:
+```json
+{ "code": "500", "msg": "clinicName not found", "data": null }
+```
+
+---
+
+### 10.2 医生查看本人变更申请列表
+
+**接口**: `GET /api/doctor-change/my`
+
+**权限**: 医生
+
+**说明**: 后端使用当前登录用户反查其医生身份并返回申请列表。
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": "e8b8b4a7-...",
+      "doctorId": 1,
+      "requestedByUserId": 20,
+      "status": "PENDING",
+      "createdAt": 1730000000000,
+      "updatedAt": 1730000000000,
+      "clinicId": 2,
+      "name": "王医生",
+      "title": "主任医师",
+      "specialty": "心血管内科",
+      "bio": "……"
+    }
+  ]
+}
+```
+
+---
+
+### 10.3 按医生ID查询变更申请列表
+
+**接口**: `GET /api/doctor-change/by-doctor/{doctorId}`
+
+**权限**: 医生或管理员
+
+**路径参数**:
+- `doctorId`: 医生ID
+
+---
+
+### 10.4 管理员查询变更申请（可按状态过滤）
+
+**接口**: `GET /api/doctor-change/admin/list`
+
+**权限**: 管理员
+
+**查询参数**:
+- `status` (可选): `PENDING`/`APPROVED`/`REJECTED`
+
+---
+
+### 10.5 管理员审核变更申请
+
+**接口**: `POST /api/doctor-change/admin/review`
+
+**权限**: 管理员
+
+**说明**: 审核通过时会更新医生资料；拒绝时记录原因。
+
+**请求体**:
+```json
+{
+  "id": "e8b8b4a7-...",
+  "action": "APPROVE", // 或 "REJECT"
+  "reason": "资料不完整"
+}
+```
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": "e8b8b4a7-...",
+    "status": "APPROVED",
+    "approvedBy": "admin001",
+    "approvedAt": 1730000005000,
+    "reason": null
+  }
+}
+```
+
+---
+
 ### 9.2 根据ID查询管理员
 
 **接口**: `GET /admin/selectById/{id}`
@@ -1662,6 +1838,155 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
+## 1️⃣2️⃣ 医生注册审核模块（管理端）
+
+### 12.1 获取待审核医生列表
+
+**接口**: `GET /api/admin/approval/doctors/pending`
+
+**权限**: 管理员
+
+**说明**: 返回状态为 `pending_approval` 的医生账号及其基础资料。
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "userId": 20,
+      "username": "doctor001",
+      "doctorId": 1,
+      "name": "王医生",
+      "title": "主任医师",
+      "specialty": "心内科",
+      "bio": "擅长心血管疾病诊疗，从医20年",
+      "clinicId": 1,
+      "clinicName": "普通门诊",
+      "createdAt": "2025-10-22T14:30:00",
+      "status": "pending_approval"
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### 12.2 获取待审核医生详情
+
+**接口**: `GET /api/admin/approval/doctors/{userId}`
+
+**权限**: 管理员
+
+**路径参数**:
+- `userId`: 用户ID
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "userId": 20,
+    "username": "doctor001",
+    "doctorId": 1,
+    "name": "王医生",
+    "title": "主任医师",
+    "specialty": "心内科",
+    "bio": "擅长心血管疾病诊疗，从医20年",
+    "clinicId": 1,
+    "clinicName": "普通门诊",
+    "createdAt": "2025-10-22T14:30:00",
+    "status": "pending_approval"
+  }
+}
+```
+
+---
+
+### 12.3 审核通过医生注册
+
+**接口**: `POST /api/admin/approval/doctors/approve`
+
+**权限**: 管理员
+
+**请求体**:
+```json
+{
+  "userId": 20,
+  "reason": "资料齐全，审核通过"
+}
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "审核通过，医生账号已激活"
+}
+```
+
+**错误示例**:
+```json
+{
+  "success": false,
+  "message": "该用户不是待审核状态"
+}
+```
+
+---
+
+### 12.4 审核拒绝医生注册
+
+**接口**: `POST /api/admin/approval/doctors/reject`
+
+**权限**: 管理员
+
+**请求体**:
+```json
+{
+  "userId": 20,
+  "reason": "资料不完整"
+}
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "已拒绝该医生的注册申请",
+  "reason": "资料不完整"
+}
+```
+
+---
+
+### 12.5 批量审核通过
+
+**接口**: `POST /api/admin/approval/doctors/approve/batch`
+
+**权限**: 管理员
+
+**请求体**:
+```json
+[20, 21, 22]
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "批量审核完成: 成功 2 个, 失败 1 个",
+  "successCount": 2,
+  "failCount": 1,
+  "errors": [
+    "用户ID 22 不存在或不是待审核状态"
+  ]
+}
+```
+
+---
+
 ## 📋 常见业务流程
 
 ### 流程1: 患者注册登录
@@ -1814,7 +2139,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2025-10-14  
+**文档版本**: v1.2  
+**最后更新**: 2025-10-26  
 **维护者**: YiDianTong 开发团队
 
