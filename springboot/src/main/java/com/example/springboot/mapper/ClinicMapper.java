@@ -10,5 +10,11 @@ public interface ClinicMapper {
     Clinic selectById(Long id);
 
     Clinic selectByName(String name);
+
+    int insert(Clinic clinic);
+
+    int update(Clinic clinic);
+
+    int delete(Long id);
 }
 

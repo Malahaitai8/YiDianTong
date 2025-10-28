@@ -24,5 +24,17 @@ public class ClinicService {
         Clinic clinic = clinicMapper.selectById(id);
         return clinic;
     }
+
+    public int create(Clinic clinic) {
+        return clinicMapper.insert(clinic);
+    }
+
+    public int update(Clinic clinic) {
+        return clinicMapper.update(clinic);
+    }
+
+    public int delete(Long id) {
+        return clinicMapper.delete(id);
+    }
 }
 

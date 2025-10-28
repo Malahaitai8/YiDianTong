@@ -16,4 +16,21 @@
         select * from clinic where name = #{name}
     </select>
 
+    <insert id="insert" parameterType="com.example.springboot.entity.Clinic" useGeneratedKeys="true" keyProperty="id">
+        insert into clinic (department_id, name, description)
+        values (#{departmentId}, #{name}, #{description})
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.Clinic">
+        update clinic
+        set department_id = #{departmentId},
+            name = #{name},
+            description = #{description}
+        where id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="long">
+        delete from clinic where id = #{id}
+    </delete>
+
 </mapper>
