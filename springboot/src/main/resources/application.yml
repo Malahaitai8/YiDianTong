@@ -22,3 +22,9 @@ server:
 jwt:
   secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
   expiration: 86400000  # 24小时(毫秒)
+
+# 日志配置（开启安全调试日志）
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.example.springboot: DEBUG

@@ -13,6 +13,8 @@ public interface ClinicMapper {
 
     int insert(Clinic clinic);
 
+    int batchInsert(List<Clinic> clinics);
+
     int update(Clinic clinic);
 
     int delete(Long id);

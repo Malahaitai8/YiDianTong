@@ -21,6 +21,13 @@
         values (#{departmentId}, #{name}, #{description})
     </insert>
 
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into clinic (department_id, name, description) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.departmentId}, #{item.name}, #{item.description})
+        </foreach>
+    </insert>
+
     <update id="update" parameterType="com.example.springboot.entity.Clinic">
         update clinic
         set department_id = #{departmentId},

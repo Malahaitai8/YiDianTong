@@ -597,6 +597,67 @@ Authorization: Bearer <your_token_here>
 
 ---
 
+### 4.6 批量创建科室
+
+**接口**: `POST /department/batch`
+
+**权限**: 需要管理员权限
+
+**说明**: 批量创建多个科室
+
+**请求体**:
+```json
+{
+  "departments": [
+    {
+      "name": "心内科",
+      "description": "心血管疾病诊治"
+    },
+    {
+      "name": "骨科",
+      "description": "骨骼疾病诊治"
+    },
+    {
+      "name": "神经内科",
+      "description": "神经系统疾病诊治"
+    }
+  ]
+}
+```
+
+**字段说明**:
+- `departments`: 科室列表（必填，至少包含一个科室）
+  - `name`: 科室名称（必填）
+  - `description`: 科室描述（可选）
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "successCount": 3,
+    "message": "成功创建 3 个科室"
+  }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "科室列表不能为空",
+  "data": null
+}
+```
+
+**业务逻辑**:
+1. 验证科室列表是否为空
+2. 使用事务批量插入科室记录
+3. 返回成功创建的科室数量
+
+---
+
 ## 5️⃣ 门诊管理模块
 
 ### 5.1 查询所有门诊
@@ -725,6 +786,80 @@ Authorization: Bearer <your_token_here>
 ```json
 { "code": "200", "msg": "成功", "data": null }
 ```
+
+---
+
+### 5.7 批量创建门诊（管理员）
+
+**接口**: `POST /clinic/batch`
+
+**权限**: 仅管理员
+
+**说明**: 在已选定科室的基础上批量创建门诊
+
+**请求体**:
+```json
+{
+  "departmentId": 1,
+  "clinics": [
+    {
+      "name": "普通门诊",
+      "description": "周一至周五"
+    },
+    {
+      "name": "专家门诊",
+      "description": "周一、周三、周五"
+    },
+    {
+      "name": "特需门诊",
+      "description": "预约制"
+    }
+  ]
+}
+```
+
+**字段说明**:
+- `departmentId`: 所属科室ID（必填）
+- `clinics`: 门诊列表（必填，至少包含一个门诊）
+  - `name`: 门诊名称（必填）
+  - `description`: 门诊描述（可选）
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "successCount": 3,
+    "departmentId": 1,
+    "message": "成功在科室ID 1 下创建 3 个门诊"
+  }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "必须指定科室ID",
+  "data": null
+}
+```
+
+```json
+{
+  "code": "500",
+  "msg": "科室ID 999 不存在",
+  "data": null
+}
+```
+
+**业务逻辑**:
+1. 验证科室ID是否存在
+2. 验证门诊列表是否为空
+3. 为所有门诊设置相同的科室ID
+4. 使用事务批量插入门诊记录
+5. 返回成功创建的门诊数量
 
 ---
 

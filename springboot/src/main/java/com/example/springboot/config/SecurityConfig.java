@@ -152,6 +152,8 @@ public class SecurityConfig {
 
                         // 管理员相关接口需要ADMIN角色
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // 统一保护 /api/admin/** 路径
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // 其他所有请求都需要认证
                         .anyRequest().authenticated()

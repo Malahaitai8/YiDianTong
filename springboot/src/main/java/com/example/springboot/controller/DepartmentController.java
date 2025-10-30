@@ -2,6 +2,7 @@ package com.example.springboot.controller;
 
 
 import com.example.springboot.common.Result;
+import com.example.springboot.dto.BatchDepartmentRequest;
 import com.example.springboot.entity.Department;
 import com.example.springboot.service.DepartmentService;
 import jakarta.annotation.Resource;
@@ -15,7 +16,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,6 +61,34 @@ public class DepartmentController {
     public Result create(@RequestBody Department department) {
         departmentService.create(department);
         return Result.success();
+    }
+
+    /**
+     * 批量创建科室
+     */
+    @PostMapping("/batch")
+    @Operation(summary = "批量创建科室", description = "仅管理员可批量创建科室")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result batchCreate(@RequestBody BatchDepartmentRequest request) {
+        if (request.getDepartments() == null || request.getDepartments().isEmpty()) {
+            return Result.error("科室列表不能为空");
+        }
+
+        List<Department> departments = new ArrayList<>();
+        for (BatchDepartmentRequest.DepartmentItem item : request.getDepartments()) {
+            Department department = new Department();
+            department.setName(item.getName());
+            department.setDescription(item.getDescription());
+            departments.add(department);
+        }
+
+        int count = departmentService.batchCreate(departments);
+        
+        Map<String, Object> resultData = new HashMap<>();
+        resultData.put("successCount", count);
+        resultData.put("message", "成功创建 " + count + " 个科室");
+
+        return Result.success(resultData);
     }
 
     /**

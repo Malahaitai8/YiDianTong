@@ -11,6 +11,8 @@ public interface DepartmentMapper {
 
     int insert(Department department);
 
+    int batchInsert(List<Department> departments);
+
     int update(Department department);
 
     int delete(Long id);

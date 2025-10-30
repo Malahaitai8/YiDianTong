@@ -2,6 +2,7 @@ package com.example.springboot.controller;
 
 
 import com.example.springboot.common.Result;
+import com.example.springboot.dto.BatchClinicRequest;
 import com.example.springboot.entity.Clinic;
 import com.example.springboot.service.ClinicService;
 import jakarta.annotation.Resource;
@@ -18,7 +19,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "门诊管理", description = "门诊信息管理接口（查询对所有登录用户开放，新增/修改/删除需管理员权限）")
 @RestController
@@ -56,6 +60,39 @@ public class ClinicController {
     public Result create(@RequestBody Clinic clinic) {
         clinicService.create(clinic);
         return Result.success();
+    }
+
+    /**
+     * 批量创建门诊（管理员）
+     */
+    @PostMapping("/batch")
+    @Operation(summary = "批量创建门诊", description = "仅管理员可在已选定科室的基础上批量创建门诊")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result batchCreate(@RequestBody BatchClinicRequest request) {
+        if (request.getDepartmentId() == null) {
+            return Result.error("必须指定科室ID");
+        }
+        if (request.getClinics() == null || request.getClinics().isEmpty()) {
+            return Result.error("门诊列表不能为空");
+        }
+
+        List<Clinic> clinics = new ArrayList<>();
+        for (BatchClinicRequest.ClinicItem item : request.getClinics()) {
+            Clinic clinic = new Clinic();
+            clinic.setDepartmentId(request.getDepartmentId());
+            clinic.setName(item.getName());
+            clinic.setDescription(item.getDescription());
+            clinics.add(clinic);
+        }
+
+        int count = clinicService.batchCreate(clinics);
+        
+        Map<String, Object> resultData = new HashMap<>();
+        resultData.put("successCount", count);
+        resultData.put("departmentId", request.getDepartmentId());
+        resultData.put("message", "成功在科室ID " + request.getDepartmentId() + " 下创建 " + count + " 个门诊");
+
+        return Result.success(resultData);
     }
 
     /**
