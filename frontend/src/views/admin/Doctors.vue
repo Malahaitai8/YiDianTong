@@ -42,7 +42,7 @@
           >
             <el-option label="全部状态" value="" />
             <el-option label="已激活" value="active" />
-            <el-option label="已禁用" value="inactive" />
+            <el-option label="已停用" value="disabled" />
           </el-select>
         </el-col>
         <el-col :span="3">
@@ -131,76 +131,68 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <!-- 待审核状态的操作按钮 -->
             <template v-if="row.user?.status === 'pending_approval'">
-              <el-button
-                type="success"
-                size="small"
-                @click="approveDoctor(row)"
-              >
-                通过
-              </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                @click="rejectDoctor(row)"
-              >
-                拒绝
-              </el-button>
-              <el-button
-                type="primary"
-                size="small"
-                @click="viewPendingDetail(row)"
-              >
-                查看详情
-              </el-button>
+              <el-button-group>
+                <el-button
+                  type="success"
+                  size="small"
+                  @click="approveDoctor(row)"
+                >
+                  <el-icon><Check /></el-icon>
+                  通过
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="rejectDoctor(row)"
+                >
+                  <el-icon><Close /></el-icon>
+                  拒绝
+                </el-button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="viewPendingDetail(row)"
+                >
+                  <el-icon><View /></el-icon>
+                  查看详情
+                </el-button>
+              </el-button-group>
             </template>
             
             <!-- 其他状态的操作按钮 -->
             <template v-else>
-              <el-button
-                type="primary"
-                size="small"
-                @click="viewDoctor(row)"
-              >
-                查看
-              </el-button>
-              <el-button
-                type="warning"
-                size="small"
-                @click="editDoctor(row)"
-              >
-                编辑
-              </el-button>
-              <el-dropdown @command="handleCommand">
-                <el-button size="small">
-                  更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              <el-button-group>
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="viewDoctor(row)"
+                >
+                  <el-icon><View /></el-icon>
+                  查看
                 </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item :command="`schedule-${row.id}`">
-                      排班管理
-                    </el-dropdown-item>
-                    <el-dropdown-item :command="`reset-password-${row.id}`">
-                      重置密码
-                    </el-dropdown-item>
-                    <el-dropdown-item
-                      :command="`toggle-status-${row.id}`"
-                      :divided="true"
-                    >
-                      {{ row.user?.status === 'active' ? '设为休假' : '设为在职' }}
-                    </el-dropdown-item>
-                    <el-dropdown-item
-                      :command="`delete-${row.id}`"
-                      style="color: #f56c6c;"
-                    >
-                      删除
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+                <el-button
+                  type="warning"
+                  size="small"
+                  @click="editDoctor(row)"
+                >
+                  <el-icon><Edit /></el-icon>
+                  编辑
+                </el-button>
+
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="handleDisableDoctor(row)"
+                  v-if="row.user?.status === 'active'"
+                >
+                  <el-icon><CircleClose /></el-icon>
+                  停用
+                </el-button>
+              </el-button-group>
             </template>
           </template>
         </el-table-column>
@@ -218,6 +210,31 @@
           @current-change="handleCurrentChange"
         />
       </div>
+
+      <!-- 批量操作栏 -->
+      <div class="batch-operations" v-if="selectedDoctors.length > 0">
+        <span class="selected-info">已选择 {{ selectedDoctors.length }} 个医生</span>
+        <div class="batch-buttons">
+          <el-button
+            type="warning"
+            size="small"
+            @click="handleBatchResetPassword"
+            :disabled="selectedDoctors.length === 0"
+          >
+            <el-icon><Key /></el-icon>
+            批量重置密码
+          </el-button>
+          <el-button
+            type="danger"
+            size="small"
+            @click="handleBatchDelete"
+            :disabled="selectedDoctors.length === 0"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 添加/编辑医生对话框 -->
@@ -229,15 +246,21 @@
     >
       <!-- 添加医生时的提示信息 -->
       <el-alert
-        v-if="!doctorDialog.isEdit"
-        title="创建医生账号"
         type="info"
         :closable="false"
-        style="margin-bottom: 20px;"
+        class="doctor-create-alert"
       >
         <template #default>
-          <p>系统将自动创建医生的登录账号，默认密码为：123456</p>
-          <p>医生账号创建后状态为已激活，可以直接登录使用。</p>
+          <div class="alert-content">
+            <div class="alert-item">
+              <el-icon class="alert-icon"><Key /></el-icon>
+              <span>系统将自动创建医生的登录账号，默认密码为：<strong>123456</strong></span>
+            </div>
+            <div class="alert-item">
+              <el-icon class="alert-icon"><CircleCheck /></el-icon>
+              <span>医生账号创建后状态为已激活，可以直接登录使用。</span>
+            </div>
+          </div>
         </template>
       </el-alert>
 
@@ -454,14 +477,16 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, ArrowDown } from '@element-plus/icons-vue'
+import { Search, Plus, ArrowDown, View, Edit, Delete, Check, Close, Key, CircleClose, CircleCheck } from '@element-plus/icons-vue'
 import { 
   getDoctorList, 
   getDoctorById, 
   createDoctor, 
   updateDoctor, 
   deleteDoctor,
-  createDoctorAccount
+  createDoctorAccount,
+  resetDoctorPassword,
+  disableDoctor
 } from '@/api/doctor'
 import { getNextUserId, createUserAndDoctor } from '@/api/auth'
 import { getDepartmentList } from '@/api/department'
@@ -504,9 +529,7 @@ const filteredDoctors = computed(() => {
   if (searchForm.department) {
     result = result.filter(doctor => 
       doctor.clinic && 
-      departments.value.find(dept => 
-        dept.id === doctor.clinic.departmentId && dept.name === searchForm.department
-      )
+      doctor.clinic.departmentId == searchForm.department
     )
   }
 
@@ -576,6 +599,7 @@ const getStatusType = (status) => {
   const statusMap = {
     'active': 'success',
     'inactive': 'danger',
+    'disabled': 'danger',
     'pending_approval': 'warning'
   }
   return statusMap[status] || 'info'
@@ -585,6 +609,7 @@ const getStatusText = (status) => {
   const statusMap = {
     'active': '已激活',
     'inactive': '已禁用',
+    'disabled': '已停用',
     'pending_approval': '待审核'
   }
   return statusMap[status] || '未知'
@@ -849,6 +874,146 @@ const handleCommand = async (command) => {
   }
 }
 
+// 删除医生
+const handleDeleteDoctor = async (doctor) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除医生 ${doctor.name} 吗？此操作不可恢复！`,
+      '确认删除',
+      { 
+        type: 'error',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    await deleteDoctor(doctor.id)
+    ElMessage.success('医生删除成功')
+    await loadDoctors() // 重新加载数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 批量删除医生
+const handleBatchDelete = async () => {
+  if (selectedDoctors.value.length === 0) {
+    ElMessage.warning('请先选择要删除的医生')
+    return
+  }
+
+  try {
+    const doctorNames = selectedDoctors.value.map(doctor => doctor.name).join('、')
+    await ElMessageBox.confirm(
+      `确定要删除以下 ${selectedDoctors.value.length} 个医生吗？\n${doctorNames}\n\n此操作不可恢复！`,
+      '确认批量删除',
+      { 
+        type: 'error',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    // 批量删除
+    const deletePromises = selectedDoctors.value.map(doctor => deleteDoctor(doctor.id))
+    await Promise.all(deletePromises)
+    
+    ElMessage.success(`成功删除 ${selectedDoctors.value.length} 个医生`)
+    selectedDoctors.value = [] // 清空选择
+    await loadDoctors() // 重新加载数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 批量重置密码
+const handleBatchResetPassword = async () => {
+  if (selectedDoctors.value.length === 0) {
+    ElMessage.warning('请先选择要重置密码的医生')
+    return
+  }
+
+  try {
+    const doctorNames = selectedDoctors.value.map(doctor => doctor.name).join('、')
+    await ElMessageBox.confirm(
+      `确定要将以下 ${selectedDoctors.value.length} 个医生的密码重置为 123456 吗？\n${doctorNames}`,
+      '确认批量重置密码',
+      { 
+        type: 'warning',
+        confirmButtonText: '确定重置',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    // 批量重置密码
+    const resetPromises = selectedDoctors.value.map(doctor => 
+      resetDoctorPassword(doctor.user.id, { newPassword: '123456' })
+    )
+    await Promise.all(resetPromises)
+    
+    ElMessage.success(`成功重置 ${selectedDoctors.value.length} 个医生的密码`)
+    selectedDoctors.value = [] // 清空选择
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量重置密码失败:', error)
+      ElMessage.error('批量重置密码失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 重置密码处理函数
+const handleResetPassword = async (doctor) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要将医生 ${doctor.name} 的密码重置为 123456 吗？`,
+      '重置密码',
+      {
+        confirmButtonText: '确定重置',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await resetDoctorPassword(doctor.user.id, { newPassword: '123456' })
+    ElMessage.success(`医生 ${doctor.name} 的密码已重置为 123456`)
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('重置密码失败:', error)
+      ElMessage.error('重置密码失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 停用医生处理函数
+const handleDisableDoctor = async (doctor) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要停用医生 ${doctor.name} 的账号吗？停用后该医生将无法登录系统。`,
+      '停用医生账号',
+      {
+        confirmButtonText: '确定停用',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await disableDoctor(doctor.user.id)
+    ElMessage.success(`医生 ${doctor.name} 的账号已停用`)
+    await loadDoctors() // 重新加载医生列表
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('停用医生失败:', error)
+      ElMessage.error('停用医生失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
 // 审核相关方法
 const viewPendingDetail = async (doctor) => {
   try {
@@ -976,6 +1141,7 @@ onMounted(async () => {
 /* 医生详情对话框样式 */
 .doctor-detail {
   padding: 0;
+  line-height: 1.6;
 }
 
 /* 医生头像样式 */
@@ -991,33 +1157,35 @@ onMounted(async () => {
 
 /* 基本信息卡片样式 */
 .doctor-header-card {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
 }
 
 .doctor-basic-info h3 {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   color: #2c3e50;
-  border-bottom: 3px solid #409eff;
-  padding-bottom: 12px;
+  border-bottom: 2px solid #409eff;
+  padding-bottom: 10px;
   display: inline-block;
+  text-align: left;
 }
 
 /* 信息网格布局 */
 .info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 24px;
-  margin-top: 20px;
+  gap: 14px 24px;
+  margin-top: 18px;
 }
 
 .info-item {
   display: flex;
-  align-items: center;
-  min-height: 32px;
+  align-items: flex-start;
+  min-height: 30px;
+  line-height: 1.5;
 }
 
 .info-label {
@@ -1026,17 +1194,21 @@ onMounted(async () => {
   color: #666;
   font-weight: 500;
   flex-shrink: 0;
+  text-align: left;
+  padding-top: 2px;
 }
 
 .info-value {
   color: #333;
   font-weight: 400;
   flex: 1;
+  text-align: left;
+  padding-top: 2px;
 }
 
 /* 卡片样式 */
 .doctor-section-card {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
 }
@@ -1052,52 +1224,61 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 600;
   color: #2c3e50;
+  text-align: left;
 }
 
 .card-header i {
   margin-right: 8px;
   color: #409eff;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 /* 专长内容样式 */
 .doctor-specialty-content {
-  padding: 10px 0;
+  padding: 16px 0;
+  text-align: left;
 }
 
 .specialty-tag {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #409eff;
   color: white;
   border: none;
-  padding: 8px 16px;
-  font-size: 14px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 4px;
   font-weight: 500;
+  display: inline-block;
 }
 
 /* 简介内容样式 */
 .doctor-bio-content {
-  padding: 10px 0;
+  padding: 16px 0;
+  text-align: left;
 }
 
 .doctor-bio-content p {
-  line-height: 1.8;
+  line-height: 1.6;
   color: #555;
-  text-align: justify;
+  text-align: left;
   margin: 0;
   font-size: 14px;
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
 }
 
 /* 其他信息样式 */
 .doctor-additional-content {
-  padding: 10px 0;
+  padding: 16px 0;
 }
 
 .additional-info-item {
   display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  min-height: 28px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  min-height: 30px;
+  line-height: 1.5;
 }
 
 .additional-info-item:last-child {
@@ -1109,24 +1290,96 @@ onMounted(async () => {
   color: #666;
   font-weight: 500;
   flex-shrink: 0;
+  text-align: left;
+  padding-top: 2px;
+}
+
+/* 批量操作栏样式 */
+.batch-operations {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+.selected-info {
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 医生创建提示信息样式 */
+.doctor-create-alert {
+  margin-bottom: 20px;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.alert-icon {
+  color: #409eff;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.alert-item span {
+  color: #606266;
+  font-size: 14px;
+}
+
+.alert-item strong {
+  color: #e6a23c;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 2px 6px;
+  background-color: #fdf6ec;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
 }
 
 .additional-info-item .info-value {
   color: #333;
   flex: 1;
+  text-align: left;
+  padding-top: 2px;
 }
 
 /* 空文本样式 */
 .empty-text {
   color: #999;
   font-style: italic;
+  text-align: left;
 }
 
 /* 状态标签样式 */
 .el-tag {
   font-size: 12px;
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-weight: 500;
 }
 

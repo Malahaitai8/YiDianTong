@@ -35,7 +35,7 @@
     <el-card class="main-card">
       <!-- 搜索和操作栏 -->
       <div class="search-bar">
-        <el-form :model="searchForm" inline>
+        <el-form :model="searchForm" inline class="search-form">
           <el-form-item>
             <el-input
               v-model="searchForm.keyword"
@@ -54,18 +54,17 @@
             <el-button type="primary" @click="handleSearch">搜索</el-button>
             <el-button @click="resetSearch">重置</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="openAddDialog">
+              <el-icon><Plus /></el-icon>
+              添加科室
+            </el-button>
+            <el-button type="success" @click="openBatchAddDialog">
+              <el-icon><Plus /></el-icon>
+              批量添加科室
+            </el-button>
+          </el-form-item>
         </el-form>
-        
-        <div class="action-buttons">
-          <el-button type="primary" @click="openAddDialog">
-            <el-icon><Plus /></el-icon>
-            添加科室
-          </el-button>
-          <el-button type="success" @click="openBatchAddDialog">
-            <el-icon><Plus /></el-icon>
-            批量添加科室
-          </el-button>
-        </div>
       </div>
 
       <!-- 科室列表 -->
@@ -415,17 +414,29 @@
             <!-- 模板下载区域 -->
             <div class="template-section">
               <el-alert
-                title="使用说明"
                 type="info"
                 :closable="false"
                 show-icon
+                class="usage-alert"
               >
                 <template #default>
                   <div class="usage-tips">
-                    <p>1. 下载模板文件，按照格式填写科室信息</p>
-                    <p>2. 支持 Excel (.xlsx) 和 CSV (.csv) 格式</p>
-                    <p>3. 科室名称为必填项，长度2-50个字符</p>
-                    <p>4. 科室描述为可选项</p>
+                    <div class="tip-item">
+                      <el-icon class="tip-icon"><DocumentAdd /></el-icon>
+                      <span>下载模板文件，按照格式填写科室信息</span>
+                    </div>
+                    <div class="tip-item">
+                      <el-icon class="tip-icon"><Document /></el-icon>
+                      <span>支持 Excel (.xlsx) 和 CSV (.csv) 格式</span>
+                    </div>
+                    <div class="tip-item">
+                      <el-icon class="tip-icon"><Check /></el-icon>
+                      <span>科室名称为必填项，长度2-50个字符</span>
+                    </div>
+                    <div class="tip-item">
+                      <el-icon class="tip-icon"><Edit /></el-icon>
+                      <span>科室描述为可选项</span>
+                    </div>
                   </div>
                 </template>
               </el-alert>
@@ -566,7 +577,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
     Download,
     UploadFilled,
     WarningFilled,
-    Setting
+    Setting,
+    DocumentAdd,
+    Document,
+    Check
   } from '@element-plus/icons-vue'
   import { 
     getDepartmentList, 
@@ -1448,18 +1462,35 @@ const saveImportDepartments = async () => {
 
 /* 搜索栏样式 */
 .search-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 20px;
   padding: 20px;
   background: #f8f9fa;
   border-radius: 8px;
 }
 
-.action-buttons {
+.search-form {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 0;
+}
+
+.search-form .el-form-item:last-child {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.search-form .el-form-item .el-button {
+  margin-right: 8px;
+}
+
+.search-form .el-form-item .el-button:last-child {
+  margin-right: 0;
 }
 
 /* 表格区域样式 */
@@ -1748,13 +1779,30 @@ const saveImportDepartments = async () => {
   margin-bottom: 30px;
 }
 
-.usage-tips {
-  margin: 0;
+.usage-alert {
+  text-align: left;
 }
 
-.usage-tips p {
-  margin: 5px 0;
+.usage-tips {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tip-icon {
+  color: #409eff;
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
 .template-actions {

@@ -51,6 +51,23 @@ export const createDoctorAccount = (data) => {
   })
 }
 
+// 重置医生密码
+export const resetDoctorPassword = (id, data) => {
+  return request({
+    url: `/admin/doctor/${id}/reset-password`,
+    method: 'post',
+    data
+  })
+}
+
+// 停用医生账号
+export const disableDoctor = (id) => {
+  return request({
+    url: `/admin/doctor/${id}/disable`,
+    method: 'post'
+  })
+}
+
 // 提交医生信息变更申请
 export const submitDoctorChangeRequest = (data) => {
   return request({
