@@ -2036,150 +2036,192 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-## 1️⃣2️⃣ 医生注册审核模块（管理端）
+## 1️⃣2️⃣ 医生调班申请审核模块
 
-### 12.1 获取待审核医生列表
+### 12.1 医生提交调班申请
 
-**接口**: `GET /api/admin/approval/doctors/pending`
+**接口**: `POST /api/schedule-change/submit`
 
-**权限**: 管理员
+**权限**: 医生
 
-**说明**: 返回状态为 `pending_approval` 的医生账号及其基础资料。
+**说明**: 医生申请修改自己的排班信息，需要管理员审核通过后才能生效。
 
-**响应示例**:
+**请求体**:
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "userId": 20,
-      "username": "doctor001",
-      "doctorId": 1,
-      "name": "王医生",
-      "title": "主任医师",
-      "specialty": "心内科",
-      "bio": "擅长心血管疾病诊疗，从医20年",
-      "clinicId": 1,
-      "clinicName": "普通门诊",
-      "createdAt": "2025-10-22T14:30:00",
-      "status": "pending_approval"
-    }
-  ],
-  "total": 1
+  "scheduleId": 1,
+  "newScheduleDate": "2025-11-10",
+  "newTimeSlot": "AFTERNOON",
+  "newSlotType": "expert",
+  "newTotalSlots": 15,
+  "reason": "临时有会议安排，需要调整排班"
 }
 ```
 
----
-
-### 12.2 获取待审核医生详情
-
-**接口**: `GET /api/admin/approval/doctors/{userId}`
-
-**权限**: 管理员
-
-**路径参数**:
-- `userId`: 用户ID
+**字段说明**:
+- `scheduleId`: 要调整的排班ID（必填）
+- `newScheduleDate`: 新的排班日期（可选，不传则保持原日期）
+- `newTimeSlot`: 新的时间段（可选，MORNING/AFTERNOON/EVENING）
+- `newSlotType`: 新的号别（可选，normal/expert/vip）
+- `newTotalSlots`: 新的总号源数（可选）
+- `reason`: 申请原因（可选）
 
 **响应示例**:
 ```json
 {
-  "success": true,
+  "code": "200",
+  "msg": "成功",
   "data": {
-    "userId": 20,
-    "username": "doctor001",
-    "doctorId": 1,
-    "name": "王医生",
-    "title": "主任医师",
-    "specialty": "心内科",
-    "bio": "擅长心血管疾病诊疗，从医20年",
-    "clinicId": 1,
-    "clinicName": "普通门诊",
-    "createdAt": "2025-10-22T14:30:00",
-    "status": "pending_approval"
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "scheduleId": 1,
+    "requestedByUserId": 10,
+    "doctorId": 5,
+    "originalScheduleDate": "2025-11-08",
+    "originalTimeSlot": "MORNING",
+    "originalSlotType": "normal",
+    "originalTotalSlots": 10,
+    "newScheduleDate": "2025-11-10",
+    "newTimeSlot": "AFTERNOON",
+    "newSlotType": "expert",
+    "newTotalSlots": 15,
+    "reason": "临时有会议安排，需要调整排班",
+    "status": "PENDING",
+    "createdAt": 1698825600000,
+    "updatedAt": 1698825600000
   }
 }
 ```
 
 ---
 
-### 12.3 审核通过医生注册
+### 12.2 医生查看自己的调班申请
 
-**接口**: `POST /api/admin/approval/doctors/approve`
+**接口**: `GET /api/schedule-change/my`
 
-**权限**: 管理员
+**权限**: 医生
 
-**请求体**:
-```json
-{
-  "userId": 20,
-  "reason": "资料齐全，审核通过"
-}
-```
+**说明**: 查看自己提交的所有调班申请及审核状态。
 
 **响应示例**:
 ```json
 {
-  "success": true,
-  "message": "审核通过，医生账号已激活"
-}
-```
-
-**错误示例**:
-```json
-{
-  "success": false,
-  "message": "该用户不是待审核状态"
-}
-```
-
----
-
-### 12.4 审核拒绝医生注册
-
-**接口**: `POST /api/admin/approval/doctors/reject`
-
-**权限**: 管理员
-
-**请求体**:
-```json
-{
-  "userId": 20,
-  "reason": "资料不完整"
-}
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "已拒绝该医生的注册申请",
-  "reason": "资料不完整"
-}
-```
-
----
-
-### 12.5 批量审核通过
-
-**接口**: `POST /api/admin/approval/doctors/approve/batch`
-
-**权限**: 管理员
-
-**请求体**:
-```json
-[20, 21, 22]
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "批量审核完成: 成功 2 个, 失败 1 个",
-  "successCount": 2,
-  "failCount": 1,
-  "errors": [
-    "用户ID 22 不存在或不是待审核状态"
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "scheduleId": 1,
+      "requestedByUserId": 10,
+      "doctorId": 5,
+      "originalScheduleDate": "2025-11-08",
+      "originalTimeSlot": "MORNING",
+      "newScheduleDate": "2025-11-10",
+      "newTimeSlot": "AFTERNOON",
+      "reason": "临时有会议安排",
+      "status": "APPROVED",
+      "approvedBy": "admin",
+      "approvedAt": 1698829200000,
+      "createdAt": 1698825600000
+    }
   ]
+}
+```
+
+---
+
+### 12.3 管理员查询调班申请列表
+
+**接口**: `GET /api/schedule-change/admin/list?status=PENDING`
+
+**权限**: 管理员
+
+**查询参数**:
+- `status`: 过滤状态（可选）
+  - `PENDING`: 待审核
+  - `APPROVED`: 已通过
+  - `REJECTED`: 已拒绝
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "scheduleId": 1,
+      "requestedByUserId": 10,
+      "doctorId": 5,
+      "originalScheduleDate": "2025-11-08",
+      "originalTimeSlot": "MORNING",
+      "originalSlotType": "normal",
+      "originalTotalSlots": 10,
+      "newScheduleDate": "2025-11-10",
+      "newTimeSlot": "AFTERNOON",
+      "newSlotType": "expert",
+      "newTotalSlots": 15,
+      "reason": "临时有会议安排，需要调整排班",
+      "status": "PENDING",
+      "createdAt": 1698825600000,
+      "updatedAt": 1698825600000
+    }
+  ]
+}
+```
+
+---
+
+### 12.4 管理员审核调班申请
+
+**接口**: `POST /api/schedule-change/admin/review`
+
+**权限**: 管理员
+
+**说明**: 审核通过时自动更新排班信息，拒绝时记录原因。
+
+**请求体（审核通过）**:
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "action": "APPROVE"
+}
+```
+
+**请求体（审核拒绝）**:
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "action": "REJECT",
+  "reason": "当前时间段已有其他医生排班"
+}
+```
+
+**响应示例（通过）**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status": "APPROVED",
+    "approvedBy": "admin",
+    "approvedAt": 1698829200000
+  }
+}
+```
+
+**响应示例（拒绝）**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status": "REJECTED",
+    "approvedBy": "admin",
+    "approvedAt": 1698829200000,
+    "rejectionReason": "当前时间段已有其他医生排班"
+  }
 }
 ```
 

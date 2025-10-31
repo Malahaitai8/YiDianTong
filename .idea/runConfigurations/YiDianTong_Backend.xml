@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="YiDianTong-Backend" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+    <module name="springboot" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.springboot.SpringbootApplication" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/springboot" />
+    <extension name="net.ashald.envfile">
+      <option name="ENABLE_EXPERIMENTAL_INTEGRATIONS" value="true" />
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

@@ -1,0 +1,8 @@
+&lt;component name="ProjectRunConfigurationManager"&gt;
+  &lt;configuration default="false" name="YiDianTong-All" type="CompoundRunConfigurationType"&gt;
+    &lt;toRun name="YiDianTong-Backend" type="SpringBootApplicationConfigurationType" /&gt;
+    &lt;toRun name="YiDianTong-Frontend" type="js.build_tools.npm" /&gt;
+    &lt;method v="2" /&gt;
+  &lt;/configuration&gt;
+&lt;/component&gt;
+
