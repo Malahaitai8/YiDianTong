@@ -23,32 +23,44 @@
             <id column="clinic_id" property="id"/>
             <result column="clinic_name" property="name"/>
             <result column="clinic_description" property="description"/>
+            <result column="department_id" property="departmentId"/>
+            <association property="department" javaType="com.example.springboot.entity.Department">
+                <id column="department_id" property="id"/>
+                <result column="department_name" property="name"/>
+                <result column="department_description" property="description"/>
+            </association>
         </association>
     </resultMap>
 
     <select id="selectAll" resultMap="DoctorResultMap">
         select d.*, u.username, u.role, u.status, u.created_at,
-               c.name as clinic_name, c.description as clinic_description
+               c.name as clinic_name, c.description as clinic_description, c.department_id,
+               dept.name as department_name, dept.description as department_description
         from doctor d
         left join user u on d.user_id = u.id
         left join clinic c on d.clinic_id = c.id
+        left join department dept on c.department_id = dept.id
     </select>
 
     <select id="selectById" resultMap="DoctorResultMap">
         select d.*, u.username, u.role, u.status, u.created_at,
-               c.name as clinic_name, c.description as clinic_description
+               c.name as clinic_name, c.description as clinic_description, c.department_id,
+               dept.name as department_name, dept.description as department_description
         from doctor d
         left join user u on d.user_id = u.id
         left join clinic c on d.clinic_id = c.id
+        left join department dept on c.department_id = dept.id
         where d.id = #{id}
     </select>
 
     <select id="selectByUserId" resultMap="DoctorResultMap">
         select d.*, u.username, u.role, u.status, u.created_at,
-               c.name as clinic_name, c.description as clinic_description
+               c.name as clinic_name, c.description as clinic_description, c.department_id,
+               dept.name as department_name, dept.description as department_description
         from doctor d
         left join user u on d.user_id = u.id
         left join clinic c on d.clinic_id = c.id
+        left join department dept on c.department_id = dept.id
         where d.user_id = #{userId}
     </select>
 

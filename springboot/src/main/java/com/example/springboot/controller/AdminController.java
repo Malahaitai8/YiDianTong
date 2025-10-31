@@ -78,8 +78,8 @@ public class AdminController {
             user.setUsername(request.getUsername());
             user.setPassword(passwordEncoder.encode(request.getPassword()));
             user.setRole(RoleConstants.DB_ROLE_DOCTOR);
-            // 医生账号默认待审核，需要管理员审核后才能激活
-            user.setStatus("pending_approval");
+            // 管理员创建的医生账号直接激活，无需审核
+            user.setStatus("active");
             userMapper.insert(user);
             
             // 2. 创建医生详细信息
@@ -93,7 +93,7 @@ public class AdminController {
             
             doctorMapper.insert(doctor);
             
-            return Result.success("医生账号创建成功，账号状态为待审核，需要审核通过后才能登录");
+            return Result.success("医生账号创建成功，账号已激活，可以直接登录");
         } catch (org.springframework.dao.DuplicateKeyException e) {
             return Result.error("用户名已存在，请使用其他用户名");
         } catch (Exception e) {

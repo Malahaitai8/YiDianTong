@@ -8,5 +8,6 @@ public class Clinic {
     private Long departmentId;
     private String name;
     private String description;
+    private Department department;
 }
 
