@@ -244,25 +244,8 @@
       width="600px"
       @close="resetDoctorForm"
     >
-      <!-- 添加医生时的提示信息 -->
-      <el-alert
-        type="info"
-        :closable="false"
-        class="doctor-create-alert"
-      >
-        <template #default>
-          <div class="alert-content">
-            <div class="alert-item">
-              <el-icon class="alert-icon"><Key /></el-icon>
-              <span>系统将自动创建医生的登录账号，默认密码为：<strong>123456</strong></span>
-            </div>
-            <div class="alert-item">
-              <el-icon class="alert-icon"><CircleCheck /></el-icon>
-              <span>医生账号创建后状态为已激活，可以直接登录使用。</span>
-            </div>
-          </div>
-        </template>
-      </el-alert>
+      
+
 
       <el-form
         ref="doctorFormRef"
@@ -1318,48 +1301,7 @@ onMounted(async () => {
   align-items: center;
 }
 
-/* 医生创建提示信息样式 */
-.doctor-create-alert {
-  margin-bottom: 20px;
-  width: 100%;
-  margin-left: 0;
-  margin-right: 0;
-}
 
-.alert-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.alert-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  line-height: 1.5;
-  text-align: left;
-}
-
-.alert-icon {
-  color: #409eff;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.alert-item span {
-  color: #606266;
-  font-size: 14px;
-}
-
-.alert-item strong {
-  color: #e6a23c;
-  font-weight: 600;
-  font-size: 14px;
-  padding: 2px 6px;
-  background-color: #fdf6ec;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-}
 
 .additional-info-item .info-value {
   color: #333;

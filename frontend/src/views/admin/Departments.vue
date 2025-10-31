@@ -55,10 +55,6 @@
             <el-button @click="resetSearch">重置</el-button>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="openAddDialog">
-              <el-icon><Plus /></el-icon>
-              添加科室
-            </el-button>
             <el-button type="success" @click="openBatchAddDialog">
               <el-icon><Plus /></el-icon>
               批量添加科室
@@ -842,12 +838,6 @@ const handleSizeChange = (size) => {
 const handleCurrentChange = (page) => {
   pagination.currentPage = page
   fetchDepartments()
-}
-
-const openAddDialog = () => {
-  departmentDialog.visible = true
-  departmentDialog.isEdit = false
-  resetDepartmentForm()
 }
 
 const viewDepartment = async (department) => {
