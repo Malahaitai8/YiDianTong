@@ -110,4 +110,13 @@ public interface ScheduleMapper {
         @Param("slotType") String slotType
     );
 
+    /**
+     * 删除指定医生、日期、时间段的排班（用于规则覆盖）
+     */
+    @Delete("DELETE FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date = #{scheduleDate} AND time_slot = #{timeSlot}")
+    int deleteByDoctorDateTimeSlot(@Param("doctorId") Long doctorId,
+                                    @Param("scheduleDate") Date scheduleDate,
+                                    @Param("timeSlot") String timeSlot);
+
 }

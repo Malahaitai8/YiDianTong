@@ -299,3 +299,201 @@ INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_n
 -- 教师1: teacher1 / 123456 (赵老师 - 已认证)
 -- 教师2: teacher2 / 123456 (钱老师 - 已认证)
 -- ========================================
+
+-- ========================================
+-- 排班规则示例数据
+-- ========================================
+-- 示例1: 李文华医生(呼吸内科)固定周一三五上午出诊
+INSERT INTO `schedule_rule` (
+    `rule_name`, `rule_type`, `doctor_id`, `clinic_id`,
+    `week_days`, `time_slots`, `start_date`, `end_date`,
+    `slot_type`, `total_slots`, `skip_weekends`, `skip_holidays`,
+    `status`, `priority`, `description`, `created_by`
+) VALUES (
+    '李文华专家门诊规则',
+    'weekly',
+    1,
+    1,
+    '1,3,5',
+    'morning',
+    '2025-11-01',
+    '2025-12-31',
+    'expert',
+    10,
+    1,
+    1,
+    'ACTIVE',
+    10,
+    '呼吸内科专家李文华医生每周一三五上午出诊，专家号10个',
+    'admin'
+);
+
+-- 示例2: 刘强医生(心血管内科)周二四下午出诊
+INSERT INTO `schedule_rule` (
+    `rule_name`, `rule_type`, `doctor_id`, `clinic_id`,
+    `week_days`, `time_slots`, `start_date`, `end_date`,
+    `slot_type`, `total_slots`, `max_continuous_days`, `skip_weekends`,
+    `status`, `priority`, `description`, `created_by`
+) VALUES (
+    '刘强心血管专家规则',
+    'weekly',
+    5,
+    2,
+    '2,4',
+    'afternoon',
+    '2025-11-01',
+    '2025-12-31',
+    'expert',
+    10,
+    3,
+    1,
+    'ACTIVE',
+    10,
+    '心血管专家刘强医生周二四下午出诊',
+    'admin'
+);
+
+-- 示例3: 周明医生(消化内科)普通门诊规则
+INSERT INTO `schedule_rule` (
+    `rule_name`, `rule_type`, `doctor_id`, `clinic_id`,
+    `week_days`, `time_slots`, `start_date`, `end_date`,
+    `slot_type`, `total_slots`, `skip_weekends`,
+    `status`, `priority`, `description`, `created_by`
+) VALUES (
+    '周明消化科普通门诊',
+    'weekly',
+    8,
+    3,
+    '1,2,3,4,5',
+    'morning',
+    '2025-11-01',
+    '2025-12-31',
+    'normal',
+    20,
+    1,
+    'ACTIVE',
+    5,
+    '周明医生工作日上午出诊，普通号20个',
+    'admin'
+);
+
+-- ========================================
+-- 申请记录示例数据
+-- ========================================
+-- 示例1: 调班申请 - 李文华医生申请取消11月15日上午门诊
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `schedule_id`, `change_type`, `original_date`, `original_time_slot`,
+    `status`, `reason`, `created_at`
+) VALUES (
+    'SCHEDULE_CHANGE',
+    1,  -- 李文华医生的user_id
+    'doctor',
+    1,  -- 对应的schedule_id
+    'CANCEL',
+    '2025-10-14',
+    'morning',
+    'PENDING',
+    '需要参加医学学术会议，无法出诊',
+    '2025-10-01 09:00:00'
+);
+
+-- 示例2: 调班申请 - 刘强医生申请调整号源数量
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `schedule_id`, `change_type`, `original_date`, `original_time_slot`,
+    `slot_adjustment`, `status`, `reason`, `created_at`
+) VALUES (
+    'SCHEDULE_CHANGE',
+    5,  -- 刘强医生的user_id
+    'doctor',
+    2,
+    'ADJUST_SLOTS',
+    '2025-10-14',
+    'morning',
+    5,  -- 增加5个号源
+    'APPROVED',
+    '患者需求量大，希望增加号源',
+    '2025-10-02 10:30:00'
+);
+
+-- 示例3: 调班申请 - 改期申请
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `schedule_id`, `change_type`,
+    `original_date`, `original_time_slot`,
+    `new_date`, `new_time_slot`,
+    `status`, `reason`, `reject_reason`, `reviewer_id`, `reviewed_at`, `created_at`
+) VALUES (
+    'SCHEDULE_CHANGE',
+    8,  -- 周明医生的user_id
+    'doctor',
+    3,
+    'RESCHEDULE',
+    '2025-10-14',
+    'morning',
+    '2025-10-15',
+    'afternoon',
+    'REJECTED',
+    '个人原因需要调整出诊时间',
+    '10月15日下午已有其他医生排班，无法安排',
+    38,  -- admin的user_id
+    '2025-10-03 14:20:00',
+    '2025-10-03 11:00:00'
+);
+
+-- 示例4: 信息修改申请 - 张晓雯医生申请修改个人简介
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `doctor_id`, `field_name`, `old_value`, `new_value`,
+    `status`, `reason`, `created_at`
+) VALUES (
+    'INFO_UPDATE',
+    2,  -- 张晓雯医生的user_id
+    'doctor',
+    2,  -- 张晓雯医生的doctor_id
+    'bio',
+    '专注于呼吸健康宣教和慢病管理。',
+    '专注于呼吸健康宣教和慢病管理，擅长戒烟咨询和肺功能康复指导。',
+    'PENDING',
+    '补充完善个人专业特长介绍',
+    '2025-10-04 09:15:00'
+);
+
+-- 示例5: 信息修改申请 - 王建军医生申请修改擅长领域
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `doctor_id`, `field_name`, `old_value`, `new_value`,
+    `status`, `reason`, `reviewer_id`, `reviewed_at`, `created_at`
+) VALUES (
+    'INFO_UPDATE',
+    3,  -- 王建军医生的user_id
+    'doctor',
+    3,  -- 王建军医生的doctor_id
+    'specialty',
+    '常见感冒、支气管炎',
+    '常见感冒、支气管炎、过敏性鼻炎',
+    'APPROVED',
+    '新增过敏性疾病诊疗能力',
+    38,  -- admin的user_id
+    '2025-10-05 16:45:00',
+    '2025-10-05 10:20:00'
+);
+
+-- 示例6: 信息修改申请 - 赵梅医生申请修改职称
+INSERT INTO `application_request` (
+    `request_type`, `applicant_id`, `applicant_role`,
+    `doctor_id`, `field_name`, `old_value`, `new_value`,
+    `status`, `reason`, `created_at`
+) VALUES (
+    'INFO_UPDATE',
+    4,  -- 赵梅医生的user_id
+    'doctor',
+    4,  -- 赵梅医生的doctor_id
+    'title',
+    '主治医师',
+    '副主任医师',
+    'PENDING',
+    '已通过职称晋升考试，需要更新系统信息',
+    '2025-10-06 14:00:00'
+);

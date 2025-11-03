@@ -27,5 +27,9 @@
         where `key` = #{key}
     </update>
 
+    <delete id="deleteByKey">
+        delete from system_config where `key` = #{key}
+    </delete>
+
 </mapper>
 

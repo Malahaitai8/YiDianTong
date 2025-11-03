@@ -2227,6 +2227,427 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
+## 1️⃣3️⃣ 排班规则管理模块 ⭐
+
+### 13.1 创建排班规则
+
+**接口**: `POST /api/admin/schedule-rules`
+
+**权限**: 仅管理员
+
+**说明**: 创建排班规则模板，规则存储在 `system_config` 表中（JSON格式），可用于批量生成排班。
+
+**请求体**:
+```json
+{
+  "ruleName": "心内科主任医师固定排班",
+  "ruleType": "FIXED_WEEKLY",
+  "doctorId": 1,
+  "departmentId": 1,
+  "clinicId": 1,
+  "weekDays": [1, 3, 5],
+  "timeSlots": ["morning", "afternoon"],
+  "slotType": "expert",
+  "totalSlots": 20,
+  "maxDailySchedules": 2,
+  "maxContinuousDays": 5,
+  "skipWeekends": true,
+  "skipHolidays": true,
+  "startDate": "2025-11-01",
+  "endDate": "2025-12-31",
+  "priority": 10,
+  "description": "心内科主任医师每周一、三、五上午和下午出诊"
+}
+```
+
+**字段说明**:
+- `ruleName` (必填): 规则名称
+- `ruleType` (必填): 规则类型
+  - `FIXED_WEEKLY`: 固定周排班（每周固定某几天）
+  - `ROTATION`: 轮班制
+  - `CUSTOM`: 自定义规则
+- `doctorId` (可选): 关联的医生ID，不传表示通用规则
+- `departmentId` (可选): 关联的科室ID
+- `clinicId` (可选): 关联的门诊ID
+- `weekDays` (可选): 生效的星期几，1=周一, 2=周二, ..., 7=周日
+  - 例如: `[1, 3, 5]` 表示周一、三、五
+- `timeSlots` (必填): 时间段列表，如 `["morning", "afternoon", "evening"]`
+- `slotType` (必填): 号别 `normal`/`expert`/`vip`
+- `totalSlots` (必填): 默认总号源数（1-100）
+- `maxDailySchedules` (可选): 每天最多排班次数
+- `maxContinuousDays` (可选): 最多连续排班天数
+- `skipWeekends` (可选): 是否跳过周末，默认 false
+- `skipHolidays` (可选): 是否跳过节假日，默认 false
+- `startDate` (必填): 规则生效开始日期（yyyy-MM-dd）
+- `endDate` (可选): 规则生效结束日期
+- `priority` (可选): 优先级，数字越大优先级越高，默认 0
+- `description` (可选): 规则描述
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": "SCHEDULE_RULE_A1B2C3D4",
+    "ruleName": "心内科主任医师固定排班",
+    "ruleType": "FIXED_WEEKLY",
+    "doctorId": 1,
+    "departmentId": 1,
+    "clinicId": 1,
+    "weekDays": [1, 3, 5],
+    "timeSlots": ["morning", "afternoon"],
+    "slotType": "expert",
+    "totalSlots": 20,
+    "status": "ACTIVE",
+    "priority": 10,
+    "createdBy": "admin",
+    "createdAt": "2025-10-31 10:00:00"
+  }
+}
+```
+
+---
+
+### 13.2 查询所有排班规则
+
+**接口**: `GET /api/admin/schedule-rules`
+
+**权限**: 仅管理员
+
+**说明**: 获取系统中所有的排班规则列表，按优先级降序排列。
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": "SCHEDULE_RULE_A1B2C3D4",
+      "ruleName": "心内科主任医师固定排班",
+      "ruleType": "FIXED_WEEKLY",
+      "doctorId": 1,
+      "weekDays": [1, 3, 5],
+      "timeSlots": ["morning", "afternoon"],
+      "slotType": "expert",
+      "totalSlots": 20,
+      "status": "ACTIVE",
+      "priority": 10,
+      "createdAt": "2025-10-31 10:00:00"
+    }
+  ]
+}
+```
+
+---
+
+### 13.3 查询规则详情
+
+**接口**: `GET /api/admin/schedule-rules/{ruleId}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID（数字ID，如：1）
+
+**响应示例**: 同 13.1
+
+---
+
+### 13.3.1 查询规则完整详情（包含关联信息）⭐
+
+**接口**: `GET /api/admin/schedule-rules/detail/{id}`
+
+**权限**: 仅管理员
+
+**说明**: 通过数据库联查直接返回包含医生、科室、门诊等完整关联信息的详情，自动转换枚举值为中文。
+
+**路径参数**:
+- `id`: 规则ID（数字ID）
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "ruleName": "心内科主任医师固定排班",
+    "ruleType": "FIXED",
+    "ruleTypeName": "固定排班",
+    "doctorId": 1,
+    "doctorName": "王医生",
+    "doctorTitle": "主任医师",
+    "departmentId": 1,
+    "departmentName": "心内科",
+    "clinicId": 1,
+    "clinicName": "普通门诊",
+    "weekDays": "1,3,5",
+    "weekDaysList": [1, 3, 5],
+    "weekDaysDisplay": "周一、周三、周五",
+    "timeSlots": "MORNING,AFTERNOON",
+    "timeSlotsList": ["MORNING", "AFTERNOON"],
+    "timeSlotsDisplay": "上午、下午",
+    "slotType": "EXPERT",
+    "slotTypeName": "专家号",
+    "totalSlots": 20,
+    "maxDailySchedules": 2,
+    "maxContinuousDays": 5,
+    "skipWeekends": true,
+    "skipHolidays": true,
+    "startDate": "2025-11-01",
+    "endDate": "2025-12-31",
+    "status": "ACTIVE",
+    "statusName": "启用",
+    "priority": 10,
+    "description": "心内科主任医师每周一、三、五上午和下午出诊",
+    "createdBy": "admin",
+    "createdAt": "2025-10-31 10:00:00",
+    "updatedAt": "2025-10-31 10:00:00"
+  }
+}
+```
+
+**字段说明**:
+- **基本信息**:
+  - `id`: 规则ID
+  - `ruleName`: 规则名称
+  - `ruleType`: 规则类型（英文代码）
+  - `ruleTypeName`: 规则类型（中文名称）
+- **关联信息**（自动联查）:
+  - `doctorId/doctorName/doctorTitle`: 医生信息
+  - `departmentId/departmentName`: 科室信息
+  - `clinicId/clinicName`: 门诊信息
+- **时间配置**（多格式）:
+  - `weekDays`: 星期字符串（如："1,3,5"）
+  - `weekDaysList`: 星期数组（如：[1, 3, 5]）
+  - `weekDaysDisplay`: 中文显示（如："周一、周三、周五"）
+  - `timeSlots/timeSlotsList/timeSlotsDisplay`: 时段的三种格式
+- **号源配置**:
+  - `slotType/slotTypeName`: 号别类型及中文名称
+  - `totalSlots`: 总号源数
+- **高级规则**:
+  - `maxDailySchedules`: 每日最大排班数
+  - `maxContinuousDays`: 连续天数限制
+  - `skipWeekends/skipHolidays`: 是否跳过周末/节假日
+- **状态信息**:
+  - `status/statusName`: 状态及中文名称
+  - `priority`: 优先级
+- **审计信息**:
+  - `createdBy`: 创建人
+  - `createdAt/updatedAt`: 创建/更新时间
+
+**与普通详情接口的区别**:
+- ✅ 一次查询返回所有关联信息（医生、科室、门诊）
+- ✅ 自动转换枚举值为中文（ACTIVE → "启用"）
+- ✅ 提供多种格式的时间配置（字符串、数组、中文显示）
+- ✅ 性能更好（使用 SQL JOIN 而非多次查询）
+
+**使用场景**:
+- 详情页面展示完整规则信息
+- 导出规则数据
+- 需要展示中文名称的场景
+
+---
+
+### 13.4 查询医生的排班规则
+
+**接口**: `GET /api/admin/schedule-rules/doctor/{doctorId}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `doctorId`: 医生ID
+
+**说明**: 获取指定医生的所有排班规则。
+
+---
+
+### 13.5 按状态查询规则
+
+**接口**: `GET /api/admin/schedule-rules/status/{status}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `status`: 状态（ACTIVE 或 DISABLED）
+
+**说明**: 查询指定状态的排班规则。
+
+---
+
+### 13.6 更新排班规则
+
+**接口**: `PUT /api/admin/schedule-rules/{ruleId}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**请求体**:
+```json
+{
+  "ruleName": "心内科主任医师更新后的排班",
+  "totalSlots": 25,
+  "status": "ACTIVE",
+  "description": "更新后的描述"
+}
+```
+
+**说明**: 可部分更新字段，不传的字段保持不变。
+
+**响应示例**: 返回更新后的完整规则信息。
+
+---
+
+### 13.7 删除排班规则
+
+**接口**: `DELETE /api/admin/schedule-rules/{ruleId}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": "规则删除成功"
+}
+```
+
+**注意**: 删除规则不会影响已生成的排班记录。
+
+---
+
+### 13.8 启用排班规则
+
+**接口**: `POST /api/admin/schedule-rules/{ruleId}/enable`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**说明**: 将规则状态设置为 ACTIVE。
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": "规则已启用"
+}
+```
+
+---
+
+### 13.9 禁用排班规则
+
+**接口**: `POST /api/admin/schedule-rules/{ruleId}/disable`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**说明**: 将规则状态设置为 DISABLED，禁用后无法应用生成排班。
+
+---
+
+### 13.10 应用规则生成排班 ⭐
+
+**接口**: `POST /api/admin/schedule-rules/{ruleId}/apply`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**说明**: 根据规则自动批量创建排班记录，这是排班规则的核心功能。
+
+**请求体（可选）**:
+```json
+{
+  "applyStartDate": "2025-11-01",
+  "applyEndDate": "2025-11-30",
+  "overwriteExisting": false,
+  "excludeDates": ["2025-11-05", "2025-11-12"]
+}
+```
+
+**字段说明**:
+- `applyStartDate` (可选): 应用开始日期，不传则使用规则的开始日期
+- `applyEndDate` (可选): 应用结束日期，不传则使用规则的结束日期或默认生成30天
+- `overwriteExisting` (可选): 是否覆盖已存在的排班，默认 false（跳过）
+- `excludeDates` (可选): 排除的日期列表，在这些日期不生成排班
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "successCount": 24,
+    "skipCount": 3,
+    "errorCount": 0,
+    "errors": [],
+    "message": "成功创建 24 个排班，跳过 3 个已存在的排班，失败 0 个"
+  }
+}
+```
+
+**业务逻辑**:
+1. 检查规则是否启用（ACTIVE）
+2. 根据规则的 `weekDays`、`skipWeekends` 等条件生成日期列表
+3. 排除 `excludeDates` 中的日期
+4. 对每个日期和时间段检查是否已存在排班
+5. 根据 `overwriteExisting` 参数决定是覆盖还是跳过
+6. 批量创建排班记录
+
+**使用场景**:
+- 新医生入职，快速生成一个月的排班
+- 调整某医生的长期排班规则
+- 批量生成节假日后的排班
+
+---
+
+### 13.11 检测规则冲突
+
+**接口**: `GET /api/admin/schedule-rules/{ruleId}/conflicts`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `ruleId`: 规则ID
+
+**说明**: 检查指定规则与其他规则是否存在冲突（同一医生、重叠时间）。
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "hasConflicts": true,
+    "conflictCount": 1,
+    "conflicts": [
+      {
+        "conflictRuleId": "SCHEDULE_RULE_B2C3D4E5",
+        "conflictRuleName": "心内科医师轮班规则",
+        "reason": "规则在医生ID=1、日期范围和时间段上存在重叠"
+      }
+    ]
+  }
+}
+```
+
+---
+
 ## 📋 常见业务流程
 
 ### 流程1: 患者注册登录
@@ -2297,7 +2718,58 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-### 流程4: 管理员管理医生
+### 流程4: 管理员制定排班规则并生成排班 ⭐
+
+1. **创建排班规则**: `POST /api/admin/schedule-rules`
+   ```json
+   {
+     "ruleName": "心内科主任医师固定排班",
+     "ruleType": "FIXED_WEEKLY",
+     "doctorId": 1,
+     "weekDays": [1, 3, 5],
+     "timeSlots": ["morning", "afternoon"],
+     "slotType": "expert",
+     "totalSlots": 20,
+     "skipWeekends": true,
+     "startDate": "2025-11-01",
+     "endDate": "2025-12-31",
+     "description": "每周一、三、五上午和下午出诊"
+   }
+   ```
+   - 返回规则ID（数字ID，如：`1`）
+
+2. **检测规则冲突**: `GET /api/admin/schedule-rules/{ruleId}/conflicts`
+   - 确保规则不会与其他规则冲突
+
+3. **应用规则生成排班**: `POST /api/admin/schedule-rules/{ruleId}/apply`
+   ```json
+   {
+     "applyStartDate": "2025-11-01",
+     "applyEndDate": "2025-11-30",
+     "overwriteExisting": false,
+     "excludeDates": ["2025-11-05"]
+   }
+   ```
+   - 系统自动生成整月的排班
+   - 返回成功、跳过、失败的数量
+
+4. **查看生成的排班**: `GET /api/admin/schedules?doctorId=1&startDate=2025-11-01&endDate=2025-11-30`
+
+5. **管理规则**:
+   - 启用规则: `POST /api/admin/schedule-rules/{ruleId}/enable`
+   - 禁用规则: `POST /api/admin/schedule-rules/{ruleId}/disable`
+   - 更新规则: `PUT /api/admin/schedule-rules/{ruleId}`
+   - 删除规则: `DELETE /api/admin/schedule-rules/{ruleId}`
+
+**使用场景**:
+- 新医生入职：创建规则 → 应用规则生成未来一个月排班
+- 调整排班：修改规则 → 覆盖模式重新生成排班
+- 临时调整：禁用规则 → 手动创建单个排班
+- 批量管理：查询所有规则 → 按需启用/禁用
+
+---
+
+### 流程5: 管理员管理医生
 
 1. **创建医生账号**: `POST /admin/doctor/create`
    ```json
@@ -2379,7 +2851,452 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-**文档版本**: v1.2  
-**最后更新**: 2025-10-26  
+## 1️⃣4️⃣ 申请管理模块 ⭐
+
+说明：统一的申请管理模块，支持调班申请和医生信息修改申请。
+
+### 14.1 创建申请
+
+**接口**: `POST /api/application-requests`
+
+**权限**: 医生或管理员
+
+**说明**: 创建调班申请或信息修改申请
+
+**请求体（调班申请示例）**:
+```json
+{
+  "requestType": "SCHEDULE_CHANGE",
+  "scheduleId": 1,
+  "changeType": "RESCHEDULE",
+  "originalDate": "2025-11-08",
+  "originalTimeSlot": "MORNING",
+  "newDate": "2025-11-10",
+  "newTimeSlot": "AFTERNOON",
+  "slotsAdjustment": 0,
+  "reason": "临时有会议，需要调整排班"
+}
+```
+
+**请求体（信息修改申请示例）**:
+```json
+{
+  "requestType": "INFO_UPDATE",
+  "doctorId": 1,
+  "fieldName": "title",
+  "oldValue": "主治医师",
+  "newValue": "副主任医师",
+  "reason": "职称晋升"
+}
+```
+
+**字段说明**:
+
+**通用字段**:
+- `requestType` (必填): 申请类型
+  - `SCHEDULE_CHANGE`: 调班申请
+  - `INFO_UPDATE`: 信息修改申请
+- `reason` (可选): 申请原因
+
+**调班申请字段**:
+- `scheduleId` (必填): 原排班ID
+- `changeType` (必填): 变更类型
+  - `RESCHEDULE`: 改期
+  - `CANCEL`: 取消排班
+  - `SLOTS_ADJUST`: 号源调整
+- `originalDate/originalTimeSlot`: 原日期/时段
+- `newDate/newTimeSlot`: 新日期/时段（改期时必填）
+- `slotsAdjustment`: 号源调整数量（调整号源时必填）
+
+**信息修改申请字段**:
+- `doctorId` (必填): 医生ID
+- `fieldName` (必填): 要修改的字段名（如：title, specialty, bio 等）
+- `oldValue`: 旧值
+- `newValue` (必填): 新值
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "requestType": "SCHEDULE_CHANGE",
+    "requestTypeName": "调班申请",
+    "applicantId": 2,
+    "scheduleId": 1,
+    "changeType": "RESCHEDULE",
+    "changeTypeName": "改期",
+    "originalDate": "2025-11-08",
+    "originalTimeSlot": "MORNING",
+    "newDate": "2025-11-10",
+    "newTimeSlot": "AFTERNOON",
+    "status": "PENDING",
+    "statusName": "待审核",
+    "reason": "临时有会议，需要调整排班",
+    "createdAt": "2025-10-31 14:30:00"
+  }
+}
+```
+
+---
+
+### 14.2 查询所有申请
+
+**接口**: `GET /api/application-requests`
+
+**权限**: 仅管理员
+
+**说明**: 管理员查询所有申请记录
+
+---
+
+### 14.3 查询我的申请
+
+**接口**: `GET /api/application-requests/my`
+
+**权限**: 医生或管理员
+
+**说明**: 查询当前用户提交的所有申请
+
+---
+
+### 14.4 查询申请详情
+
+**接口**: `GET /api/application-requests/{requestId}`
+
+**权限**: 医生或管理员
+
+**路径参数**:
+- `requestId`: 申请ID
+
+---
+
+### 14.4.1 查询申请完整详情（包含关联信息）⭐
+
+**接口**: `GET /api/application-requests/detail/{requestId}`
+
+**权限**: 医生或管理员
+
+**说明**: 通过数据库联查直接返回包含申请人、审核人、医生等完整关联信息的详情，自动转换枚举值为中文。
+
+**路径参数**:
+- `requestId`: 申请ID
+
+**响应示例（调班申请）**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "requestType": "SCHEDULE_CHANGE",
+    "requestTypeName": "调班申请",
+    "applicantId": 2,
+    "applicantUsername": "doctor1",
+    "applicantRole": "DOCTOR",
+    "scheduleId": 1,
+    "changeType": "RESCHEDULE",
+    "changeTypeName": "改期",
+    "originalDate": "2025-11-08",
+    "originalTimeSlot": "MORNING",
+    "originalTimeSlotName": "上午",
+    "newDate": "2025-11-10",
+    "newTimeSlot": "AFTERNOON",
+    "newTimeSlotName": "下午",
+    "slotsAdjustment": 0,
+    "status": "PENDING",
+    "statusName": "待审核",
+    "reason": "临时有会议，需要调整排班",
+    "rejectionReason": null,
+    "reviewerId": null,
+    "reviewerUsername": null,
+    "reviewedAt": null,
+    "createdAt": "2025-10-31 14:30:00",
+    "updatedAt": "2025-10-31 14:30:00"
+  }
+}
+```
+
+**响应示例（信息修改申请）**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 2,
+    "requestType": "INFO_UPDATE",
+    "requestTypeName": "信息修改申请",
+    "applicantId": 3,
+    "applicantUsername": "doctor2",
+    "applicantRole": "DOCTOR",
+    "doctorId": 1,
+    "doctorName": "王医生",
+    "fieldName": "title",
+    "fieldNameChinese": "职称",
+    "oldValue": "主治医师",
+    "newValue": "副主任医师",
+    "status": "APPROVED",
+    "statusName": "已批准",
+    "reason": "职称晋升",
+    "rejectionReason": null,
+    "reviewerId": 1,
+    "reviewerUsername": "admin",
+    "reviewedAt": "2025-10-31 15:00:00",
+    "createdAt": "2025-10-31 14:45:00",
+    "updatedAt": "2025-10-31 15:00:00"
+  }
+}
+```
+
+**字段说明**:
+- **基本信息**:
+  - `id`: 申请ID
+  - `requestType/requestTypeName`: 申请类型及中文名称
+  - `status/statusName`: 状态及中文名称（待审核/已批准/已拒绝/已取消）
+- **申请人信息**（自动联查）:
+  - `applicantId/applicantUsername/applicantRole`: 申请人信息
+- **调班申请字段**:
+  - `scheduleId`: 排班ID
+  - `changeType/changeTypeName`: 变更类型及中文名称
+  - `originalDate/originalTimeSlot/originalTimeSlotName`: 原日期/时段（含中文）
+  - `newDate/newTimeSlot/newTimeSlotName`: 新日期/时段（含中文）
+  - `slotsAdjustment`: 号源调整数量
+- **信息修改字段**:
+  - `doctorId/doctorName`: 医生信息
+  - `fieldName/fieldNameChinese`: 字段名及中文名称
+  - `oldValue/newValue`: 旧值/新值
+- **审核信息**（自动联查）:
+  - `reviewerId/reviewerUsername`: 审核人信息
+  - `reviewedAt`: 审核时间
+  - `reason`: 申请原因
+  - `rejectionReason`: 拒绝原因
+- **审计信息**:
+  - `createdAt/updatedAt`: 创建/更新时间
+
+**与普通详情接口的区别**:
+- ✅ 一次查询返回所有关联信息（申请人、审核人、医生）
+- ✅ 自动转换枚举值为中文（PENDING → "待审核"）
+- ✅ 自动转换字段名为中文（title → "职称"）
+- ✅ 性能更好（使用 SQL JOIN 而非多次查询）
+
+**使用场景**:
+- 申请详情页面展示完整信息
+- 审核页面展示申请人和相关信息
+- 需要展示中文名称的场景
+
+---
+
+### 14.5 按状态查询申请
+
+**接口**: `GET /api/application-requests/status/{status}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `status`: 状态（PENDING/APPROVED/REJECTED/CANCELLED）
+
+**说明**: 管理员根据状态筛选申请
+
+---
+
+### 14.6 查询待审核申请
+
+**接口**: `GET /api/application-requests/pending`
+
+**权限**: 仅管理员
+
+**说明**: 管理员查询所有待审核的申请
+
+---
+
+### 14.7 审核申请
+
+**接口**: `POST /api/application-requests/review`
+
+**权限**: 仅管理员
+
+**说明**: 管理员批准或拒绝申请
+
+**请求体（批准）**:
+```json
+{
+  "requestId": 1,
+  "approved": true,
+  "reviewComment": "同意调班"
+}
+```
+
+**请求体（拒绝）**:
+```json
+{
+  "requestId": 1,
+  "approved": false,
+  "reviewComment": "当前时间段已有其他医生排班"
+}
+```
+
+**字段说明**:
+- `requestId` (必填): 申请ID
+- `approved` (必填): 是否批准（true/false）
+- `reviewComment` (可选): 审核意见
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "status": "APPROVED",
+    "statusName": "已批准",
+    "reviewerId": 1,
+    "reviewedAt": "2025-10-31 15:00:00"
+  }
+}
+```
+
+**业务逻辑**:
+- **调班申请批准**时：
+  - 根据 `changeType` 执行相应操作
+  - `RESCHEDULE`: 更新排班日期/时段
+  - `CANCEL`: 取消排班
+  - `SLOTS_ADJUST`: 调整号源数量
+- **信息修改申请批准**时：
+  - 更新医生的对应字段信息
+
+---
+
+### 14.8 取消申请
+
+**接口**: `POST /api/application-requests/{requestId}/cancel`
+
+**权限**: 申请人本人
+
+**路径参数**:
+- `requestId`: 申请ID
+
+**说明**: 申请人取消自己的待审核申请
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": "申请已取消"
+}
+```
+
+---
+
+### 14.9 删除申请
+
+**接口**: `DELETE /api/application-requests/{requestId}`
+
+**权限**: 仅管理员
+
+**路径参数**:
+- `requestId`: 申请ID
+
+**说明**: 管理员删除申请记录（谨慎操作）
+
+---
+
+### 14.10 获取申请统计
+
+**接口**: `GET /api/application-requests/statistics`
+
+**权限**: 仅管理员
+
+**说明**: 管理员查看申请统计数据
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "total": 50,
+    "pending": 12,
+    "approved": 30,
+    "rejected": 6,
+    "cancelled": 2,
+    "scheduleChange": 35,
+    "infoUpdate": 15
+  }
+}
+```
+
+**字段说明**:
+- `total`: 总申请数
+- `pending`: 待审核数
+- `approved`: 已批准数
+- `rejected`: 已拒绝数
+- `cancelled`: 已取消数
+- `scheduleChange`: 调班申请数
+- `infoUpdate`: 信息修改申请数
+
+---
+
+## 📋 常见业务流程更新
+
+### 流程6: 医生调班申请审核流程
+
+1. **医生提交调班申请**: `POST /api/application-requests`
+   ```json
+   {
+     "requestType": "SCHEDULE_CHANGE",
+     "scheduleId": 1,
+     "changeType": "RESCHEDULE",
+     "originalDate": "2025-11-08",
+     "originalTimeSlot": "MORNING",
+     "newDate": "2025-11-10",
+     "newTimeSlot": "AFTERNOON",
+     "reason": "临时有会议"
+   }
+   ```
+
+2. **医生查看自己的申请**: `GET /api/application-requests/my`
+
+3. **管理员查看待审核申请**: `GET /api/application-requests/pending`
+
+4. **管理员查看申请详情**: `GET /api/application-requests/detail/{requestId}`
+   - 查看申请人、医生、原排班、新排班等完整信息
+
+5. **管理员审核申请**: `POST /api/application-requests/review`
+   ```json
+   {
+     "requestId": 1,
+     "approved": true,
+     "reviewComment": "同意调班"
+   }
+   ```
+   - 系统自动更新排班信息
+
+---
+
+### 流程7: 医生信息修改申请流程
+
+1. **医生提交信息修改申请**: `POST /api/application-requests`
+   ```json
+   {
+     "requestType": "INFO_UPDATE",
+     "doctorId": 1,
+     "fieldName": "specialty",
+     "oldValue": "心血管内科",
+     "newValue": "心血管内科、介入治疗",
+     "reason": "专业技能拓展"
+   }
+   ```
+
+2. **管理员查看待审核申请**: `GET /api/application-requests/pending`
+
+3. **管理员审核**: `POST /api/application-requests/review`
+   - 批准后系统自动更新医生信息
+
+---
+
+**文档版本**: v1.3  
+**最后更新**: 2025-10-31  
 **维护者**: YiDianTong 开发团队
 

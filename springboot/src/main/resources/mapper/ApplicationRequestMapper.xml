@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.ApplicationRequestMapper">
+    
+    <!-- ResultMap -->
+    <resultMap id="ApplicationRequestResultMap" type="com.example.springboot.entity.ApplicationRequest">
+        <id column="id" property="id"/>
+        <result column="request_type" property="requestType"/>
+        <result column="applicant_id" property="applicantId"/>
+        <result column="applicant_role" property="applicantRole"/>
+        <result column="schedule_id" property="scheduleId"/>
+        <result column="change_type" property="changeType"/>
+        <result column="original_date" property="originalDate"/>
+        <result column="original_time_slot" property="originalTimeSlot"/>
+        <result column="new_date" property="newDate"/>
+        <result column="new_time_slot" property="newTimeSlot"/>
+        <result column="slot_adjustment" property="slotAdjustment"/>
+        <result column="doctor_id" property="doctorId"/>
+        <result column="field_name" property="fieldName"/>
+        <result column="old_value" property="oldValue"/>
+        <result column="new_value" property="newValue"/>
+        <result column="status" property="status"/>
+        <result column="reason" property="reason"/>
+        <result column="reject_reason" property="rejectReason"/>
+        <result column="reviewer_id" property="reviewerId"/>
+        <result column="reviewed_at" property="reviewedAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        
+        <!-- 关联申请人 -->
+        <association property="applicant" javaType="com.example.springboot.entity.User">
+            <id column="applicant_id" property="id"/>
+            <result column="applicant_username" property="username"/>
+            <result column="applicant_role_user" property="role"/>
+        </association>
+        
+        <!-- 关联审核人 -->
+        <association property="reviewer" javaType="com.example.springboot.entity.User">
+            <id column="reviewer_id" property="id"/>
+            <result column="reviewer_username" property="username"/>
+        </association>
+        
+        <!-- 关联排班 -->
+        <association property="schedule" javaType="com.example.springboot.entity.Schedule">
+            <id column="schedule_id" property="id"/>
+            <result column="schedule_date" property="scheduleDate"/>
+            <result column="time_slot" property="timeSlot"/>
+        </association>
+        
+        <!-- 关联医生 -->
+        <association property="doctor" javaType="com.example.springboot.entity.Doctor">
+            <id column="doctor_id" property="id"/>
+            <result column="doctor_name" property="name"/>
+            <result column="doctor_title" property="title"/>
+        </association>
+    </resultMap>
+    
+    <!-- 查询所有申请记录 -->
+    <select id="selectAll" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.id = #{id}
+    </select>
+    
+    <!-- 根据申请类型查询 -->
+    <select id="selectByRequestType" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.request_type = #{requestType}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 根据申请人ID查询 -->
+    <select id="selectByApplicantId" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.applicant_id = #{applicantId}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 根据状态查询 -->
+    <select id="selectByStatus" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.status = #{status}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 根据医生ID查询 -->
+    <select id="selectByDoctorId" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.doctor_id = #{doctorId}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 根据排班ID查询 -->
+    <select id="selectByScheduleId" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.schedule_id = #{scheduleId}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 查询待审核的申请 -->
+    <select id="selectPendingRequests" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.status = 'PENDING'
+        ORDER BY ar.created_at ASC
+    </select>
+    
+    <!-- 查询指定日期范围内的申请 -->
+    <select id="selectByDateRange" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.created_at BETWEEN #{startDate} AND #{endDate}
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 组合条件查询 -->
+    <select id="selectByConditions" resultMap="ApplicationRequestResultMap">
+        SELECT 
+            ar.*,
+            u1.username as applicant_username, u1.role as applicant_role_user,
+            u2.username as reviewer_username,
+            s.schedule_date, s.time_slot,
+            d.name as doctor_name, d.title as doctor_title
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN schedule s ON ar.schedule_id = s.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        <where>
+            <if test="requestType != null">
+                AND ar.request_type = #{requestType}
+            </if>
+            <if test="status != null">
+                AND ar.status = #{status}
+            </if>
+            <if test="applicantId != null">
+                AND ar.applicant_id = #{applicantId}
+            </if>
+            <if test="doctorId != null">
+                AND ar.doctor_id = #{doctorId}
+            </if>
+        </where>
+        ORDER BY ar.created_at DESC
+    </select>
+    
+    <!-- 插入申请记录 -->
+    <insert id="insert" parameterType="com.example.springboot.entity.ApplicationRequest" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO application_request (
+            request_type, applicant_id, applicant_role,
+            schedule_id, change_type, original_date, original_time_slot, new_date, new_time_slot, slot_adjustment,
+            doctor_id, field_name, old_value, new_value,
+            status, reason
+        ) VALUES (
+            #{requestType}, #{applicantId}, #{applicantRole},
+            #{scheduleId}, #{changeType}, #{originalDate}, #{originalTimeSlot}, #{newDate}, #{newTimeSlot}, #{slotAdjustment},
+            #{doctorId}, #{fieldName}, #{oldValue}, #{newValue},
+            #{status}, #{reason}
+        )
+    </insert>
+    
+    <!-- 更新申请记录 -->
+    <update id="update" parameterType="com.example.springboot.entity.ApplicationRequest">
+        UPDATE application_request
+        <set>
+            <if test="requestType != null">request_type = #{requestType},</if>
+            <if test="scheduleId != null">schedule_id = #{scheduleId},</if>
+            <if test="changeType != null">change_type = #{changeType},</if>
+            <if test="originalDate != null">original_date = #{originalDate},</if>
+            <if test="originalTimeSlot != null">original_time_slot = #{originalTimeSlot},</if>
+            <if test="newDate != null">new_date = #{newDate},</if>
+            <if test="newTimeSlot != null">new_time_slot = #{newTimeSlot},</if>
+            <if test="slotAdjustment != null">slot_adjustment = #{slotAdjustment},</if>
+            <if test="doctorId != null">doctor_id = #{doctorId},</if>
+            <if test="fieldName != null">field_name = #{fieldName},</if>
+            <if test="oldValue != null">old_value = #{oldValue},</if>
+            <if test="newValue != null">new_value = #{newValue},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="reason != null">reason = #{reason},</if>
+            <if test="rejectReason != null">reject_reason = #{rejectReason},</if>
+            <if test="reviewerId != null">reviewer_id = #{reviewerId},</if>
+            <if test="reviewedAt != null">reviewed_at = #{reviewedAt},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 更新申请状态 -->
+    <update id="updateStatus">
+        UPDATE application_request
+        SET status = #{status},
+            reviewer_id = #{reviewerId},
+            reviewed_at = #{reviewedAt}
+            <if test="rejectReason != null">
+                , reject_reason = #{rejectReason}
+            </if>
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 删除申请记录 -->
+    <delete id="deleteById">
+        DELETE FROM application_request WHERE id = #{id}
+    </delete>
+    
+    <!-- 批量删除申请记录 -->
+    <delete id="deleteBatch">
+        DELETE FROM application_request WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+    <!-- 统计申请数量 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM application_request WHERE status = #{status}
+    </select>
+    
+    <!-- 统计指定申请人的申请数量 -->
+    <select id="countByApplicant" resultType="int">
+        SELECT COUNT(*) FROM application_request
+        WHERE applicant_id = #{applicantId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+    
+    <!-- 查询申请详情（包含关联信息） -->
+    <select id="selectDetailById" resultType="com.example.springboot.dto.ApplicationRequestDetailDTO">
+        SELECT 
+            ar.id,
+            ar.request_type as requestType,
+            ar.applicant_id as applicantId,
+            ar.applicant_role as applicantRole,
+            ar.schedule_id as scheduleId,
+            ar.change_type as changeType,
+            ar.original_date as originalDate,
+            ar.original_time_slot as originalTimeSlot,
+            ar.new_date as newDate,
+            ar.new_time_slot as newTimeSlot,
+            ar.slot_adjustment as slotAdjustment,
+            ar.doctor_id as doctorId,
+            ar.field_name as fieldName,
+            ar.old_value as oldValue,
+            ar.new_value as newValue,
+            ar.status,
+            ar.reason,
+            ar.reject_reason as rejectReason,
+            ar.reviewer_id as reviewerId,
+            ar.reviewed_at as reviewedAt,
+            ar.created_at as createdAt,
+            ar.updated_at as updatedAt,
+            u1.username as applicantUsername,
+            u2.username as reviewerUsername,
+            d.name as doctorName,
+            CASE ar.request_type
+                WHEN 'SCHEDULE_CHANGE' THEN '调班申请'
+                WHEN 'INFO_UPDATE' THEN '信息修改申请'
+                ELSE ar.request_type
+            END as requestTypeName,
+            CASE ar.change_type
+                WHEN 'CANCEL' THEN '取消排班'
+                WHEN 'RESCHEDULE' THEN '改期'
+                WHEN 'ADJUST_SLOTS' THEN '调整号源'
+                ELSE ar.change_type
+            END as changeTypeName,
+            CASE ar.field_name
+                WHEN 'name' THEN '姓名'
+                WHEN 'title' THEN '职称'
+                WHEN 'specialty' THEN '擅长领域'
+                WHEN 'bio' THEN '个人简介'
+                ELSE ar.field_name
+            END as fieldNameDisplay,
+            CASE ar.status
+                WHEN 'PENDING' THEN '待审核'
+                WHEN 'APPROVED' THEN '已批准'
+                WHEN 'REJECTED' THEN '已拒绝'
+                WHEN 'CANCELLED' THEN '已取消'
+                ELSE ar.status
+            END as statusName
+        FROM application_request ar
+        LEFT JOIN user u1 ON ar.applicant_id = u1.id
+        LEFT JOIN user u2 ON ar.reviewer_id = u2.id
+        LEFT JOIN doctor d ON ar.doctor_id = d.id
+        WHERE ar.id = #{id}
+    </select>
+    
+</mapper>
+

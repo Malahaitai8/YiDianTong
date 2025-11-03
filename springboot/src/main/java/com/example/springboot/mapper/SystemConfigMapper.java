@@ -14,5 +14,7 @@ public interface SystemConfigMapper {
     int insert(SystemConfig config);
 
     int updateValueByKey(String key, String value);
+    
+    int deleteByKey(String key);
 }
 
