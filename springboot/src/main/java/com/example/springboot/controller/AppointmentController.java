@@ -138,22 +138,20 @@ public class AppointmentController {
     @Operation(summary = "删除预约", description = "删除指定预约记录（仅限本人或管理员）")
     @SecurityRequirement(name = "bearer-jwt")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')") // <-- [新增] 权限
+    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
     public Result delete(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
-        // TODO: Service层应检查是否为本人操作
-        appointmentService.deleteById(id);
+        appointmentService.deleteById(id); // Service层已实现本人权限校验
         return Result.success();
     }
 
     @Operation(summary = "取消预约", description = "取消指定预约（仅限本人）")
     @SecurityRequirement(name = "bearer-jwt")
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
+    @PreAuthorize("hasRole('PATIENT')")
     public Result cancel(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
-        // TODO: Service层应检查是否为本人操作
-        appointmentService.cancelById(id);
+        appointmentService.cancelById(id); // Service层已实现本人权限校验
         return Result.success();
     }
 

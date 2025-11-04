@@ -508,6 +508,130 @@ Authorization: Bearer <your_token_here>
 
 ---
 
+### 3.6 提交个人信息修改申请 ⭐
+
+**接口**: `POST /doctor/apply-info-update`
+
+**权限**: 仅医生
+
+**说明**: 医生提交修改个人信息的申请，需要管理员审核通过后才会生效
+
+**请求体**:
+```json
+{
+  "fieldName": "title",
+  "newValue": "主任医师",
+  "reason": "已获得主任医师资格证书，需要更新职称信息"
+}
+```
+
+**字段说明**:
+- `fieldName` (必填): 要修改的字段名
+  - `name`: 姓名
+  - `title`: 职称
+  - `specialty`: 擅长领域
+  - `bio`: 个人简介
+- `newValue` (必填): 新的值
+- `reason` (可选): 申请原因
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "申请已提交，请等待管理员审核",
+  "data": {
+    "id": 1,
+    "requestType": "INFO_UPDATE",
+    "applicantId": 5,
+    "applicantName": "张三",
+    "doctorId": 2,
+    "doctorName": "张三",
+    "fieldName": "title",
+    "oldValue": "副主任医师",
+    "newValue": "主任医师",
+    "reason": "已获得主任医师资格证书，需要更新职称信息",
+    "status": "PENDING",
+    "createdAt": "2025-11-03T10:30:00"
+  }
+}
+```
+
+---
+
+### 3.7 查看我的信息修改申请
+
+**接口**: `GET /doctor/my-info-applications`
+
+**权限**: 仅医生
+
+**说明**: 医生查看自己提交的所有个人信息修改申请
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "requestType": "INFO_UPDATE",
+      "fieldName": "title",
+      "oldValue": "副主任医师",
+      "newValue": "主任医师",
+      "status": "PENDING",
+      "reason": "已获得主任医师资格证书，需要更新职称信息",
+      "createdAt": "2025-11-03T10:30:00"
+    }
+  ]
+}
+```
+
+**状态说明**:
+- `PENDING`: 待审核
+- `APPROVED`: 已批准（信息已更新）
+- `REJECTED`: 已拒绝
+- `CANCELLED`: 已取消
+
+---
+
+### 3.8 查看我的个人信息
+
+**接口**: `GET /doctor/my-info`
+
+**权限**: 仅医生
+
+**说明**: 医生查看自己的详细信息
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 2,
+    "userId": 5,
+    "clinicId": 1,
+    "name": "张三",
+    "title": "副主任医师",
+    "specialty": "心血管疾病",
+    "bio": "从医15年，擅长心血管疾病诊疗",
+    "user": {
+      "id": 5,
+      "username": "doctor001",
+      "role": "doctor",
+      "status": "active"
+    },
+    "clinic": {
+      "id": 1,
+      "name": "心内科门诊",
+      "departmentId": 1
+    }
+  }
+}
+```
+
+---
+
 ## 4️⃣ 科室管理模块
 
 ### 4.1 查询所有科室
@@ -3110,20 +3234,19 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-### 14.7 审核申请
+### 14.7 审核申请 ⭐
 
 **接口**: `POST /api/application-requests/review`
 
 **权限**: 仅管理员
 
-**说明**: 管理员批准或拒绝申请
+**说明**: 管理员批准或拒绝申请，支持调班申请和信息修改申请
 
 **请求体（批准）**:
 ```json
 {
   "requestId": 1,
-  "approved": true,
-  "reviewComment": "同意调班"
+  "action": "APPROVED"
 }
 ```
 
@@ -3131,15 +3254,17 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ```json
 {
   "requestId": 1,
-  "approved": false,
-  "reviewComment": "当前时间段已有其他医生排班"
+  "action": "REJECTED",
+  "rejectReason": "当前时间段已有其他医生排班"
 }
 ```
 
 **字段说明**:
 - `requestId` (必填): 申请ID
-- `approved` (必填): 是否批准（true/false）
-- `reviewComment` (可选): 审核意见
+- `action` (必填): 审核操作
+  - `APPROVED`: 批准
+  - `REJECTED`: 拒绝
+- `rejectReason` (拒绝时必填): 拒绝原因
 
 **响应示例**:
 ```json
@@ -3275,7 +3400,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-### 流程7: 医生信息修改申请流程
+### 流程7: 医生信息修改申请流程（方式一：通用申请接口）
 
 1. **医生提交信息修改申请**: `POST /api/application-requests`
    ```json
@@ -3292,11 +3417,76 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 2. **管理员查看待审核申请**: `GET /api/application-requests/pending`
 
 3. **管理员审核**: `POST /api/application-requests/review`
+   ```json
+   {
+     "requestId": 1,
+     "action": "APPROVED"
+   }
+   ```
    - 批准后系统自动更新医生信息
 
 ---
 
-**文档版本**: v1.3  
-**最后更新**: 2025-10-31  
+### 流程8: 医生信息修改申请流程（方式二：医生端专用接口）⭐
+
+1. **医生提交修改申请**: `POST /doctor/apply-info-update`
+   ```json
+   {
+     "fieldName": "title",
+     "newValue": "主任医师",
+     "reason": "已获得主任医师资格证书"
+   }
+   ```
+   - 系统自动获取当前医生身份
+   - 自动获取字段的旧值
+
+2. **医生查看申请列表**: `GET /doctor/my-info-applications`
+   - 查看所有自己提交的申请及状态
+
+3. **医生查看个人信息**: `GET /doctor/my-info`
+   - 查看当前的个人信息
+
+4. **管理员查看待审核申请**: `GET /api/application-requests/pending`
+   - 查看所有待审核的申请
+
+5. **管理员查看申请详情**: `GET /api/application-requests/detail/{requestId}`
+   - 查看包含申请人、医生、字段变更等完整信息
+
+6. **管理员审核申请**: `POST /api/application-requests/review`
+   ```json
+   {
+     "requestId": 1,
+     "action": "APPROVED"
+   }
+   ```
+   - 批准后系统自动更新医生的对应字段
+
+7. **医生确认更新**: `GET /doctor/my-info`
+   - 查看信息是否已更新
+
+**两种方式的区别**:
+- **方式一（通用接口）**: 需要手动指定 doctorId 和 oldValue，适合管理员代理提交
+- **方式二（医生端接口）**: 自动获取医生身份和旧值，更简单安全，推荐医生使用
+
+---
+
+**文档版本**: v1.4  
+**最后更新**: 2025-11-04  
 **维护者**: YiDianTong 开发团队
+
+---
+
+## 📝 更新日志
+
+### v1.4 (2025-11-04)
+- ✅ 新增医生端个人信息修改申请接口
+  - `POST /doctor/apply-info-update` - 提交个人信息修改申请
+  - `GET /doctor/my-info-applications` - 查看我的信息修改申请
+  - `GET /doctor/my-info` - 查看我的个人信息
+- ✅ 更新申请管理模块审核接口参数格式
+- ✅ 新增医生信息修改申请流程文档（两种方式）
+
+### v1.3 (2025-10-31)
+- 新增申请管理统一模块
+- 新增排班规则管理功能
 

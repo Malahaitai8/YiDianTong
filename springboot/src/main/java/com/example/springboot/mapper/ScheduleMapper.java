@@ -77,6 +77,16 @@ public interface ScheduleMapper {
     List<Schedule> selectByDoctorId(@Param("doctorId") Long doctorId);
     
     /**
+     * 根据医生ID和日期范围查询排班列表
+     */
+    @Select("SELECT * FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date >= #{startDate} AND schedule_date < #{endDate} " +
+            "ORDER BY schedule_date, time_slot")
+    List<Schedule> selectByDoctorAndDateRange(@Param("doctorId") Long doctorId,
+                                               @Param("startDate") Date startDate,
+                                               @Param("endDate") Date endDate);
+    
+    /**
      * 检查排班是否已存在（防止重复创建）
      */
     @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +

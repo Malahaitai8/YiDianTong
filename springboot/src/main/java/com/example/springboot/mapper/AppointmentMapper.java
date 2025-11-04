@@ -18,6 +18,12 @@ public interface AppointmentMapper {
     /** 查询当前患者的预约列表 */
     List<Appointment> selectByPatientId(Long patientId);
 
+    /** 查询指定医生的预约列表 */
+    List<Appointment> selectByDoctorId(Long doctorId);
+
+    /** 统计某排班的预约数量 */
+    int countByScheduleId(Long scheduleId);
+
     /** 更新预约状态 */
     int updateStatus(Long id, String status);
 

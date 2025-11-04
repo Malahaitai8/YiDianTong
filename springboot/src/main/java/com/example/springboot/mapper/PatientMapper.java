@@ -9,6 +9,9 @@ public interface PatientMapper {
 
     Patient selectById(Long id);
     
+    // 根据 userId 查询患者
+    Patient selectByUserId(Long userId);
+    
     // 根据手机号查询病人
     Patient selectByPhoneNumber(String phoneNumber);
     
