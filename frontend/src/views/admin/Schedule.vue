@@ -6,7 +6,7 @@
         <h1 class="header-title">排班管理</h1>
         <p class="header-subtitle">医生和科室排班统计—管理平台</p>
       </div>
-    </div>
+      </div>
 
     <!-- 统计信息卡片 -->
     <el-row :gutter="20" class="stats-row">
@@ -15,7 +15,7 @@
           <div class="stat-content">
             <div class="stat-icon today">
               <el-icon><Calendar /></el-icon>
-            </div>
+    </div>
             <div class="stat-info">
               <div class="stat-number">{{ todaySchedules }}</div>
               <div class="stat-label">今日排班</div>
@@ -114,15 +114,22 @@
             />
           </div>
 
-          <!-- 快速日期选择 -->
+          <!-- 时间段选择器 -->
           <div class="filter-item">
-            <label>快速选择</label>
-            <div class="quick-date-buttons">
-              <el-button size="small" @click="setQuickDate('today')">今天</el-button>
-              <el-button size="small" @click="setQuickDate('week')">本周</el-button>
-              <el-button size="small" @click="setQuickDate('month')">本月</el-button>
-            </div>
+            <label>时间段</label>
+            <el-select
+              v-model="filters.timeSlot"
+              placeholder="全部时间段"
+              clearable
+              style="width: 100%"
+              @change="handleTimeSlotChange"
+            >
+              <el-option label="全部时间段" :value="null" />
+              <el-option label="上午" value="morning" />
+              <el-option label="下午" value="afternoon" />
+            </el-select>
           </div>
+
         </div>
 
         <!-- 视图切换器 -->
@@ -163,7 +170,7 @@
             </el-button>
           </div>
         </div>
-        </div>
+            </div>
 
       </el-card>
     </div>
@@ -207,24 +214,60 @@
                 :key="date.dateStr" 
                 class="calendar-day-cell"
                 :class="{ 
-                  'today': date.isToday
+                  'today': date.isToday,
+                  'in-date-range': isDateInRange(date.dateStr)
                 }"
                 @click="handleDayCellClick(date)"
               >
                 <div class="day-number">{{ date.day }}</div>
                 <div class="day-schedules">
-                  <div 
-                    v-for="schedule in getSchedulesForDate(date.dateStr)" 
-                    :key="schedule.id"
-                    class="schedule-badge"
-                    :class="getScheduleBadgeClass(schedule)"
-                    @click.stop="handleScheduleClick(schedule)"
-                  >
-                    {{ getScheduleBadgeText(schedule) }}
-                  </div>
+                  <template v-for="timeSlot in ['morning', 'afternoon']" :key="timeSlot">
+                    <template v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot]?.length">
+                      <!-- 上午排班 -->
+                      <template v-if="timeSlot === 'morning'">
+                        <div 
+                          v-for="schedule in getGroupedSchedulesForDate(date.dateStr)[timeSlot].slice(0, 5)" 
+                      :key="schedule.id"
+                          class="schedule-badge"
+                          :class="getScheduleBadgeClass(schedule)"
+                      @click.stop="handleScheduleClick(schedule)"
+                    >
+                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                    </div>
+                        <div 
+                          v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
+                          class="schedule-badge badge-more"
+                          @click.stop="openDrawer(date.dateStr, 'morning', getGroupedSchedulesForDate(date.dateStr)[timeSlot])"
+                        >
+                          +{{ getGroupedSchedulesForDate(date.dateStr)[timeSlot].length - 5 }}
+                      </div>
+                      </template>
+                      <!-- 下午排班 -->
+                      <template v-if="timeSlot === 'afternoon'">
+                        <div 
+                          v-for="schedule in getGroupedSchedulesForDate(date.dateStr)[timeSlot].slice(0, 5)" 
+                      :key="schedule.id"
+                          class="schedule-badge"
+                          :class="getScheduleBadgeClass(schedule)"
+                      @click.stop="handleScheduleClick(schedule)"
+                    >
+                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                    </div>
+                        <div 
+                          v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
+                          class="schedule-badge badge-more"
+                          @click.stop="openDrawer(date.dateStr, 'afternoon', getGroupedSchedulesForDate(date.dateStr)[timeSlot])"
+                        >
+                          +{{ getGroupedSchedulesForDate(date.dateStr)[timeSlot].length - 5 }}
+                        </div>
+                      </template>
+                    </template>
+                  </template>
                   <div v-if="!getSchedulesForDate(date.dateStr).length" class="empty-schedule" @click.stop="handleDayCellClick(date)">
                     <div class="add-schedule-icon">
-                      <el-icon><Plus /></el-icon>
+                        <el-icon><Plus /></el-icon>
                     </div>
                   </div>
                 </div>
@@ -236,9 +279,9 @@
           <div v-else class="calendar-grid-view">
             <div class="calendar-header-row">
               <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="day-header-cell">
-                {{ day }}
+                  {{ day }}
+                </div>
               </div>
-            </div>
             <div class="calendar-body-grid month-grid">
               <div 
                 v-for="date in monthDates" 
@@ -246,33 +289,96 @@
                 class="calendar-day-cell"
                 :class="{ 
                   'today': date.isToday, 
-                  'other-month': !date.isCurrentMonth 
+                  'other-month': !date.isCurrentMonth,
+                  'in-date-range': isDateInRange(date.dateStr) && date.isCurrentMonth
                 }"
                 @click="handleDayCellClick(date)"
               >
                 <div class="day-number" :class="{ 'other-month': !date.isCurrentMonth }">{{ date.day }}</div>
                 <div class="day-schedules">
-                  <div 
-                    v-for="schedule in getSchedulesForDate(date.dateStr)" 
-                    :key="schedule.id"
-                    class="schedule-badge"
-                    :class="getScheduleBadgeClass(schedule)"
-                    @click.stop="handleScheduleClick(schedule)"
-                  >
-                    {{ getScheduleBadgeText(schedule) }}
+                  <template v-for="timeSlot in ['morning', 'afternoon']" :key="timeSlot">
+                    <template v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot]?.length">
+                      <!-- 上午排班 -->
+                      <template v-if="timeSlot === 'morning'">
+                        <div 
+                          v-for="schedule in getGroupedSchedulesForDate(date.dateStr)[timeSlot].slice(0, 5)" 
+                          :key="schedule.id"
+                          class="schedule-badge"
+                          :class="getScheduleBadgeClass(schedule)"
+                          @click.stop="handleScheduleClick(schedule)"
+                        >
+                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                    </div>
+                        <div 
+                          v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
+                          class="schedule-badge badge-more"
+                          @click.stop="openDrawer(date.dateStr, 'morning', getGroupedSchedulesForDate(date.dateStr)[timeSlot])"
+                        >
+                          +{{ getGroupedSchedulesForDate(date.dateStr)[timeSlot].length - 5 }}
                   </div>
+                      </template>
+                      <!-- 下午排班 -->
+                      <template v-if="timeSlot === 'afternoon'">
+                        <div 
+                          v-for="schedule in getGroupedSchedulesForDate(date.dateStr)[timeSlot].slice(0, 5)" 
+                          :key="schedule.id"
+                          class="schedule-badge"
+                          :class="getScheduleBadgeClass(schedule)"
+                          @click.stop="handleScheduleClick(schedule)"
+                        >
+                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                </div>
+                        <div 
+                          v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
+                          class="schedule-badge badge-more"
+                          @click.stop="openDrawer(date.dateStr, 'afternoon', getGroupedSchedulesForDate(date.dateStr)[timeSlot])"
+                        >
+                          +{{ getGroupedSchedulesForDate(date.dateStr)[timeSlot].length - 5 }}
+              </div>
+                      </template>
+                    </template>
+                  </template>
                   <div v-if="!getSchedulesForDate(date.dateStr).length && date.isCurrentMonth" class="empty-schedule" @click.stop="handleDayCellClick(date)">
                     <div class="add-schedule-icon">
                       <el-icon><Plus /></el-icon>
-                    </div>
-                  </div>
-                </div>
+            </div>
+          </div>
+          </div>
               </div>
             </div>
           </div>
 
         </el-card>
       </div>
+
+      <!-- 排班详情抽屉 -->
+      <el-drawer
+        v-model="drawerVisible"
+        :title="`${drawerDate} ${drawerTimeSlot === 'morning' ? '上午' : '下午'} 排班详情`"
+        direction="rtl"
+        size="400px"
+      >
+        <div class="drawer-schedules">
+          <div 
+            v-for="schedule in drawerSchedules" 
+            :key="schedule.id"
+            class="drawer-schedule-item"
+            :class="getScheduleBadgeClass(schedule)"
+            @click="handleScheduleClick(schedule)"
+          >
+            <div class="schedule-item-header">
+              <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+              <span class="slot-type">{{ getSlotTypeText(schedule.slotType) }}</span>
+            </div>
+            <div class="schedule-item-info">
+              <span>总号源：{{ schedule.totalSlots || 0 }}</span>
+              <span>剩余：{{ schedule.availableSlots || 0 }}</span>
+            </div>
+          </div>
+        </div>
+      </el-drawer>
 
       <!-- 列表视图 -->
       <div v-if="currentView === 'list'" class="list-view">
@@ -380,7 +486,7 @@
         <el-form-item label="医生" prop="doctorId">
           <el-select v-model="formData.doctorId" placeholder="请选择医生" style="width: 100%">
             <el-option
-              v-for="doctor in doctorList"
+              v-for="doctor in dialogDoctorList"
               :key="doctor.id"
               :label="doctor.name"
               :value="doctor.id"
@@ -399,9 +505,8 @@
         </el-form-item>
         <el-form-item label="时间段" prop="timeSlot">
           <el-select v-model="formData.timeSlot" placeholder="请选择时间段" style="width: 100%">
-            <el-option label="上午" value="MORNING" />
-            <el-option label="下午" value="AFTERNOON" />
-            <el-option label="晚上" value="EVENING" />
+            <el-option label="上午" value="morning" />
+            <el-option label="下午" value="afternoon" />
           </el-select>
         </el-form-item>
         <el-form-item label="号别" prop="slotType">
@@ -435,7 +540,7 @@
         <el-form-item label="医生" prop="doctorIds">
           <el-select v-model="batchFormData.doctorIds" multiple placeholder="请选择医生" style="width: 100%">
             <el-option
-              v-for="doctor in doctorList"
+              v-for="doctor in dialogDoctorList"
               :key="doctor.id"
               :label="doctor.name"
               :value="doctor.id"
@@ -456,9 +561,8 @@
         </el-form-item>
         <el-form-item label="时间段" prop="timeSlots">
           <el-checkbox-group v-model="batchFormData.timeSlots">
-            <el-checkbox label="MORNING">上午</el-checkbox>
-            <el-checkbox label="AFTERNOON">下午</el-checkbox>
-            <el-checkbox label="EVENING">晚上</el-checkbox>
+            <el-checkbox label="morning">上午</el-checkbox>
+            <el-checkbox label="afternoon">下午</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
         <el-form-item label="号别" prop="slotType">
@@ -530,7 +634,8 @@ const currentDate = ref(new Date())
 const filters = reactive({
   departmentId: null,
   doctorId: null,
-  dateRange: null
+  dateRange: null,
+  timeSlot: null // 时间段筛选：morning/afternoon
 })
 
 // 分页
@@ -587,6 +692,20 @@ const filteredDoctorList = computed(() => {
     const doctorDeptId = doctor.clinic?.departmentId ? Number(doctor.clinic.departmentId) : null
     return doctorDeptId === deptId
   })
+})
+
+// 对话框中的医生列表（根据左侧筛选条件过滤）
+const dialogDoctorList = computed(() => {
+  // 如果左侧筛选栏选择了科室，则只显示该科室的医生
+  if (filters.departmentId) {
+    const deptId = Number(filters.departmentId)
+    return doctorList.value.filter(doctor => {
+      const doctorDeptId = doctor.clinic?.departmentId ? Number(doctor.clinic.departmentId) : null
+      return doctorDeptId === deptId
+    })
+  }
+  // 否则显示所有医生
+  return doctorList.value
 })
 
 const weekDates = computed(() => {
@@ -799,6 +918,11 @@ const loadScheduleList = async () => {
       params.endDate = filters.dateRange[1]
     }
     
+    // 处理时间段筛选
+    if (filters.timeSlot) {
+      params.timeSlot = filters.timeSlot
+    }
+    
     const response = await getScheduleList(params)
     
     // 确保数据是数组格式
@@ -866,7 +990,7 @@ const handleDepartmentChange = () => {
       const doctorDeptId = selectedDoctor.clinic?.departmentId ? Number(selectedDoctor.clinic.departmentId) : null
       const filterDeptId = Number(filters.departmentId)
       if (doctorDeptId !== filterDeptId) {
-        filters.doctorId = null
+  filters.doctorId = null
       }
     }
   }
@@ -891,7 +1015,29 @@ const handleDoctorChange = () => {
 }
 
 const handleDateRangeChange = () => {
+  // 如果选择了日期范围，自动跳转到开始日期
+  if (filters.dateRange && filters.dateRange.length === 2) {
+    const startDate = new Date(filters.dateRange[0])
+    // 根据当前视图模式跳转
+    if (calendarMode.value === 'week') {
+      // 周视图：跳转到开始日期所在的周
+      currentDate.value = startDate
+    } else {
+      // 月视图：跳转到开始日期所在的月
+      currentDate.value = startDate
+    }
+  }
+  // 更新列表数据（连接后端接口）
   loadScheduleList()
+  // 更新所有排班数据（用于日历视图）
+  loadAllSchedules()
+}
+
+const handleTimeSlotChange = () => {
+  // 更新列表数据（连接后端接口）
+  loadScheduleList()
+  // 更新所有排班数据（用于日历视图）
+  loadAllSchedules()
 }
 
 const setQuickDate = (type) => {
@@ -921,7 +1067,8 @@ const resetFilters = () => {
   Object.assign(filters, {
     departmentId: null,
     doctorId: null,
-    dateRange: null
+    dateRange: null,
+    timeSlot: null
   })
   pagination.page = 1
   loadScheduleList()
@@ -969,6 +1116,24 @@ const handleScheduleClick = (schedule) => {
   handleEdit(schedule)
 }
 
+// 打开抽屉显示更多排班
+const openDrawer = (dateStr, timeSlot, schedules) => {
+  drawerDate.value = dateStr
+  drawerTimeSlot.value = timeSlot
+  drawerSchedules.value = schedules
+  drawerVisible.value = true
+}
+
+// 获取号别文本
+const getSlotTypeText = (slotType) => {
+  const typeMap = {
+    normal: '普通号',
+    expert: '专家号',
+    vip: '特需号'
+  }
+  return typeMap[slotType] || slotType
+}
+
 const handleDayCellClick = (date) => {
   // 打开创建排班对话框，预填充日期
   showCreateDialog()
@@ -997,8 +1162,87 @@ const getDoctorSchedulesForDate = (doctorId, dateStr) => {
 }
 
 const getSchedulesForDate = (dateStr) => {
-  return scheduleList.value.filter(schedule => schedule.scheduleDate === dateStr)
+  // 使用 allSchedules 而不是 scheduleList，因为日历视图需要显示所有排班数据
+  // 但需要应用左侧的筛选条件（科室和医生）
+  let filteredSchedules = allSchedules.value
+  
+  // 应用科室筛选
+  if (filters.departmentId) {
+    const deptId = Number(filters.departmentId)
+    filteredSchedules = filteredSchedules.filter(schedule => {
+      // 排班数据中可能有 departmentId 字段，或者需要通过 doctor 关联
+      if (schedule.departmentId) {
+        return Number(schedule.departmentId) === deptId
+      }
+      // 如果没有 departmentId，尝试通过 doctor 查找
+      const doctor = doctorList.value.find(d => d.id === schedule.doctorId)
+      if (doctor && doctor.clinic?.departmentId) {
+        return Number(doctor.clinic.departmentId) === deptId
+      }
+      return false
+    })
+  }
+  
+  // 应用医生筛选
+  if (filters.doctorId) {
+    filteredSchedules = filteredSchedules.filter(schedule => {
+      return schedule.doctorId === filters.doctorId
+    })
+  }
+  
+  // 应用时间段筛选
+  if (filters.timeSlot) {
+    filteredSchedules = filteredSchedules.filter(schedule => {
+      const timeSlot = (schedule.timeSlot || '').toLowerCase()
+      return timeSlot === filters.timeSlot.toLowerCase()
+    })
+  }
+  
+  // 应用日期筛选
+  return filteredSchedules.filter(schedule => {
+    const scheduleDate = schedule.scheduleDate
+    const dateStrFormatted = typeof scheduleDate === 'string' 
+      ? scheduleDate.split('T')[0]
+      : formatDateStr(new Date(scheduleDate))
+    return dateStrFormatted === dateStr
+  })
 }
+
+// 判断日期是否在筛选范围内
+const isDateInRange = (dateStr) => {
+  if (!filters.dateRange || filters.dateRange.length !== 2) {
+    return false
+  }
+  const startDate = filters.dateRange[0]
+  const endDate = filters.dateRange[1]
+  return dateStr >= startDate && dateStr <= endDate
+}
+
+// 获取按时间段分组的排班数据
+const getGroupedSchedulesForDate = (dateStr) => {
+  const schedules = getSchedulesForDate(dateStr)
+  const grouped = {
+    morning: [],
+    afternoon: []
+  }
+  
+  schedules.forEach(schedule => {
+    const timeSlot = (schedule.timeSlot || '').toLowerCase()
+    if (timeSlot === 'morning') {
+      grouped.morning.push(schedule)
+    } else if (timeSlot === 'afternoon') {
+      grouped.afternoon.push(schedule)
+    }
+  })
+  
+  return grouped
+}
+
+// 抽屉相关状态
+const drawerVisible = ref(false)
+const drawerDate = ref('')
+const drawerTimeSlot = ref('')
+const drawerSchedules = ref([])
 
 // 表格事件处理
 const handleSelectionChange = (selection) => {
@@ -1021,6 +1265,12 @@ const showCreateDialog = () => {
   isEdit.value = false
   dialogVisible.value = true
   resetFormData()
+  
+  // 如果左侧筛选栏已经选择了医生，则自动填充
+  // 注意：要在 resetFormData() 之后设置，否则会被重置
+  if (filters.doctorId) {
+    formData.doctorId = filters.doctorId
+  }
 }
 
 const showBatchCreateDialog = () => {
@@ -1212,21 +1462,23 @@ const isToday = (date) => {
 }
 
 const getTimeSlotType = (timeSlot) => {
+  // 处理大小写不敏感
+  const slot = (timeSlot || '').toUpperCase()
   const typeMap = {
     MORNING: 'success',
-    AFTERNOON: 'warning',
-    EVENING: 'info'
+    AFTERNOON: 'warning'
   }
-  return typeMap[timeSlot] || ''
+  return typeMap[slot] || ''
 }
 
 const getTimeSlotText = (timeSlot) => {
+  // 处理大小写不敏感
+  const slot = (timeSlot || '').toUpperCase()
   const textMap = {
     MORNING: '上午',
-    AFTERNOON: '下午',
-    EVENING: '晚上'
+    AFTERNOON: '下午'
   }
-  return textMap[timeSlot] || timeSlot
+  return textMap[slot] || timeSlot
 }
 
 const getSlotTypeColor = (slotType) => {
@@ -1236,15 +1488,6 @@ const getSlotTypeColor = (slotType) => {
     vip: 'danger'
   }
   return colorMap[slotType] || ''
-}
-
-const getSlotTypeText = (slotType) => {
-  const textMap = {
-    normal: '普通号',
-    expert: '专家号',
-    vip: '特需号'
-  }
-  return textMap[slotType] || slotType
 }
 
 const getBookingPercentage = (schedule) => {
@@ -1263,10 +1506,10 @@ const getProgressColor = (schedule) => {
 const getScheduleClass = (schedule) => {
   const classes = ['schedule-item']
   
-  // 根据时间段添加颜色类
-  if (schedule.timeSlot === 'MORNING') classes.push('morning-slot')
-  else if (schedule.timeSlot === 'AFTERNOON') classes.push('afternoon-slot')
-  else if (schedule.timeSlot === 'EVENING') classes.push('evening-slot')
+  // 根据时间段添加颜色类（处理大小写不敏感）
+  const timeSlot = (schedule.timeSlot || '').toUpperCase()
+  if (timeSlot === 'MORNING') classes.push('morning-slot')
+  else if (timeSlot === 'AFTERNOON') classes.push('afternoon-slot')
   
   // 根据号别添加样式类
   if (schedule.slotType === 'expert') classes.push('expert-slot')
@@ -1280,12 +1523,13 @@ const getScheduleClass = (schedule) => {
 
 // 获取排班徽章文本（如"上3位"、"下1位"）
 const getScheduleBadgeText = (schedule) => {
+  // 处理大小写不敏感
+  const timeSlot = (schedule.timeSlot || '').toUpperCase()
   const timeSlotMap = {
     MORNING: '上',
-    AFTERNOON: '下',
-    EVENING: '晚'
+    AFTERNOON: '下'
   }
-  const timeSlotText = timeSlotMap[schedule.timeSlot] || ''
+  const timeSlotText = timeSlotMap[timeSlot] || ''
   return `${timeSlotText}${schedule.availableSlots || 0}位`
 }
 
@@ -1293,10 +1537,10 @@ const getScheduleBadgeText = (schedule) => {
 const getScheduleBadgeClass = (schedule) => {
   const classes = ['schedule-badge']
   
-  // 根据时间段添加颜色类
-  if (schedule.timeSlot === 'MORNING') classes.push('badge-morning')
-  else if (schedule.timeSlot === 'AFTERNOON') classes.push('badge-afternoon')
-  else if (schedule.timeSlot === 'EVENING') classes.push('badge-evening')
+  // 根据时间段添加颜色类（处理大小写不敏感）
+  const timeSlot = (schedule.timeSlot || '').toUpperCase()
+  if (timeSlot === 'MORNING') classes.push('badge-morning')
+  else if (timeSlot === 'AFTERNOON') classes.push('badge-afternoon')
   
   return classes.join(' ')
 }
@@ -1814,6 +2058,16 @@ onMounted(async () => {
   color: #c0c4cc;
 }
 
+.calendar-day-cell.in-date-range {
+  background-color: #fffbe6;
+  border: 1px solid #ffe58f;
+}
+
+.calendar-day-cell.in-date-range.today {
+  background-color: #fffbe6;
+  border: 2px solid #409eff;
+}
+
 .day-number {
   font-size: 16px;
   font-weight: 600;
@@ -1832,7 +2086,7 @@ onMounted(async () => {
 }
 
 .schedule-badge {
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
@@ -1842,7 +2096,22 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.schedule-badge .doctor-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedule-badge .slots-info {
+  font-size: 11px;
+  opacity: 0.9;
 }
 
 .schedule-badge:hover {
@@ -1858,8 +2127,73 @@ onMounted(async () => {
   background: #67c23a;
 }
 
-.schedule-badge.badge-evening {
+.schedule-badge.badge-more {
   background: #909399;
+  font-weight: 600;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.schedule-badge.badge-more:hover {
+  background: #606266;
+}
+
+.drawer-schedules {
+  padding: 10px 0;
+}
+
+.drawer-schedule-item {
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #e4e7ed;
+}
+
+.drawer-schedule-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.drawer-schedule-item.badge-morning {
+  background: #f0f9ff;
+  border-color: #409eff;
+}
+
+.drawer-schedule-item.badge-afternoon {
+  background: #fff7e6;
+  border-color: #67c23a;
+}
+
+.schedule-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.schedule-item-header .doctor-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #303133;
+}
+
+.schedule-item-header .slot-type {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f0f2f5;
+  color: #606266;
+}
+
+.schedule-item-info {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .empty-schedule {
