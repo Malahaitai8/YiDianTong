@@ -242,7 +242,7 @@ public class ScheduleService {
      */
     public Map<String, Object> querySchedules(ScheduleQueryRequest request) {
         // 1. 条件查询
-        List<Schedule> schedules = scheduleMapper.selectByConditions(
+        List<ScheduleWithDetailsDTO> schedules = scheduleMapper.selectByConditions(
             request.getDoctorId(),
             request.getDepartmentId(),
             request.getStartDate(),
@@ -267,7 +267,7 @@ public class ScheduleService {
         int startIndex = (page - 1) * pageSize;
         int endIndex = Math.min(startIndex + pageSize, schedules.size());
         
-        List<Schedule> pagedSchedules = schedules.subList(startIndex, endIndex);
+        List<ScheduleWithDetailsDTO> pagedSchedules = schedules.subList(startIndex, endIndex);
 
         // 4. 返回结果
         Map<String, Object> result = new HashMap<>();
@@ -285,6 +285,13 @@ public class ScheduleService {
      */
     public List<Schedule> getSchedulesByDoctorId(Long doctorId) {
         return scheduleMapper.selectByDoctorId(doctorId);
+    }
+
+    /**
+     * 根据医生ID查询排班详细信息（包含医生姓名、门诊信息等）
+     */
+    public List<ScheduleWithDetailsDTO> getSchedulesByDoctorIdWithDetails(Long doctorId) {
+        return scheduleMapper.selectByDoctorIdWithDetails(doctorId);
     }
 
     /**

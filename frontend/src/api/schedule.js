@@ -104,3 +104,14 @@ export const batchDeleteSchedule = (ids) => {
     data: { ids }
   })
 }
+
+/**
+ * 根据医生ID查询排班列表
+ * @param {number} doctorId - 医生ID
+ */
+export const getSchedulesByDoctorId = (doctorId) => {
+  return request({
+    url: `/api/admin/schedules/doctor/${doctorId}`,
+    method: 'get'
+  })
+}

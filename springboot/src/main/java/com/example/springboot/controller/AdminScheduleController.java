@@ -135,11 +135,11 @@ public class AdminScheduleController {
      * 根据医生ID查询排班列表
      * GET /api/admin/schedules/doctor/{doctorId}
      */
-    @Operation(summary = "查询医生的所有排班", description = "查询指定医生的所有排班记录")
+    @Operation(summary = "查询医生的所有排班", description = "查询指定医生的所有排班记录（包含医生姓名、门诊信息等详细信息）")
     @GetMapping("/doctor/{doctorId}")
     public Result getSchedulesByDoctorId(@Parameter(description = "医生ID", required = true) @PathVariable Long doctorId) {
         try {
-            List<Schedule> schedules = scheduleService.getSchedulesByDoctorId(doctorId);
+            List<ScheduleWithDetailsDTO> schedules = scheduleService.getSchedulesByDoctorIdWithDetails(doctorId);
             Map<String, Object> data = Map.of(
                 "data", schedules,
                 "total", schedules.size()

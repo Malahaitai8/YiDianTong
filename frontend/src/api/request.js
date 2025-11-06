@@ -16,13 +16,17 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     const userStore = useUserStore()
-    const token = userStore.token
-    
-    // 如果有token，添加到请求头
-    if (token) {
+    // 兼容 Pinia setup store 的 ref 与普通字符串两种情况
+    const rawToken = userStore.token
+    const token = typeof rawToken === 'string' ? rawToken : rawToken?.value
+
+    // 如果有token，添加到请求头（同时兼容部分后端读取自定义 token 头）
+    if (token && typeof token === 'string' && token.trim().length > 0) {
       config.headers.Authorization = `Bearer ${token}`
+      // 兼容可能的后端自定义头约定
+      config.headers.token = token
     }
-    
+
     return config
   },
   (error) => {
