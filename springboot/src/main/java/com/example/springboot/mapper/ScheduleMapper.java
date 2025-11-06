@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.*;
 import java.util.Date;
 import java.util.List;
 import com.example.springboot.dto.AvailableSlotDTO;
+import com.example.springboot.dto.ScheduleWithDetailsDTO;
 
 @Mapper
 public interface ScheduleMapper {
@@ -75,6 +76,12 @@ public interface ScheduleMapper {
      */
     @Select("SELECT * FROM schedule WHERE doctor_id = #{doctorId} ORDER BY schedule_date, time_slot")
     List<Schedule> selectByDoctorId(@Param("doctorId") Long doctorId);
+
+    /**
+     * 根据医生ID查询排班详细信息（包含医生姓名、门诊信息等）
+     * (实现在 ScheduleMapper.xml 中)
+     */
+    List<ScheduleWithDetailsDTO> selectByDoctorIdWithDetails(@Param("doctorId") Long doctorId);
     
     /**
      * 检查排班是否已存在（防止重复创建）
@@ -86,10 +93,10 @@ public interface ScheduleMapper {
                            @Param("timeSlot") String timeSlot);
     
     /**
-     * 条件查询排班（带分页和筛选）
+     * 条件查询排班（管理端）
      * (实现在 ScheduleMapper.xml 中)
      */
-    List<Schedule> selectByConditions(
+    List<ScheduleWithDetailsDTO> selectByConditions(
         @Param("doctorId") Long doctorId,
         @Param("departmentId") Long departmentId,
         @Param("startDate") Date startDate,
