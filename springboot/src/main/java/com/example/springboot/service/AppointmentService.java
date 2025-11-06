@@ -1,11 +1,17 @@
 package com.example.springboot.service;
 
+import com.example.springboot.config.SecurityUtils;
 import com.example.springboot.entity.Appointment;
+import com.example.springboot.entity.Patient;
 import com.example.springboot.entity.Waitlist;
+import com.example.springboot.exception.CustomerException;
 import com.example.springboot.mapper.AppointmentMapper;
+import com.example.springboot.mapper.PatientMapper;
 import com.example.springboot.mapper.ScheduleMapper;
 import com.example.springboot.dto.AvailableSlotDTO;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,8 +20,13 @@ import java.util.Date;
 @Service
 public class AppointmentService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AppointmentService.class);
+
     @Resource
     private AppointmentMapper appointmentMapper;
+
+    @Resource
+    private PatientMapper patientMapper;
 
     @Resource
     private WaitlistService waitlistService;
@@ -36,12 +47,36 @@ public class AppointmentService {
         return appointment;
     }
 
-    /** 根据主键删除 */
+    /**
+     * 根据主键删除预约
+     * 权限检查：管理员可以删除任何预约，患者只能删除自己的预约
+     */
     public int deleteById(Long id) {
         // 先查询预约信息，获取 scheduleId
         Appointment appointment = appointmentMapper.selectById(id);
         if (appointment == null) {
-            return 0;
+            throw new CustomerException("预约不存在");
+        }
+        
+        // 如果当前用户不是管理员，则检查是否为本人操作
+        if (!SecurityUtils.isAdmin()) {
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+            if (currentUserId == null) {
+                throw new CustomerException("401", "未登录");
+            }
+            
+            // 通过 patientId 查询患者信息，获取对应的 userId
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) {
+                throw new CustomerException("患者信息不存在");
+            }
+            
+            // 检查是否为本人（比较 userId）
+            if (!currentUserId.equals(patient.getUserId())) {
+                logger.warn("用户 {} 尝试删除预约 {}，但该预约属于用户 {}", 
+                           currentUserId, id, patient.getUserId());
+                throw new CustomerException("403", "无权限删除其他患者的预约");
+            }
         }
         
         // 删除预约
@@ -69,20 +104,62 @@ public class AppointmentService {
                 newAppointment.setSourceType("WAITLIST");
                 newAppointment.setCreatedAt(new java.util.Date());
                 
-                // 这里需要获取医生ID，暂时设为null，实际应该从schedule表查询
-                // newAppointment.setDoctorId(doctorId);
+                // 从 schedule 表查询医生ID
+                var schedule = scheduleMapper.selectById(scheduleId);
+                if (schedule != null) {
+                    newAppointment.setDoctorId(schedule.getDoctorId());
+                }
                 
                 appointmentMapper.insert(newAppointment);
+                logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}", 
+                           nextWaitlist.getPatientId(), scheduleId);
             }
         } catch (Exception e) {
             // 记录日志但不影响主流程
-            System.err.println("处理候补队列失败: " + e.getMessage());
+            logger.error("处理候补队列失败: {}", e.getMessage(), e);
         }
     }
 
-    /** 取消预约（更新状态为CANCELLED） */
+    /**
+     * 取消预约（更新状态为CANCELLED）
+     * 权限检查：管理员可以取消任何预约，患者只能取消自己的预约
+     */
     public int cancelById(Long id) {
-        return appointmentMapper.updateStatus(id, "CANCELLED");
+        // 查询预约信息
+        Appointment appointment = appointmentMapper.selectById(id);
+        if (appointment == null) {
+            throw new CustomerException("预约不存在");
+        }
+        
+        // 如果当前用户不是管理员，则检查是否为本人操作
+        if (!SecurityUtils.isAdmin()) {
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+            if (currentUserId == null) {
+                throw new CustomerException("401", "未登录");
+            }
+            
+            // 通过 patientId 查询患者信息，获取对应的 userId
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) {
+                throw new CustomerException("患者信息不存在");
+            }
+            
+            // 检查是否为本人（比较 userId）
+            if (!currentUserId.equals(patient.getUserId())) {
+                logger.warn("用户 {} 尝试取消预约 {}，但该预约属于用户 {}", 
+                           currentUserId, id, patient.getUserId());
+                throw new CustomerException("403", "无权限取消其他患者的预约");
+            }
+        }
+        
+        int result = appointmentMapper.updateStatus(id, "CANCELLED");
+        
+        // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约
+        if (result > 0) {
+            processWaitlistAfterDeletion(appointment.getScheduleId());
+        }
+        
+        return result;
     }
 
     /** 根据患者 ID 查询预约列表 */

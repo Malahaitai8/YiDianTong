@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.ScheduleRuleMapper">
+    
+    <!-- ResultMap -->
+    <resultMap id="ScheduleRuleResultMap" type="com.example.springboot.entity.ScheduleRule">
+        <id column="id" property="id"/>
+        <result column="rule_name" property="ruleName"/>
+        <result column="rule_type" property="ruleType"/>
+        <result column="doctor_id" property="doctorId"/>
+        <result column="department_id" property="departmentId"/>
+        <result column="clinic_id" property="clinicId"/>
+        <result column="week_days" property="weekDays"/>
+        <result column="time_slots" property="timeSlots"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="slot_type" property="slotType"/>
+        <result column="total_slots" property="totalSlots"/>
+        <result column="max_daily_schedules" property="maxDailySchedules"/>
+        <result column="max_continuous_days" property="maxContinuousDays"/>
+        <result column="skip_weekends" property="skipWeekends"/>
+        <result column="skip_holidays" property="skipHolidays"/>
+        <result column="status" property="status"/>
+        <result column="priority" property="priority"/>
+        <result column="description" property="description"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        
+        <!-- 关联医生 -->
+        <association property="doctor" javaType="com.example.springboot.entity.Doctor">
+            <id column="doctor_id" property="id"/>
+            <result column="doctor_name" property="name"/>
+            <result column="doctor_title" property="title"/>
+            <result column="doctor_specialty" property="specialty"/>
+        </association>
+        
+        <!-- 关联科室 -->
+        <association property="department" javaType="com.example.springboot.entity.Department">
+            <id column="department_id" property="id"/>
+            <result column="department_name" property="name"/>
+        </association>
+        
+        <!-- 关联门诊 -->
+        <association property="clinic" javaType="com.example.springboot.entity.Clinic">
+            <id column="clinic_id" property="id"/>
+            <result column="clinic_name" property="name"/>
+        </association>
+    </resultMap>
+    
+    <!-- 查询所有排班规则 -->
+    <select id="selectAll" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.id = #{id}
+    </select>
+    
+    <!-- 根据医生ID查询 -->
+    <select id="selectByDoctorId" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.doctor_id = #{doctorId}
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 根据科室ID查询 -->
+    <select id="selectByDepartmentId" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.department_id = #{departmentId}
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 根据门诊ID查询 -->
+    <select id="selectByClinicId" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.clinic_id = #{clinicId}
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 根据状态查询 -->
+    <select id="selectByStatus" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.status = #{status}
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 查询激活状态的规则 -->
+    <select id="selectActiveRules" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.status = 'ACTIVE'
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 查询指定医生在指定日期范围内的规则 -->
+    <select id="selectByDoctorAndDateRange" resultMap="ScheduleRuleResultMap">
+        SELECT 
+            sr.*,
+            d.name as doctor_name, d.title as doctor_title, d.specialty as doctor_specialty,
+            dept.name as department_name,
+            c.name as clinic_name
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.doctor_id = #{doctorId}
+        AND (
+            (sr.start_date IS NULL OR sr.start_date &lt;= #{endDate})
+            AND (sr.end_date IS NULL OR sr.end_date &gt;= #{startDate})
+        )
+        ORDER BY sr.priority DESC, sr.created_at DESC
+    </select>
+    
+    <!-- 插入排班规则 -->
+    <insert id="insert" parameterType="com.example.springboot.entity.ScheduleRule" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO schedule_rule (
+            rule_name, rule_type, doctor_id, department_id, clinic_id,
+            week_days, time_slots, start_date, end_date,
+            slot_type, total_slots, max_daily_schedules, max_continuous_days,
+            skip_weekends, skip_holidays, status, priority, description, created_by
+        ) VALUES (
+            #{ruleName}, #{ruleType}, #{doctorId}, #{departmentId}, #{clinicId},
+            #{weekDays}, #{timeSlots}, #{startDate}, #{endDate},
+            #{slotType}, #{totalSlots}, #{maxDailySchedules}, #{maxContinuousDays},
+            #{skipWeekends}, #{skipHolidays}, #{status}, #{priority}, #{description}, #{createdBy}
+        )
+    </insert>
+    
+    <!-- 更新排班规则 -->
+    <update id="update" parameterType="com.example.springboot.entity.ScheduleRule">
+        UPDATE schedule_rule
+        <set>
+            <if test="ruleName != null">rule_name = #{ruleName},</if>
+            <if test="ruleType != null">rule_type = #{ruleType},</if>
+            <if test="doctorId != null">doctor_id = #{doctorId},</if>
+            <if test="departmentId != null">department_id = #{departmentId},</if>
+            <if test="clinicId != null">clinic_id = #{clinicId},</if>
+            <if test="weekDays != null">week_days = #{weekDays},</if>
+            <if test="timeSlots != null">time_slots = #{timeSlots},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="slotType != null">slot_type = #{slotType},</if>
+            <if test="totalSlots != null">total_slots = #{totalSlots},</if>
+            <if test="maxDailySchedules != null">max_daily_schedules = #{maxDailySchedules},</if>
+            <if test="maxContinuousDays != null">max_continuous_days = #{maxContinuousDays},</if>
+            <if test="skipWeekends != null">skip_weekends = #{skipWeekends},</if>
+            <if test="skipHolidays != null">skip_holidays = #{skipHolidays},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="priority != null">priority = #{priority},</if>
+            <if test="description != null">description = #{description},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 更新规则状态 -->
+    <update id="updateStatus">
+        UPDATE schedule_rule
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 删除排班规则 -->
+    <delete id="deleteById">
+        DELETE FROM schedule_rule WHERE id = #{id}
+    </delete>
+    
+    <!-- 批量删除排班规则 -->
+    <delete id="deleteBatch">
+        DELETE FROM schedule_rule WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+    <!-- 检查规则冲突 -->
+    <select id="checkConflict" resultType="int">
+        SELECT COUNT(*)
+        FROM schedule_rule
+        WHERE doctor_id = #{doctorId}
+        AND status = 'ACTIVE'
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+        AND (
+            (start_date IS NULL OR start_date &lt;= #{endDate})
+            AND (end_date IS NULL OR end_date &gt;= #{startDate})
+        )
+        <!-- 这里简化处理，实际应该检查 week_days 和 time_slots 的重叠 -->
+    </select>
+    
+    <!-- 查询排班规则详情（包含关联信息） -->
+    <select id="selectDetailById" resultType="com.example.springboot.dto.ScheduleRuleDetailDTO">
+        SELECT 
+            sr.id,
+            sr.rule_name as ruleName,
+            sr.rule_type as ruleType,
+            sr.doctor_id as doctorId,
+            sr.department_id as departmentId,
+            sr.clinic_id as clinicId,
+            sr.week_days as weekDays,
+            sr.time_slots as timeSlots,
+            sr.start_date as startDate,
+            sr.end_date as endDate,
+            sr.slot_type as slotType,
+            sr.total_slots as totalSlots,
+            sr.max_daily_schedules as maxDailySchedules,
+            sr.max_continuous_days as maxContinuousDays,
+            sr.skip_weekends as skipWeekends,
+            sr.skip_holidays as skipHolidays,
+            sr.status,
+            sr.priority,
+            sr.description,
+            sr.created_by as createdBy,
+            sr.created_at as createdAt,
+            sr.updated_at as updatedAt,
+            d.name as doctorName,
+            d.title as doctorTitle,
+            dept.name as departmentName,
+            c.name as clinicName,
+            CASE sr.rule_type
+                WHEN 'FIXED' THEN '固定排班'
+                WHEN 'ROTATING' THEN '轮班'
+                WHEN 'FLEXIBLE' THEN '弹性排班'
+                WHEN 'ON_CALL' THEN '值班'
+                ELSE sr.rule_type
+            END as ruleTypeName,
+            CASE sr.slot_type
+                WHEN 'EXPERT' THEN '专家号'
+                WHEN 'SPECIALIST' THEN '专科号'
+                WHEN 'ORDINARY' THEN '普通号'
+                WHEN 'EMERGENCY' THEN '急诊号'
+                ELSE sr.slot_type
+            END as slotTypeName,
+            CASE sr.status
+                WHEN 'ACTIVE' THEN '启用'
+                WHEN 'DISABLED' THEN '禁用'
+                WHEN 'EXPIRED' THEN '已过期'
+                WHEN 'DRAFT' THEN '草稿'
+                ELSE sr.status
+            END as statusName
+        FROM schedule_rule sr
+        LEFT JOIN doctor d ON sr.doctor_id = d.id
+        LEFT JOIN department dept ON sr.department_id = dept.id
+        LEFT JOIN clinic c ON sr.clinic_id = c.id
+        WHERE sr.id = #{id}
+    </select>
+    
+</mapper>
+

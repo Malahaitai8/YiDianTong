@@ -148,3 +148,94 @@ INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('CANCELLATION_FREE_HOURS', '24', '就诊前多久取消可免费退号，否则记录爽约（单位：小时）');
 
 alter table appointment add column source_type varchar(20);
+
+-- ========================================
+-- 12. 排班规则表 (schedule_rule)
+-- ========================================
+CREATE TABLE `schedule_rule` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '规则唯一ID',
+    `rule_name` VARCHAR(100) NOT NULL COMMENT '规则名称',
+    `rule_type` VARCHAR(50) NOT NULL COMMENT '规则类型 (weekly/custom/template)',
+    `doctor_id` BIGINT NULL COMMENT '关联医生ID (可为空表示科室规则)',
+    `department_id` BIGINT NULL COMMENT '关联科室ID',
+    `clinic_id` BIGINT NULL COMMENT '关联门诊ID',
+    
+    -- 时间相关配置
+    `week_days` VARCHAR(50) NULL COMMENT '星期配置 (如: 1,3,5 表示周一三五)',
+    `time_slots` VARCHAR(100) NULL COMMENT '时段配置 (如: morning,afternoon)',
+    `start_date` DATE NULL COMMENT '规则生效开始日期',
+    `end_date` DATE NULL COMMENT '规则生效结束日期',
+    
+    -- 号源配置
+    `slot_type` VARCHAR(20) NOT NULL DEFAULT 'normal' COMMENT '号别类型 (normal/expert/vip)',
+    `total_slots` INT NOT NULL COMMENT '每次排班的总号源数',
+    
+    -- 高级规则
+    `max_daily_schedules` INT NULL COMMENT '每天最多排班次数',
+    `max_continuous_days` INT NULL COMMENT '最多连续出诊天数',
+    `skip_weekends` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否跳过周末',
+    `skip_holidays` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否跳过节假日',
+    
+    -- 状态与优先级
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '规则状态 (ACTIVE/INACTIVE/EXPIRED)',
+    `priority` INT NOT NULL DEFAULT 0 COMMENT '优先级 (数字越大优先级越高)',
+    
+    -- 描述与审计
+    `description` TEXT NULL COMMENT '规则描述说明',
+    `created_by` VARCHAR(50) NOT NULL COMMENT '创建人',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`doctor_id`) REFERENCES `doctor`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (`department_id`) REFERENCES `department`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (`clinic_id`) REFERENCES `clinic`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX `idx_rule_doctor` (`doctor_id`),
+    INDEX `idx_rule_status` (`status`)
+) COMMENT='排班规则配置表 - 管理员可设置自动化排班策略';
+
+-- ========================================
+-- 13. 申请记录表 (application_request)
+-- ========================================
+CREATE TABLE `application_request` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '申请唯一ID',
+    `request_type` VARCHAR(50) NOT NULL COMMENT '申请类型 (SCHEDULE_CHANGE/INFO_UPDATE)',
+    `applicant_id` BIGINT NOT NULL COMMENT '申请人用户ID',
+    `applicant_role` VARCHAR(20) NOT NULL COMMENT '申请人角色 (doctor/admin)',
+    
+    -- 调班申请相关字段
+    `schedule_id` BIGINT NULL COMMENT '原排班ID (调班申请时使用)',
+    `change_type` VARCHAR(50) NULL COMMENT '调班类型 (CANCEL/RESCHEDULE/ADJUST_SLOTS)',
+    `original_date` DATE NULL COMMENT '原出诊日期',
+    `original_time_slot` VARCHAR(20) NULL COMMENT '原时间段',
+    `new_date` DATE NULL COMMENT '新出诊日期 (改期时使用)',
+    `new_time_slot` VARCHAR(20) NULL COMMENT '新时间段 (改期时使用)',
+    `slot_adjustment` INT NULL COMMENT '号源调整数量 (正数增加/负数减少)',
+    
+    -- 信息修改申请相关字段
+    `doctor_id` BIGINT NULL COMMENT '要修改信息的医生ID (信息修改申请时使用)',
+    `field_name` VARCHAR(100) NULL COMMENT '要修改的字段名 (如: name/title/specialty/bio)',
+    `old_value` TEXT NULL COMMENT '原值',
+    `new_value` TEXT NULL COMMENT '新值',
+    
+    -- 申请状态与处理
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '申请状态 (PENDING/APPROVED/REJECTED/CANCELLED)',
+    `reason` TEXT NULL COMMENT '申请理由',
+    `reject_reason` TEXT NULL COMMENT '拒绝原因',
+    `reviewer_id` BIGINT NULL COMMENT '审核人用户ID',
+    `reviewed_at` DATETIME NULL COMMENT '审核时间',
+    
+    -- 审计信息
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+    
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`applicant_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (`doctor_id`) REFERENCES `doctor`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (`reviewer_id`) REFERENCES `user`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX `idx_request_type` (`request_type`),
+    INDEX `idx_request_status` (`status`),
+    INDEX `idx_applicant` (`applicant_id`),
+    INDEX `idx_doctor` (`doctor_id`)
+) COMMENT='统一申请记录表 - 管理调班申请和医生信息修改申请';

@@ -13,6 +13,16 @@
         select * from appointment where patient_id = #{patientId}
     </select>
 
+    <!-- 根据医生查询预约列表 -->
+    <select id="selectByDoctorId" resultType="com.example.springboot.entity.Appointment" parameterType="long">
+        select * from appointment where doctor_id = #{doctorId} order by appointment_time desc
+    </select>
+
+    <!-- 统计某排班的预约数量 -->
+    <select id="countByScheduleId" resultType="int" parameterType="long">
+        select count(*) from appointment where schedule_id = #{scheduleId}
+    </select>
+
     <!-- 新增预约，返回自增 ID -->
     <insert id="insert" parameterType="com.example.springboot.entity.Appointment" useGeneratedKeys="true" keyProperty="id">
         insert into appointment(patient_id, doctor_id, schedule_id, appointment_time, status, fee, actual_fee, created_at, source_type)

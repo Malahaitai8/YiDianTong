@@ -16,7 +16,8 @@ const app = new Vue({
 // --- 权限拦截 (脚手架核心) ---
 const whiteList = [
   '/pages/index/index',
-  '/pages/login/login'
+  '/pages/login/login',
+  '/pages/register/register'
 ] // 路由白名单
 
 uni.addInterceptor('navigateTo', {

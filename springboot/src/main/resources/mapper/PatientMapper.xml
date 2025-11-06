@@ -34,6 +34,13 @@
         where p.id = #{id}
     </select>
 
+    <select id="selectByUserId" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
+        where p.user_id = #{userId}
+    </select>
+
     <select id="selectByPhoneNumber" resultMap="PatientResultMap">
         select p.*, u.username, u.role, u.status, u.created_at
         from patient p

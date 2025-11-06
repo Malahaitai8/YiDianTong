@@ -36,11 +36,10 @@ public class PatientController {
 
     @Operation(summary = "根据ID查询患者", description = "管理员或本人可查看患者详情")
     @GetMapping("/selectById/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')") // <-- [新增] 管理员或患者本人 (Service层应做ID校验)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
     public Result selectById(
             @Parameter(description = "患者ID", required = true) @PathVariable Long id) {
-        // TODO: Service层应检查是否为本人操作
-        Patient patient = patientService.selectById(id);
+        Patient patient = patientService.selectById(id); // Service层已实现本人权限校验
         return Result.success(patient);
     }
 
@@ -54,13 +53,12 @@ public class PatientController {
 
     @Operation(summary = "更新患者", description = "管理员或本人可更新患者信息")
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')") // <-- [新增] 管理员或患者本人 (Service层应做ID校验)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
     public Result update(
             @Parameter(description = "患者ID", required = true) @PathVariable Long id,
             @jakarta.validation.Valid @RequestBody Patient patient) {
-        // TODO: Service层应检查是否为本人操作
         patient.setId(id); // 使用路径参数中的ID
-        patientService.update(patient);
+        patientService.update(patient); // Service层已实现本人权限校验
         return Result.success();
     }
 

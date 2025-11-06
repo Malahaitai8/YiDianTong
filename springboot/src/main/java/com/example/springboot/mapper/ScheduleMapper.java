@@ -84,6 +84,16 @@ public interface ScheduleMapper {
     List<ScheduleWithDetailsDTO> selectByDoctorIdWithDetails(@Param("doctorId") Long doctorId);
     
     /**
+     * 根据医生ID和日期范围查询排班列表
+     */
+    @Select("SELECT * FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date >= #{startDate} AND schedule_date < #{endDate} " +
+            "ORDER BY schedule_date, time_slot")
+    List<Schedule> selectByDoctorAndDateRange(@Param("doctorId") Long doctorId,
+                                               @Param("startDate") Date startDate,
+                                               @Param("endDate") Date endDate);
+    
+    /**
      * 检查排班是否已存在（防止重复创建）
      */
     @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +
@@ -116,5 +126,14 @@ public interface ScheduleMapper {
         @Param("timeSlot") String timeSlot,
         @Param("slotType") String slotType
     );
+
+    /**
+     * 删除指定医生、日期、时间段的排班（用于规则覆盖）
+     */
+    @Delete("DELETE FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date = #{scheduleDate} AND time_slot = #{timeSlot}")
+    int deleteByDoctorDateTimeSlot(@Param("doctorId") Long doctorId,
+                                    @Param("scheduleDate") Date scheduleDate,
+                                    @Param("timeSlot") String timeSlot);
 
 }
