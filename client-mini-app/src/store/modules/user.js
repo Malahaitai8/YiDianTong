@@ -1,8 +1,9 @@
 import { getToken, setToken, removeToken } from '@/utils/auth.js'
+import { login as loginApi } from '@/api/auth.js'
 
 const state = {
     token: getToken(), // 启动时从缓存读取 Token
-    userInfo: {} // 存储用户信息（如学号、姓名）
+    userInfo: {} // 存储用户信息（如userId、username、role）
 }
 
 const mutations = {
@@ -21,11 +22,21 @@ const mutations = {
 }
 
 const actions = {
-    // 模拟登录 (实际应调用 API)
-    login({ commit }, token) {
-        commit('SET_TOKEN', token)
-        // 实际项目中, 你会在这里调用 api/user.js 的方法去后端登录
-        // 然后把后端返回的 token 传给 SET_TOKEN
+    // 登录
+    async login({ commit }, loginForm) {
+        try {
+            const data = await loginApi(loginForm)
+            // 从返回的data中获取token和用户信息
+            commit('SET_TOKEN', data.token)
+            commit('SET_USERINFO', {
+                userId: data.userId,
+                username: data.username,
+                role: data.role
+            })
+            return Promise.resolve()
+        } catch (error) {
+            return Promise.reject(error)
+        }
     },
 
     // 退出登录
