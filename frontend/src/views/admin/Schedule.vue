@@ -584,8 +584,8 @@
       @close="handleBatchDialogClose"
     >
       <el-form :model="batchFormData" :rules="batchFormRules" ref="batchFormRef" label-width="120px">
-        <el-form-item label="医生" prop="doctorIds">
-          <el-select v-model="batchFormData.doctorIds" multiple placeholder="请选择医生" style="width: 100%">
+        <el-form-item label="医生" prop="doctorId">
+          <el-select v-model="batchFormData.doctorId" placeholder="请选择医生" style="width: 100%" filterable clearable>
             <el-option
               v-for="doctor in dialogDoctorList"
               :key="doctor.id"
@@ -741,7 +741,7 @@ watch(() => formData.totalSlots, (newTotal) => {
 })
 
 const batchFormData = reactive({
-  doctorIds: [],
+  doctorId: null,
   dateRange: null,
   timeSlots: [],
   slotType: '',
@@ -759,7 +759,7 @@ const formRules = {
 }
 
 const batchFormRules = {
-  doctorIds: [{ required: true, message: '请选择医生', trigger: 'change' }],
+  doctorId: [{ required: true, message: '请选择医生', trigger: 'change' }],
   dateRange: [{ required: true, message: '请选择日期范围', trigger: 'change' }],
   timeSlots: [{ required: true, message: '请选择时间段', trigger: 'change' }],
   slotType: [{ required: true, message: '请选择号别', trigger: 'change' }],
@@ -1513,7 +1513,7 @@ const handleBatchSubmit = async () => {
     batchSubmitting.value = true
     
     const data = {
-      doctorId: Array.isArray(batchFormData.doctorIds) ? batchFormData.doctorIds[0] : (batchFormData.doctorId || null),
+      doctorId: batchFormData.doctorId || null,
       startDate: Array.isArray(batchFormData.dateRange) ? batchFormData.dateRange[0] : null,
       endDate: Array.isArray(batchFormData.dateRange) ? batchFormData.dateRange[1] : null,
       timeSlots: batchFormData.timeSlots,
@@ -1571,7 +1571,7 @@ const resetFormData = () => {
 
 const resetBatchFormData = () => {
   Object.assign(batchFormData, {
-    doctorIds: [],
+    doctorId: null,
     dateRange: null,
     timeSlots: [],
     slotType: '',

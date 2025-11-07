@@ -71,6 +71,9 @@
                 <div class="schedule-title">
                   {{ formatTime(getDayScheduleForSlot(timeSlot.time).timeSlot) }}
                 </div>
+                <div class="schedule-clinic">
+                  {{ clinicName }}
+                </div>
                 <div class="schedule-room">
                   {{ formatSlotType(getDayScheduleForSlot(timeSlot.time).slotType) }}
                 </div>
@@ -130,6 +133,9 @@
                 <div class="schedule-title">
                   {{ formatTime(getScheduleForCell(day.fullDate, timeSlot.time).timeSlot) }}
                 </div>
+                <div class="schedule-clinic">
+                  {{ clinicName }}
+                </div>
                 <div class="schedule-room">
                   {{ formatSlotType(getScheduleForCell(day.fullDate, timeSlot.time).slotType) }}
                 </div>
@@ -180,13 +186,25 @@
               </div>
               <div class="cell-schedules">
                 <template v-for="ts in displayTimeSlots" :key="ts.time">
-                  <el-tag
+                  <div
                     v-if="getScheduleForCell(day.fullDate, ts.time)"
-                    size="small"
-                    type="success"
-                    effect="plain"
-                    class="slot-chip"
-                  >{{ ts.label }}</el-tag>
+                    class="schedule-item"
+                    :class="getScheduleStatusClass(getScheduleForCell(day.fullDate, ts.time))"
+                    @click.stop="handleCellClick(day.fullDate, ts.time)"
+                  >
+                    <div class="schedule-title">
+                      {{ formatTime(getScheduleForCell(day.fullDate, ts.time).timeSlot) }}
+                    </div>
+                    <div class="schedule-clinic">
+                      {{ clinicName }}
+                    </div>
+                    <div class="schedule-room">
+                      {{ formatSlotType(getScheduleForCell(day.fullDate, ts.time).slotType) }}
+                    </div>
+                    <div class="schedule-patients">
+                      {{ (getScheduleForCell(day.fullDate, ts.time).totalSlots - getScheduleForCell(day.fullDate, ts.time).availableSlots) || 0 }} / {{ getScheduleForCell(day.fullDate, ts.time).totalSlots || 0 }}
+                    </div>
+                  </div>
                 </template>
               </div>
             </div>
@@ -296,6 +314,13 @@ const loadMyInfo = async () => {
     console.error('获取医生信息失败', e)
   }
 }
+
+// 医生所属门诊名称（使用现有接口返回的 myDoctorInfo）
+const clinicName = computed(() => {
+  const info = myDoctorInfo.value
+  // 兼容不同字段结构：优先 clinic.name，其次 clinicName
+  return (info?.clinic?.name) || (info?.clinicName) || '未设置门诊'
+})
 
 // 所有时间段
 const allTimeSlots = [
@@ -678,9 +703,7 @@ const handleViewModeChange = (mode) => {
     const month = today.getMonth()
     const first = new Date(year, month, 1)
     selectedMonth.value = new Date(first)
-    // 切换到月视图时，清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
-    filterStartDate.value = null
-    filterEndDate.value = null
+    // 不清空筛选日期：保持用户选择的范围用于月视图黄标
   }
   
   nextTick(() => {
@@ -752,9 +775,6 @@ const previousMonth = () => {
   date.setDate(1)
   date.setHours(0, 0, 0, 0)
   selectedMonth.value = date
-  // 清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
-  filterStartDate.value = null
-  filterEndDate.value = null
   loadSchedules()
 }
 
@@ -764,9 +784,6 @@ const nextMonth = () => {
   date.setDate(1)
   date.setHours(0, 0, 0, 0)
   selectedMonth.value = date
-  // 清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
-  filterStartDate.value = null
-  filterEndDate.value = null
   loadSchedules()
 }
 
@@ -797,7 +814,9 @@ const handleFilterDateChange = () => {
 // 判断给定日期是否在筛选范围内（用于月视图淡黄色高亮）
 const isInFilterRange = (fullDateStr) => {
   if (!filterStartDate.value || !filterEndDate.value) return false
-  const d = new Date(fullDateStr)
+  // 解析为本地日期，避免 YYYY-MM-DD 被当作 UTC 导致时区偏移
+  const [yy, mm, dd] = String(fullDateStr).split('-').map(n => Number(n))
+  const d = new Date(yy, mm - 1, dd)
   const s = new Date(filterStartDate.value)
   const e = new Date(filterEndDate.value)
   d.setHours(0,0,0,0); s.setHours(0,0,0,0); e.setHours(0,0,0,0)
@@ -1100,9 +1119,17 @@ onMounted(() => {
   margin: 0 0 15px 0;
   color: #303133;
 }
+/* 门诊信息样式：插入在时间与号别之间 */
+.schedule-clinic {
+  font-size: 12px;
+  color: #67c23a; /* 与成功标签色系一致 */
+  margin: 2px 0;
+}
 /* 月视图：跨月淡化、筛选范围淡黄色、日期布局与标签间距 */
 .month-view .schedule-cell.outside { background-color: #fafafa; color: #c0c4cc; }
-.month-view .schedule-cell.inRange { background-color: #fff7e6; }
+.month-view .schedule-cell.inRange { background-color: #fff7e6; box-shadow: inset 0 0 0 2px #f5d78e; }
 .month-day { display: flex; justify-content: space-between; }
+.month-view .cell-schedules { display: flex; flex-direction: column; gap: 6px; }
+.month-view .schedule-cell.inRange .schedule-item { background-color: #fff9ed; border-color: #f0c78a; }
 .slot-chip { margin: 2px; }
 </style>
