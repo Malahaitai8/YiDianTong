@@ -4,22 +4,11 @@
       <template #header>
         <div class="card-header">
           <span>我的排班</span>
-          <div class="header-actions">
-            <!-- 视图切换 -->
-            <el-radio-group v-model="viewMode" @change="handleViewModeChange" class="view-toggle">
-              <el-radio-button label="day">日视图</el-radio-button>
-              <el-radio-button label="week">周视图</el-radio-button>
-              <el-radio-button label="month">月视图</el-radio-button>
-            </el-radio-group>
-            
-            <!-- 时间段筛选（与下方筛选栏保持一致） -->
-            <el-select v-model="filterTimeSlot" placeholder="时间段" style="width: 140px" @change="loadSchedules">
-              <el-option label="全部时间段" value="ALL" />
-              <el-option label="上午" value="MORNING" />
-              <el-option label="下午" value="AFTERNOON" />
-            </el-select>
-            <!-- 管理员逻辑：单选作为快捷键，不在头部显示日期选择器 -->
-          </div>
+          <el-radio-group v-model="viewMode" class="view-toggle">
+            <el-radio-button label="day">日视图</el-radio-button>
+            <el-radio-button label="week">周视图</el-radio-button>
+            <el-radio-button label="month">月视图</el-radio-button>
+          </el-radio-group>
         </div>
       </template>
 
@@ -52,9 +41,6 @@
           <el-form-item>
             <el-button @click="resetFilters">重置筛选</el-button>
           </el-form-item>
-          <el-form-item>
-            <el-tag type="info">医生ID：{{ myDoctorInfo?.id ?? '未知' }}</el-tag>
-          </el-form-item>
         </el-form>
       </div>
 
@@ -86,7 +72,7 @@
                   {{ formatTime(getDayScheduleForSlot(timeSlot.time).timeSlot) }}
                 </div>
                 <div class="schedule-room">
-                  {{ getDayScheduleForSlot(timeSlot.time).slotType || '普通门诊' }}
+                  {{ formatSlotType(getDayScheduleForSlot(timeSlot.time).slotType) }}
                 </div>
                 <div class="schedule-patients">
                   {{ (getDayScheduleForSlot(timeSlot.time).totalSlots - getDayScheduleForSlot(timeSlot.time).availableSlots) || 0 }} / {{ getDayScheduleForSlot(timeSlot.time).totalSlots || 0 }}
@@ -101,8 +87,16 @@
       </div>
 
       <!-- 周视图 -->
-      <div v-else-if="viewMode === 'week'" class="schedule-calendar">
-        <div class="calendar-header">
+      <div v-else-if="viewMode === 'week'" class="week-view">
+        <div class="week-header">
+          <h3>{{ formatWeekRange() }}</h3>
+          <div class="week-navigation">
+            <el-button @click="previousWeek" icon="ArrowLeft" circle />
+            <el-button @click="nextWeek" icon="ArrowRight" circle />
+          </div>
+        </div>
+        <div class="schedule-calendar">
+          <div class="calendar-header">
           <div class="time-column">时间</div>
           <div
             v-for="day in weekDays"
@@ -137,7 +131,7 @@
                   {{ formatTime(getScheduleForCell(day.fullDate, timeSlot.time).timeSlot) }}
                 </div>
                 <div class="schedule-room">
-                  {{ getScheduleForCell(day.fullDate, timeSlot.time).slotType || '普通门诊' }}
+                  {{ formatSlotType(getScheduleForCell(day.fullDate, timeSlot.time).slotType) }}
                 </div>
                 <div class="schedule-patients">
                   {{ (getScheduleForCell(day.fullDate, timeSlot.time).totalSlots - getScheduleForCell(day.fullDate, timeSlot.time).availableSlots) || 0 }} / {{ getScheduleForCell(day.fullDate, timeSlot.time).totalSlots || 0 }}
@@ -146,10 +140,18 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       <!-- 月视图（参考管理员端：纯7列日历） -->
       <div v-else-if="viewMode === 'month'" class="month-view">
+        <div class="month-header">
+          <h3>{{ formatMonthRange() }}</h3>
+          <div class="month-navigation">
+            <el-button @click="previousMonth" icon="ArrowLeft" circle />
+            <el-button @click="nextMonth" icon="ArrowRight" circle />
+          </div>
+        </div>
         <div class="calendar-header">
           <div
             v-for="dayName in ['周一','周二','周三','周四','周五','周六','周日']"
@@ -177,15 +179,15 @@
                 <span class="day-date">{{ day.date }}</span>
               </div>
               <div class="cell-schedules">
-                <el-tag
-                  v-for="ts in displayTimeSlots"
-                  :key="ts.time"
-                  v-if="getScheduleForCell(day.fullDate, ts.time)"
-                  size="small"
-                  type="success"
-                  effect="plain"
-                  class="slot-chip"
-                >{{ ts.label }}</el-tag>
+                <template v-for="ts in displayTimeSlots" :key="ts.time">
+                  <el-tag
+                    v-if="getScheduleForCell(day.fullDate, ts.time)"
+                    size="small"
+                    type="success"
+                    effect="plain"
+                    class="slot-chip"
+                  >{{ ts.label }}</el-tag>
+                </template>
               </div>
             </div>
           </div>
@@ -208,7 +210,7 @@
             {{ formatTime(selectedSchedule.timeSlot) }}
           </el-descriptions-item>
           <el-descriptions-item label="门诊类型">
-            {{ selectedSchedule.slotType || '普通门诊' }}
+            {{ formatSlotType(selectedSchedule.slotType) }}
           </el-descriptions-item>
           <el-descriptions-item label="总号源">
             {{ selectedSchedule.totalSlots || 0 }}
@@ -266,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { formatDate } from '@/utils'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
@@ -369,13 +371,27 @@ const monthGrid = computed(() => {
 // 统一时间段大小写
 const normalizeSlot = (slot) => (slot ?? '').toString().trim().toUpperCase()
 
-// 加载排班数据（优先使用筛选栏日期范围，其次按视图模式）
+// 加载排班数据（优先使用视图模式对应的日期，其次使用筛选栏日期）
 const loadSchedules = async () => {
   try {
     let startDate, endDate
-    if (filterStartDate.value && filterEndDate.value) {
-      startDate = formatDate(new Date(filterStartDate.value))
-      endDate = formatDate(new Date(filterEndDate.value))
+    // 优先使用视图模式对应的日期
+    if (viewMode.value === 'day') {
+      const d = new Date(selectedDate.value)
+      d.setHours(0, 0, 0, 0)
+      startDate = formatDate(d)
+      endDate = formatDate(d)
+    } else if (viewMode.value === 'week') {
+      const base = new Date(selectedWeek.value)
+      const day = base.getDay()
+      const monday = new Date(base)
+      monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
+      monday.setHours(0, 0, 0, 0)
+      const sunday = new Date(monday)
+      sunday.setDate(monday.getDate() + 6)
+      sunday.setHours(23, 59, 59, 999)
+      startDate = formatDate(monday)
+      endDate = formatDate(sunday)
     } else if (viewMode.value === 'month') {
       // 以周一开头、周日结尾的完整月网格范围
       const base = new Date(selectedMonth.value)
@@ -391,22 +407,10 @@ const loadSchedules = async () => {
       gridEnd.setDate(gridStart.getDate() + 6*7 - 1)
       startDate = formatDate(gridStart)
       endDate = formatDate(gridEnd)
-    } else if (viewMode.value === 'week') {
-      const base = new Date(selectedWeek.value)
-      const day = base.getDay()
-      const monday = new Date(base)
-      monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(monday.getDate() + 6)
-      sunday.setHours(23, 59, 59, 999)
-      startDate = formatDate(monday)
-      endDate = formatDate(sunday)
-    } else {
-      const d = new Date(selectedDate.value)
-      d.setHours(0, 0, 0, 0)
-      startDate = formatDate(d)
-      endDate = formatDate(d)
+    } else if (filterStartDate.value && filterEndDate.value) {
+      // 如果不在特定视图模式下，且用户手动设置了筛选栏日期，使用筛选栏日期
+      startDate = formatDate(new Date(filterStartDate.value))
+      endDate = formatDate(new Date(filterEndDate.value))
     }
 
     const params = { startDate, endDate }
@@ -448,18 +452,45 @@ const formatSelectedDate = () => {
   return `${formatDate(date)} ${weekDay}`
 }
 
+// 格式化周范围（用于周视图头部显示）
+const formatWeekRange = () => {
+  const base = new Date(selectedWeek.value)
+  const day = base.getDay()
+  const monday = new Date(base)
+  monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  return `${formatDate(monday)} 至 ${formatDate(sunday)}`
+}
+
+// 格式化月份（用于月视图头部显示）
+const formatMonthRange = () => {
+  const base = new Date(selectedMonth.value)
+  const year = base.getFullYear()
+  const month = base.getMonth() + 1
+  return `${year}年${month}月`
+}
+
 // 日视图相关方法
 const previousDay = () => {
   const date = new Date(selectedDate.value)
   date.setDate(date.getDate() - 1)
+  date.setHours(0, 0, 0, 0)
   selectedDate.value = date
+  // 同步更新筛选栏日期，确保 loadSchedules 使用正确的日期
+  filterStartDate.value = new Date(date)
+  filterEndDate.value = new Date(date)
   loadSchedules()
 }
 
 const nextDay = () => {
   const date = new Date(selectedDate.value)
   date.setDate(date.getDate() + 1)
+  date.setHours(0, 0, 0, 0)
   selectedDate.value = date
+  // 同步更新筛选栏日期，确保 loadSchedules 使用正确的日期
+  filterStartDate.value = new Date(date)
+  filterEndDate.value = new Date(date)
   loadSchedules()
 }
 
@@ -467,7 +498,11 @@ const getDayScheduleForSlot = (timeSlot) => {
   const dateStr = formatDate(selectedDate.value)
   
   return schedules.value.find(schedule => {
-    const scheduleDate = formatDate(new Date(schedule.scheduleDate))
+    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
+    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
+    const scheduleDate = typeof schedule.scheduleDate === 'string' 
+      ? schedule.scheduleDate 
+      : formatDate(new Date(schedule.scheduleDate))
     return scheduleDate === dateStr && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
   })
 }
@@ -564,9 +599,25 @@ const formatTime = (timeSlot) => {
   return timeSlot;
 }
 
+// 格式化号别类型
+const formatSlotType = (slotType) => {
+  if (!slotType) return '普通门诊';
+  const type = slotType.toString().toLowerCase();
+  const typeMap = {
+    'normal': '普通门诊',
+    'expert': '专家号',
+    'vip': 'VIP号'
+  };
+  return typeMap[type] || slotType;
+}
+
 const getScheduleForCell = (fullDate, timeSlot) => {
   return schedules.value.find(schedule => {
-    const scheduleDate = formatDate(new Date(schedule.scheduleDate))
+    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
+    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
+    const scheduleDate = typeof schedule.scheduleDate === 'string' 
+      ? schedule.scheduleDate 
+      : formatDate(new Date(schedule.scheduleDate))
     return scheduleDate === fullDate && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
   })
 }
@@ -601,9 +652,8 @@ const getPatientStatusType = (status) => {
   return statusMap[status] || 'info'
 }
 
-// 事件处理方法
+// 视图切换处理方法
 const handleViewModeChange = (mode) => {
-  viewMode.value = mode
   const today = new Date()
   today.setHours(0,0,0,0)
 
@@ -627,13 +677,23 @@ const handleViewModeChange = (mode) => {
     const year = today.getFullYear()
     const month = today.getMonth()
     const first = new Date(year, month, 1)
-    const last = new Date(year, month + 1, 0)
     selectedMonth.value = new Date(first)
-    filterStartDate.value = new Date(first)
-    filterEndDate.value = new Date(last)
+    // 切换到月视图时，清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
+    filterStartDate.value = null
+    filterEndDate.value = null
   }
-  loadSchedules()
+  
+  nextTick(() => {
+    loadSchedules()
+  })
 }
+
+// 监听视图模式变化（排除初始化时的触发）
+watch(viewMode, (newMode, oldMode) => {
+  if (oldMode !== undefined && newMode !== oldMode) {
+    handleViewModeChange(newMode)
+  }
+})
 
 
 
@@ -649,6 +709,64 @@ const handleDateChange = (date) => {
 
 const handleMonthChange = (date) => {
   selectedMonth.value = date
+  loadSchedules()
+}
+
+// 周视图导航方法
+const previousWeek = () => {
+  const date = new Date(selectedWeek.value)
+  date.setDate(date.getDate() - 7)
+  date.setHours(0, 0, 0, 0)
+  selectedWeek.value = date
+  // 同步更新筛选栏日期
+  const day = date.getDay()
+  const monday = new Date(date)
+  monday.setDate(date.getDate() - day + (day === 0 ? -6 : 1))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  filterStartDate.value = new Date(monday)
+  filterEndDate.value = new Date(sunday)
+  loadSchedules()
+}
+
+const nextWeek = () => {
+  const date = new Date(selectedWeek.value)
+  date.setDate(date.getDate() + 7)
+  date.setHours(0, 0, 0, 0)
+  selectedWeek.value = date
+  // 同步更新筛选栏日期
+  const day = date.getDay()
+  const monday = new Date(date)
+  monday.setDate(date.getDate() - day + (day === 0 ? -6 : 1))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  filterStartDate.value = new Date(monday)
+  filterEndDate.value = new Date(sunday)
+  loadSchedules()
+}
+
+// 月视图导航方法
+const previousMonth = () => {
+  const date = new Date(selectedMonth.value)
+  date.setMonth(date.getMonth() - 1)
+  date.setDate(1)
+  date.setHours(0, 0, 0, 0)
+  selectedMonth.value = date
+  // 清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
+  filterStartDate.value = null
+  filterEndDate.value = null
+  loadSchedules()
+}
+
+const nextMonth = () => {
+  const date = new Date(selectedMonth.value)
+  date.setMonth(date.getMonth() + 1)
+  date.setDate(1)
+  date.setHours(0, 0, 0, 0)
+  selectedMonth.value = date
+  // 清空筛选日期，让 loadSchedules 使用月视图的完整网格范围
+  filterStartDate.value = null
+  filterEndDate.value = null
   loadSchedules()
 }
 
@@ -725,18 +843,12 @@ onMounted(() => {
   align-items: center;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+.view-toggle {
+  margin-left: auto;
 }
 
 .filters-bar {
   padding: 10px 0 20px 0;
-}
-
-.view-toggle {
-  margin-right: 10px;
 }
 
 .date-range-select {
@@ -764,6 +876,53 @@ onMounted(() => {
 }
 
 .day-navigation {
+  display: flex;
+  gap: 10px;
+}
+
+/* 周视图样式 */
+.week-view {
+  padding: 20px 0;
+}
+
+/* 周视图头部样式 */
+.week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.week-header h3 {
+  margin: 0;
+  color: #303133;
+  font-size: 18px;
+}
+
+.week-navigation {
+  display: flex;
+  gap: 10px;
+}
+
+/* 月视图头部样式 */
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.month-header h3 {
+  margin: 0;
+  color: #303133;
+  font-size: 18px;
+}
+
+.month-navigation {
   display: flex;
   gap: 10px;
 }
