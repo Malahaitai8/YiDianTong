@@ -9,29 +9,54 @@
             <el-radio-group v-model="viewMode" @change="handleViewModeChange" class="view-toggle">
               <el-radio-button label="day">日视图</el-radio-button>
               <el-radio-button label="week">周视图</el-radio-button>
+              <el-radio-button label="month">月视图</el-radio-button>
             </el-radio-group>
             
-            <!-- 本周排班 -->
-            <span class="time-range-label">本周排班</span>
-            
-            <!-- 日期选择器 -->
-            <el-date-picker
-              v-if="viewMode === 'week'"
-              v-model="selectedWeek"
-              type="week"
-              placeholder="选择周"
-              @change="handleWeekChange"
-            />
-            <el-date-picker
-              v-else
-              v-model="selectedDate"
-              type="date"
-              placeholder="选择日期"
-              @change="handleDateChange"
-            />
+            <!-- 时间段筛选（与下方筛选栏保持一致） -->
+            <el-select v-model="filterTimeSlot" placeholder="时间段" style="width: 140px" @change="loadSchedules">
+              <el-option label="全部时间段" value="ALL" />
+              <el-option label="上午" value="MORNING" />
+              <el-option label="下午" value="AFTERNOON" />
+            </el-select>
+            <!-- 管理员逻辑：单选作为快捷键，不在头部显示日期选择器 -->
           </div>
         </div>
       </template>
+
+      <!-- 顶部筛选栏：开始日期 / 结束日期 / 时间段 / 重置 -->
+      <div class="filters-bar">
+        <el-form inline>
+          <el-form-item label="开始日期">
+            <el-date-picker
+              v-model="filterStartDate"
+              type="date"
+              placeholder="选择开始日期"
+              @change="handleFilterDateChange"
+            />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <el-date-picker
+              v-model="filterEndDate"
+              type="date"
+              placeholder="选择结束日期"
+              @change="handleFilterDateChange"
+            />
+          </el-form-item>
+          <el-form-item label="时间段">
+            <el-select v-model="filterTimeSlot" placeholder="全部时间段" style="width: 160px" @change="loadSchedules">
+              <el-option label="全部时间段" value="ALL" />
+              <el-option label="上午" value="MORNING" />
+              <el-option label="下午" value="AFTERNOON" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button @click="resetFilters">重置筛选</el-button>
+          </el-form-item>
+          <el-form-item>
+            <el-tag type="info">医生ID：{{ myDoctorInfo?.id ?? '未知' }}</el-tag>
+          </el-form-item>
+        </el-form>
+      </div>
 
       <!-- 日视图 -->
       <div v-if="viewMode === 'day'" class="day-view">
@@ -45,7 +70,7 @@
         
         <div class="day-schedule">
           <div
-            v-for="timeSlot in timeSlots"
+            v-for="timeSlot in displayTimeSlots"
             :key="timeSlot.time"
             class="day-time-slot"
             @click="handleDaySlotClick(selectedDate, timeSlot.time)"
@@ -76,7 +101,7 @@
       </div>
 
       <!-- 周视图 -->
-      <div v-else class="schedule-calendar">
+      <div v-else-if="viewMode === 'week'" class="schedule-calendar">
         <div class="calendar-header">
           <div class="time-column">时间</div>
           <div
@@ -92,31 +117,75 @@
 
         <div class="calendar-body">
           <div
-            v-for="timeSlot in timeSlots"
+            v-for="timeSlot in displayTimeSlots"
             :key="timeSlot.time"
             class="time-row"
           >
             <div class="time-column">{{ timeSlot.label }}</div>
             <div
               v-for="day in weekDays"
-              :key="`${day.date}-${timeSlot.time}`"
+              :key="`${day.fullDate}-${timeSlot.time}`"
               class="schedule-cell"
-              @click="handleCellClick(day.date, timeSlot.time)"
+              @click="handleCellClick(day.fullDate, timeSlot.time)"
             >
               <div
-                v-if="getScheduleForCell(day.date, timeSlot.time)"
+                v-if="getScheduleForCell(day.fullDate, timeSlot.time)"
                 class="schedule-item"
-                :class="getScheduleStatusClass(getScheduleForCell(day.date, timeSlot.time))"
+                :class="getScheduleStatusClass(getScheduleForCell(day.fullDate, timeSlot.time))"
               >
                 <div class="schedule-title">
-                  {{ formatTime(getScheduleForCell(day.date, timeSlot.time).timeSlot) }}
+                  {{ formatTime(getScheduleForCell(day.fullDate, timeSlot.time).timeSlot) }}
                 </div>
                 <div class="schedule-room">
-                  {{ getScheduleForCell(day.date, timeSlot.time).slotType || '普通门诊' }}
+                  {{ getScheduleForCell(day.fullDate, timeSlot.time).slotType || '普通门诊' }}
                 </div>
                 <div class="schedule-patients">
-                  {{ (getScheduleForCell(day.date, timeSlot.time).totalSlots - getScheduleForCell(day.date, timeSlot.time).availableSlots) || 0 }} / {{ getScheduleForCell(day.date, timeSlot.time).totalSlots || 0 }}
+                  {{ (getScheduleForCell(day.fullDate, timeSlot.time).totalSlots - getScheduleForCell(day.fullDate, timeSlot.time).availableSlots) || 0 }} / {{ getScheduleForCell(day.fullDate, timeSlot.time).totalSlots || 0 }}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 月视图（参考管理员端：纯7列日历） -->
+      <div v-else-if="viewMode === 'month'" class="month-view">
+        <div class="calendar-header">
+          <div
+            v-for="dayName in ['周一','周二','周三','周四','周五','周六','周日']"
+            :key="dayName"
+            class="day-column"
+          >
+            <div class="day-name">{{ dayName }}</div>
+          </div>
+        </div>
+
+        <div class="calendar-body">
+          <div
+            v-for="(week, rIdx) in monthGrid"
+            :key="rIdx"
+            class="time-row"
+          >
+            <div
+              v-for="day in week"
+              :key="day.fullDate"
+              class="schedule-cell"
+              :class="{ today: day.isToday, outside: !day.inMonth, inRange: isInFilterRange(day.fullDate) }"
+              @click="handleMonthCellClick(day.fullDate)"
+            >
+              <div class="month-day">
+                <span class="day-date">{{ day.date }}</span>
+              </div>
+              <div class="cell-schedules">
+                <el-tag
+                  v-for="ts in displayTimeSlots"
+                  :key="ts.time"
+                  v-if="getScheduleForCell(day.fullDate, ts.time)"
+                  size="small"
+                  type="success"
+                  effect="plain"
+                  class="slot-chip"
+                >{{ ts.label }}</el-tag>
               </div>
             </div>
           </div>
@@ -201,40 +270,60 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { formatDate } from '@/utils'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { getMySchedules, getMyInfo } from '@/api/doctor'
 
 // 视图模式
 const viewMode = ref('week') // 'day' 或 'week'
 const selectedWeek = ref(new Date())
 const selectedDate = ref(new Date())
+const selectedMonth = ref(new Date())
 const scheduleDialogVisible = ref(false)
 const selectedSchedule = ref(null)
+// 顶部筛选栏模型
+const filterStartDate = ref(null) // Date
+const filterEndDate = ref(null)   // Date
+const filterTimeSlot = ref('ALL') // ALL/MORNING/AFTERNOON
 
-// 获取当前用户信息
-const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
-const doctorId = currentUser.id
+// 获取当前医生信息（通过后端接口校验映射关系）
+const myDoctorInfo = ref(null)
+const loadMyInfo = async () => {
+  try {
+    const res = await getMyInfo()
+    myDoctorInfo.value = res.data || null
+  } catch (e) {
+    console.error('获取医生信息失败', e)
+  }
+}
 
-// 时间段 - 只有上午和下午
-const timeSlots = [
+// 所有时间段
+const allTimeSlots = [
   { time: 'MORNING', label: '上午' },
   { time: 'AFTERNOON', label: '下午' }
 ]
 
+// 根据筛选展示时间段
+const displayTimeSlots = computed(() => {
+  if (filterTimeSlot.value === 'ALL') return allTimeSlots
+  return allTimeSlots.filter(s => s.time === filterTimeSlot.value)
+})
+
 // 排班数据
 const schedules = ref([])
-// 缓存所有排班数据
-const allSchedulesCache = ref([])
 
-// 计算本周日期
+// 计算本周日期（避免在循环中修改同一 Date 实例）
 const weekDays = computed(() => {
   const days = []
-  const startOfWeek = new Date(selectedWeek.value)
-  const day = startOfWeek.getDay()
-  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1) // 调整为周一开始
-  
+  const base = new Date(selectedWeek.value)
+  const day = base.getDay()
+  const monday = new Date(base)
+  monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
+  monday.setHours(0, 0, 0, 0)
+
   for (let i = 0; i < 7; i++) {
-    const date = new Date(startOfWeek.setDate(diff + i))
+    const date = new Date(monday)
+    date.setDate(monday.getDate() + i)
     const today = new Date()
-    
+
     days.push({
       name: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
       date: formatDate(date, 'MM-DD'),
@@ -242,39 +331,100 @@ const weekDays = computed(() => {
       isToday: formatDate(date) === formatDate(today)
     })
   }
-  
+
   return days
 })
 
-// 加载排班数据
-const loadSchedules = async (forceReload = false) => {
+// 计算当月的6行7列网格（以周一为一周开始）
+const monthGrid = computed(() => {
+  const base = new Date(selectedMonth.value)
+  const year = base.getFullYear()
+  const month = base.getMonth()
+  const firstOfMonth = new Date(year, month, 1)
+  const firstDay = firstOfMonth.getDay()
+  // 以周一为第一天，计算网格开始的周一
+  const offsetToMonday = firstDay === 0 ? -6 : 1 - firstDay
+  const gridStart = new Date(firstOfMonth)
+  gridStart.setDate(firstOfMonth.getDate() + offsetToMonday)
+  gridStart.setHours(0,0,0,0)
+
+  const weeks = []
+  for (let w = 0; w < 6; w++) {
+    const week = []
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(gridStart)
+      cellDate.setDate(gridStart.getDate() + w*7 + d)
+      const today = new Date()
+      week.push({
+        date: formatDate(cellDate, 'MM-DD'),
+        fullDate: formatDate(cellDate),
+        inMonth: cellDate.getMonth() === month,
+        isToday: formatDate(cellDate) === formatDate(today)
+      })
+    }
+    weeks.push(week)
+  }
+  return weeks
+})
+// 统一时间段大小写
+const normalizeSlot = (slot) => (slot ?? '').toString().trim().toUpperCase()
+
+// 加载排班数据（优先使用筛选栏日期范围，其次按视图模式）
+const loadSchedules = async () => {
   try {
-    // 如果有缓存数据且不强制重新加载，直接使用缓存
-    if (allSchedulesCache.value.length > 0 && !forceReload) {
-      console.log('使用缓存数据...')
-      const filteredSchedules = filterSchedulesByWeek(allSchedulesCache.value)
-      schedules.value = filteredSchedules
-      console.log('过滤后的排班数据:', schedules.value)
-      return
-    }
-    
-    console.log('开始加载排班数据...')
-    const response = await request.get('/schedule/week')
-    console.log('API响应:', response)
-    
-    if (response.data && response.data.length >= 0) {
-      // 缓存所有排班数据
-      allSchedulesCache.value = response.data || []
-      console.log('所有排班数据已缓存:', allSchedulesCache.value)
-      
-      // 根据选择的周期过滤数据
-      const filteredSchedules = filterSchedulesByWeek(allSchedulesCache.value)
-      schedules.value = filteredSchedules
-      console.log('过滤后的排班数据:', schedules.value)
+    let startDate, endDate
+    if (filterStartDate.value && filterEndDate.value) {
+      startDate = formatDate(new Date(filterStartDate.value))
+      endDate = formatDate(new Date(filterEndDate.value))
+    } else if (viewMode.value === 'month') {
+      // 以周一开头、周日结尾的完整月网格范围
+      const base = new Date(selectedMonth.value)
+      const year = base.getFullYear()
+      const month = base.getMonth()
+      const firstOfMonth = new Date(year, month, 1)
+      const firstDay = firstOfMonth.getDay()
+      const offsetToMonday = firstDay === 0 ? -6 : 1 - firstDay
+      const gridStart = new Date(firstOfMonth)
+      gridStart.setDate(firstOfMonth.getDate() + offsetToMonday)
+
+      const gridEnd = new Date(gridStart)
+      gridEnd.setDate(gridStart.getDate() + 6*7 - 1)
+      startDate = formatDate(gridStart)
+      endDate = formatDate(gridEnd)
+    } else if (viewMode.value === 'week') {
+      const base = new Date(selectedWeek.value)
+      const day = base.getDay()
+      const monday = new Date(base)
+      monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
+      monday.setHours(0, 0, 0, 0)
+      const sunday = new Date(monday)
+      sunday.setDate(monday.getDate() + 6)
+      sunday.setHours(23, 59, 59, 999)
+      startDate = formatDate(monday)
+      endDate = formatDate(sunday)
     } else {
-      console.log('响应格式异常:', response)
-      ElMessage.error('加载排班数据失败')
+      const d = new Date(selectedDate.value)
+      d.setHours(0, 0, 0, 0)
+      startDate = formatDate(d)
+      endDate = formatDate(d)
     }
+
+    const params = { startDate, endDate }
+    if (filterTimeSlot.value !== 'ALL') {
+      params.timeSlot = filterTimeSlot.value
+    }
+
+    const resp = await getMySchedules(params)
+
+    let list = []
+    if (Array.isArray(resp?.data?.schedules)) {
+      list = resp.data.schedules
+    } else if (Array.isArray(resp?.data)) {
+      list = resp.data
+    } else {
+      list = []
+    }
+    schedules.value = list
   } catch (error) {
     console.error('加载排班数据失败:', error)
     if (error.response?.status === 401) {
@@ -285,41 +435,7 @@ const loadSchedules = async (forceReload = false) => {
   }
 }
 
-// 根据选择的周期过滤排班数据
-const filterSchedulesByWeek = (allSchedules) => {
-  // 获取选择周的开始和结束日期
-  const startOfWeek = new Date(selectedWeek.value)
-  const day = startOfWeek.getDay()
-  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1) // 调整为周一开始
-  startOfWeek.setDate(diff)
-  startOfWeek.setHours(0, 0, 0, 0)
-  
-  const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 6)
-  endOfWeek.setHours(23, 59, 59, 999)
-  
-  console.log('选择的周期:', formatDate(startOfWeek), '到', formatDate(endOfWeek))
-  
-  // 过滤在选择周期内的排班数据
-  const filteredData = allSchedules.filter(schedule => {
-    const scheduleDate = new Date(schedule.scheduleDate)
-    const isInRange = scheduleDate >= startOfWeek && scheduleDate <= endOfWeek
-    console.log('排班日期:', formatDate(scheduleDate), '是否在范围内:', isInRange)
-    return isInRange
-  })
-  
-  // 如果没有数据，显示提示信息
-  if (filteredData.length === 0 && allSchedules.length > 0) {
-    // 计算实际数据的日期范围
-    const dates = allSchedules.map(s => new Date(s.scheduleDate))
-    const minDate = new Date(Math.min(...dates))
-    const maxDate = new Date(Math.max(...dates))
-    
-    ElMessage.info(`当前选择的周期 ${formatDate(startOfWeek)} 到 ${formatDate(endOfWeek)} 没有排班数据。\n实际数据范围：${formatDate(minDate)} 到 ${formatDate(maxDate)}`)
-  }
-  
-  return filteredData
-}
+// 已移除前端二次过滤，直接使用后端筛选结果
 
 
 
@@ -352,7 +468,7 @@ const getDayScheduleForSlot = (timeSlot) => {
   
   return schedules.value.find(schedule => {
     const scheduleDate = formatDate(new Date(schedule.scheduleDate))
-    return scheduleDate === dateStr && schedule.timeSlot === timeSlot
+    return scheduleDate === dateStr && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
   })
 }
 
@@ -439,20 +555,19 @@ const getAppointmentStatusText = (status) => {
 const formatTime = (timeSlot) => {
   if (!timeSlot) return '';
   // 根据timeSlot显示上午/下午
-  if (timeSlot === 'MORNING') {
+  const s = normalizeSlot(timeSlot)
+  if (s === 'MORNING') {
     return '上午';
-  } else if (timeSlot === 'AFTERNOON') {
+  } else if (s === 'AFTERNOON') {
     return '下午';
   }
   return timeSlot;
 }
 
-const getScheduleForCell = (date, timeSlot) => {
-  const fullDate = `2024-${date}` // date格式为 MM-DD
-  
+const getScheduleForCell = (fullDate, timeSlot) => {
   return schedules.value.find(schedule => {
     const scheduleDate = formatDate(new Date(schedule.scheduleDate))
-    return scheduleDate === fullDate && schedule.timeSlot === timeSlot
+    return scheduleDate === fullDate && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
   })
 }
 
@@ -489,6 +604,34 @@ const getPatientStatusType = (status) => {
 // 事件处理方法
 const handleViewModeChange = (mode) => {
   viewMode.value = mode
+  const today = new Date()
+  today.setHours(0,0,0,0)
+
+  if (mode === 'day') {
+    // 快捷键：设为当天
+    selectedDate.value = new Date(today)
+    filterStartDate.value = new Date(today)
+    filterEndDate.value = new Date(today)
+  } else if (mode === 'week') {
+    // 快捷键：设为本周周一到周日
+    const day = today.getDay()
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - day + (day === 0 ? -6 : 1))
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    selectedWeek.value = new Date(today)
+    filterStartDate.value = new Date(monday)
+    filterEndDate.value = new Date(sunday)
+  } else if (mode === 'month') {
+    // 快捷键：设为当月 1 日 至 当月末
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const first = new Date(year, month, 1)
+    const last = new Date(year, month + 1, 0)
+    selectedMonth.value = new Date(first)
+    filterStartDate.value = new Date(first)
+    filterEndDate.value = new Date(last)
+  }
   loadSchedules()
 }
 
@@ -496,8 +639,7 @@ const handleViewModeChange = (mode) => {
 
 const handleWeekChange = (date) => {
   selectedWeek.value = date
-  // 使用缓存数据，不重新请求API
-  loadSchedules(false)
+  loadSchedules()
 }
 
 const handleDateChange = (date) => {
@@ -505,8 +647,55 @@ const handleDateChange = (date) => {
   loadSchedules()
 }
 
-const handleCellClick = (date, timeSlot) => {
-  const schedule = getScheduleForCell(date, timeSlot)
+const handleMonthChange = (date) => {
+  selectedMonth.value = date
+  loadSchedules()
+}
+
+// 月视图单元格点击：优先打开对应时间段的排班详情（若存在）
+const handleMonthCellClick = (fullDate) => {
+  let preferred = null
+  const slots = filterTimeSlot.value === 'ALL' ? ['MORNING','AFTERNOON'] : [filterTimeSlot.value]
+  for (const ts of slots) {
+    const found = getScheduleForCell(fullDate, ts)
+    if (found) { preferred = found; break }
+  }
+  if (preferred) {
+    selectedSchedule.value = preferred
+    scheduleDialogVisible.value = true
+    loadPatientsForSchedule(preferred.id)
+  }
+}
+
+// 输入日期段：自动跳转到月视图并定位月份
+const handleFilterDateChange = () => {
+  if (filterStartDate.value && filterEndDate.value) {
+    viewMode.value = 'month'
+    selectedMonth.value = new Date(filterStartDate.value)
+  }
+  loadSchedules()
+}
+
+// 判断给定日期是否在筛选范围内（用于月视图淡黄色高亮）
+const isInFilterRange = (fullDateStr) => {
+  if (!filterStartDate.value || !filterEndDate.value) return false
+  const d = new Date(fullDateStr)
+  const s = new Date(filterStartDate.value)
+  const e = new Date(filterEndDate.value)
+  d.setHours(0,0,0,0); s.setHours(0,0,0,0); e.setHours(0,0,0,0)
+  return d.getTime() >= s.getTime() && d.getTime() <= e.getTime()
+}
+
+// 重置筛选栏
+const resetFilters = () => {
+  filterStartDate.value = null
+  filterEndDate.value = null
+  filterTimeSlot.value = 'ALL'
+  loadSchedules()
+}
+
+const handleCellClick = (fullDate, timeSlot) => {
+  const schedule = getScheduleForCell(fullDate, timeSlot)
   if (schedule) {
     selectedSchedule.value = schedule
     scheduleDialogVisible.value = true
@@ -520,6 +709,7 @@ const startConsultation = (patient) => {
 }
 
 onMounted(() => {
+  loadMyInfo()
   loadSchedules()
 })
 </script>
@@ -539,6 +729,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.filters-bar {
+  padding: 10px 0 20px 0;
 }
 
 .view-toggle {
@@ -747,4 +941,9 @@ onMounted(() => {
   margin: 0 0 15px 0;
   color: #303133;
 }
+/* 月视图：跨月淡化、筛选范围淡黄色、日期布局与标签间距 */
+.month-view .schedule-cell.outside { background-color: #fafafa; color: #c0c4cc; }
+.month-view .schedule-cell.inRange { background-color: #fff7e6; }
+.month-day { display: flex; justify-content: space-between; }
+.slot-chip { margin: 2px; }
 </style>

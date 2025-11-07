@@ -119,3 +119,29 @@ export const batchApproveDoctors = (data) => {
     data
   })
 }
+
+// 医生端：查看我的排班（基于登录医生身份）
+export const getMySchedules = (params) => {
+  return request({
+    url: '/doctor/my-schedules',
+    method: 'get',
+    params
+  })
+}
+
+// 医生端：获取当前登录医生的基础信息（用于校验映射关系）
+export const getMyInfo = () => {
+  return request({
+    url: '/doctor/my-info',
+    method: 'get'
+  })
+}
+
+// 医生端：查看预约患者列表（基于登录医生身份）
+export const getMyPatients = (params) => {
+  return request({
+    url: '/doctor/my-patients',
+    method: 'get',
+    params
+  })
+}

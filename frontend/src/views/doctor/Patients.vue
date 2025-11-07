@@ -223,6 +223,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyPatients } from '@/api/doctor'
 
 const loading = ref(false)
 const patientDialogVisible = ref(false)
@@ -262,71 +263,62 @@ const consultationRules = {
   ]
 }
 
-// 模拟患者数据
-const patientList = ref([
-  {
-    id: 1,
-    name: '张三',
-    phone: '138****1234',
-    appointmentDate: '2024-01-15',
-    appointmentTime: '09:00',
-    department: '内科',
-    status: '待就诊',
-    symptoms: '头痛、发热',
-    gender: '男',
-    age: 35,
-    idCard: '110101198901011234',
-    address: '北京市朝阳区',
-    doctor: '李医生',
-    records: [
-      {
-        date: '2023-12-15',
-        doctor: '李医生',
-        diagnosis: '感冒',
-        treatment: '多休息，多喝水'
+// 实际患者数据
+const patientList = ref([])
+
+// 加载我的患者列表
+const loadPatients = async () => {
+  try {
+    loading.value = true
+    // 将中文状态映射为后端状态码，并使用 patientName 作为搜索参数
+    const statusMap = {
+      '待就诊': 'PENDING',
+      '就诊中': 'CONFIRMED',
+      '已完成': 'COMPLETED',
+      '已取消': 'CANCELLED'
+    }
+    const params = {
+      patientName: searchForm.keyword || undefined,
+      status: statusMap[searchForm.status] || undefined
+    }
+    const resp = await getMyPatients(params)
+    const rawList = Array.isArray(resp?.data?.patients)
+      ? resp.data.patients
+      : Array.isArray(resp?.data)
+        ? resp.data
+        : []
+    const total = typeof resp?.data?.total === 'number' ? resp.data.total : rawList.length
+
+    // 映射为前端展示所需字段
+    const mapStatusToCN = (s) => {
+      const m = {
+        'PENDING': '待就诊',
+        'CONFIRMED': '待就诊',
+        'COMPLETED': '已完成',
+        'CANCELLED': '已取消'
       }
-    ]
-  },
-  {
-    id: 2,
-    name: '李四',
-    phone: '139****5678',
-    appointmentDate: '2024-01-15',
-    appointmentTime: '09:30',
-    department: '内科',
-    status: '就诊中',
-    symptoms: '咳嗽、胸闷',
-    gender: '女',
-    age: 28,
-    idCard: '110101199501011234',
-    address: '北京市海淀区',
-    doctor: '李医生',
-    records: []
-  },
-  {
-    id: 3,
-    name: '王五',
-    phone: '137****9012',
-    appointmentDate: '2024-01-15',
-    appointmentTime: '10:00',
-    department: '内科',
-    status: '已完成',
-    symptoms: '胃痛',
-    gender: '男',
-    age: 42,
-    idCard: '110101198201011234',
-    address: '北京市西城区',
-    doctor: '李医生',
-    records: [
-      {
-        date: '2024-01-15',
-        doctor: '李医生',
-        diagnosis: '胃炎',
-        treatment: '服用胃药，注意饮食'
-      }
-    ]
+      return m[s] || s
+    }
+    const mapTimeSlotToCN = (t) => (t === 'MORNING' ? '上午' : t === 'AFTERNOON' ? '下午' : t || '')
+
+    patientList.value = rawList.map(item => ({
+      id: item.patientId || item.appointmentId || item.id,
+      name: item.patientName || item.name,
+      phone: item.patientPhone || item.phoneNumber,
+      appointmentDate: item.scheduleDate || (item.appointmentTime ? String(item.appointmentTime).split(' ')[0] : ''),
+      appointmentTime: mapTimeSlotToCN(item.timeSlot),
+      department: item.slotType || '普通门诊',
+      status: mapStatusToCN(item.status),
+      symptoms: ''
+    }))
+    pagination.total = total
+  } catch (error) {
+    console.error('加载患者列表失败:', error)
+    ElMessage.error('加载患者列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const getStatusType = (status) => {
   const statusMap = {
@@ -339,23 +331,24 @@ const getStatusType = (status) => {
 }
 
 const handleSearch = () => {
-  // TODO: 实现搜索逻辑
-  console.log('搜索:', searchForm)
+  pagination.currentPage = 1
+  loadPatients()
 }
 
 const handleSortChange = ({ column, prop, order }) => {
-  // TODO: 实现排序逻辑
-  console.log('排序:', { column, prop, order })
+  // 可按需要实现后端/前端排序，这里暂不处理
+  loadPatients()
 }
 
 const handleSizeChange = (size) => {
   pagination.pageSize = size
-  // TODO: 重新加载数据
+  pagination.currentPage = 1
+  loadPatients()
 }
 
 const handleCurrentChange = (page) => {
   pagination.currentPage = page
-  // TODO: 重新加载数据
+  loadPatients()
 }
 
 const startConsultation = (patient) => {
@@ -417,8 +410,7 @@ const submitConsultation = async () => {
 }
 
 onMounted(() => {
-  pagination.total = patientList.value.length
-  // TODO: 加载实际数据
+  loadPatients()
 })
 </script>
 

@@ -1,5 +1,6 @@
 package com.example.springboot.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -18,9 +19,11 @@ public class BatchScheduleRequest {
     private Long doctorId;
     
     @NotNull(message = "开始日期不能为空")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date startDate;
     
     @NotNull(message = "结束日期不能为空")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date endDate;
     
     @NotEmpty(message = "时间段列表不能为空")
@@ -37,6 +40,7 @@ public class BatchScheduleRequest {
     private Boolean skipWeekends = false;
     
     // 要排除的日期列表（例如节假日）
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private List<Date> excludeDates;
 }
 

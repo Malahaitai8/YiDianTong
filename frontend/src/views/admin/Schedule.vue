@@ -232,7 +232,12 @@
                           :class="getScheduleBadgeClass(schedule)"
                       @click.stop="handleScheduleClick(schedule)"
                     >
-                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <div class="badge-top">
+                            <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
+                            <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
+                            <span v-else class="badge-label badge-normal">普通</span>
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          </div>
                           <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                     </div>
                         <div 
@@ -252,7 +257,12 @@
                           :class="getScheduleBadgeClass(schedule)"
                       @click.stop="handleScheduleClick(schedule)"
                     >
-                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <div class="badge-top">
+                            <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
+                            <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
+                            <span v-else class="badge-label badge-normal">普通</span>
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          </div>
                           <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                     </div>
                         <div 
@@ -307,7 +317,12 @@
                           :class="getScheduleBadgeClass(schedule)"
                           @click.stop="handleScheduleClick(schedule)"
                         >
-                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <div class="badge-top">
+                            <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
+                            <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
+                            <span v-else class="badge-label badge-normal">普通</span>
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          </div>
                           <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                     </div>
                         <div 
@@ -327,7 +342,12 @@
                           :class="getScheduleBadgeClass(schedule)"
                           @click.stop="handleScheduleClick(schedule)"
                         >
-                          <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          <div class="badge-top">
+                            <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
+                            <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
+                            <span v-else class="badge-label badge-normal">普通</span>
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
+                          </div>
                           <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                 </div>
                         <div 
@@ -368,9 +388,11 @@
             :class="getScheduleBadgeClass(schedule)"
             @click="handleScheduleClick(schedule)"
           >
-            <div class="schedule-item-header">
+            <div class="schedule-item-header badge-top">
               <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
-              <span class="slot-type">{{ getSlotTypeText(schedule.slotType) }}</span>
+              <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
+              <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
+              <span v-else class="badge-label badge-normal">普通</span>
             </div>
             <div class="schedule-item-info">
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
@@ -390,6 +412,7 @@
                 <el-button 
                   type="danger" 
                   @click="handleBatchDelete"
+                  :loading="batchSubmitting"
                   :disabled="selectedRows.length === 0"
                 >
                   <el-icon><Delete /></el-icon>
@@ -400,9 +423,10 @@
           </template>
 
           <el-table
-            :data="scheduleList"
+            :data="sortedScheduleList"
             v-loading="loading"
             @selection-change="handleSelectionChange"
+            @sort-change="onSortChange"
             stripe
             style="width: 100%"
           >
@@ -410,7 +434,13 @@
             <el-table-column prop="doctorName" label="医生姓名" width="120" />
             <el-table-column prop="departmentName" label="科室" width="120" />
             <el-table-column prop="clinicName" label="门诊" width="120" />
-            <el-table-column prop="scheduleDate" label="排班日期" width="120">
+            <el-table-column 
+              prop="scheduleDate" 
+              label="排班日期" 
+              width="120" 
+              sortable="custom" 
+              :sort-orders="['ascending','descending']"
+            >
               <template #default="scope">
                 {{ formatDate(scope.row.scheduleDate) }}
               </template>
@@ -517,14 +547,31 @@
           </el-select>
         </el-form-item>
         <el-form-item label="总号源" prop="totalSlots">
-          <el-input-number v-model="formData.totalSlots" :min="1" :max="100" style="width: 100%" />
+          <el-input-number 
+            v-model="formData.totalSlots" 
+            :min="isEdit ? Math.max(1, editBookedCount) : 1" 
+            :max="100" 
+            style="width: 100%" 
+          />
         </el-form-item>
         <el-form-item label="可用号源" prop="availableSlots">
-          <el-input-number v-model="formData.availableSlots" :min="0" :max="formData.totalSlots || 100" style="width: 100%" />
+          <el-input-number 
+            v-model="formData.availableSlots" 
+            :min="0" 
+            :max="formData.totalSlots || 100" 
+            :controls="false"
+            :disabled="true"
+            style="width: 100%" 
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button 
+          v-if="isEdit" 
+          type="danger" 
+          @click="handleDelete(formData)"
+        >删除</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
@@ -584,6 +631,25 @@
         <el-button type="primary" @click="handleBatchSubmit" :loading="batchSubmitting">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 导出排班对话框 -->
+    <el-dialog
+      v-model="exportDialogVisible"
+      title="导出排班表"
+      width="420px"
+    >
+      <div class="export-dialog-content">
+        <div class="export-tip">只支持已筛选的科室或医生导出</div>
+        <el-radio-group v-model="exportMode">
+          <el-radio-button label="week">周视图</el-radio-button>
+          <el-radio-button label="month">月视图</el-radio-button>
+        </el-radio-group>
+      </div>
+      <template #footer>
+        <el-button @click="exportDialogVisible = false">取消</el-button>
+        <el-button type="warning" :loading="exporting" @click="performExport">导出</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -594,6 +660,7 @@ import {
   Search, Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
   ArrowLeft, ArrowRight, Download 
 } from '@element-plus/icons-vue'
+import * as XLSX from 'xlsx'
 import { 
   getScheduleList, 
   createSchedule, 
@@ -612,6 +679,8 @@ const loading = ref(false)
 const submitting = ref(false)
 const batchSubmitting = ref(false)
 const exporting = ref(false)
+const exportDialogVisible = ref(false)
+const exportMode = ref('week')
 const scheduleList = ref([])
 const allSchedules = ref([]) // 所有排班数据，用于统计
 const doctorList = ref([])
@@ -656,6 +725,21 @@ const formData = reactive({
   availableSlots: 20
 })
 
+// 记录编辑模式下的已预约数量（保持不变）
+const editBookedCount = ref(0)
+
+// 新建/编辑时总号源变化逻辑：
+// - 新建：可用号源与总号源一致
+// - 编辑：保持已预约数量不变，可用号源 = 总号源 - 已预约数量
+watch(() => formData.totalSlots, (newTotal) => {
+  if (!isEdit.value) {
+    formData.availableSlots = newTotal
+  } else {
+    const booked = Math.max(0, editBookedCount.value)
+    formData.availableSlots = Math.max(0, newTotal - booked)
+  }
+})
+
 const batchFormData = reactive({
   doctorIds: [],
   dateRange: null,
@@ -680,6 +764,53 @@ const batchFormRules = {
   timeSlots: [{ required: true, message: '请选择时间段', trigger: 'change' }],
   slotType: [{ required: true, message: '请选择号别', trigger: 'change' }],
   totalSlots: [{ required: true, message: '请输入总号源数', trigger: 'blur' }]
+}
+
+// 排序状态与排序后的数据
+const sortState = reactive({ prop: null, order: null })
+
+const toTimestamp = (val) => {
+  if (!val) return 0
+  if (typeof val === 'string') {
+    const s = val.includes('T') ? val : `${val}T00:00:00`
+    const t = Date.parse(s)
+    return isNaN(t) ? 0 : t
+  }
+  try {
+    return new Date(val).getTime()
+  } catch {
+    return 0
+  }
+}
+
+const sortedScheduleList = computed(() => {
+  const data = scheduleList.value || []
+  if (!sortState.order || !sortState.prop) return data
+  const arr = [...data]
+  if (sortState.prop === 'scheduleDate') {
+    arr.sort((a, b) => {
+      const ta = toTimestamp(a.scheduleDate)
+      const tb = toTimestamp(b.scheduleDate)
+      return sortState.order === 'ascending' ? ta - tb : tb - ta
+    })
+  } else {
+    arr.sort((a, b) => {
+      const va = a[sortState.prop]
+      const vb = b[sortState.prop]
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return sortState.order === 'ascending' ? va - vb : vb - va
+      }
+      const sa = String(va ?? '')
+      const sb = String(vb ?? '')
+      return sortState.order === 'ascending' ? sa.localeCompare(sb) : sb.localeCompare(sa)
+    })
+  }
+  return arr
+})
+
+const onSortChange = ({ prop, order }) => {
+  sortState.prop = prop
+  sortState.order = order
 }
 
 // 计算属性
@@ -1265,6 +1396,7 @@ const showCreateDialog = () => {
   isEdit.value = false
   dialogVisible.value = true
   resetFormData()
+  editBookedCount.value = 0
   
   // 如果左侧筛选栏已经选择了医生，则自动填充
   // 注意：要在 resetFormData() 之后设置，否则会被重置
@@ -1282,6 +1414,8 @@ const handleEdit = (row) => {
   isEdit.value = true
   dialogVisible.value = true
   Object.assign(formData, { ...row })
+  // 进入编辑时计算已预约数量，并作为常量维持不变
+  editBookedCount.value = Math.max(0, (formData.totalSlots || 0) - (formData.availableSlots || 0))
 }
 
 const handleDelete = async (row) => {
@@ -1318,17 +1452,29 @@ const handleBatchDelete = async () => {
       type: 'warning'
     })
     
-    const ids = selectedRows.value.map(row => row.id)
-    await batchDeleteSchedule(ids)
-    ElMessage.success('批量删除成功')
+    batchSubmitting.value = true
+    const ids = selectedRows.value.map(row => row.id).filter(Boolean)
+    const results = await Promise.allSettled(ids.map(id => deleteSchedule(id)))
+    const successCount = results.filter(r => r.status === 'fulfilled').length
+    const failCount = results.length - successCount
+    if (failCount === 0) {
+      ElMessage.success(`批量删除成功，共删除 ${successCount} 条`)
+    } else if (successCount > 0) {
+      ElMessage.warning(`部分删除成功：成功 ${successCount} 条，失败 ${failCount} 条`)
+    } else {
+      ElMessage.error('批量删除失败')
+    }
     // 更新统计数据
     await loadAllSchedules()
     loadScheduleList()
+    selectedRows.value = []
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('批量删除失败')
       console.error('批量删除排班失败:', error)
     }
+  } finally {
+    batchSubmitting.value = false
   }
 }
 
@@ -1341,6 +1487,8 @@ const handleSubmit = async () => {
       await updateSchedule(formData.id, formData)
       ElMessage.success('更新成功')
     } else {
+      // 创建时将可用号源设为与总号源一致
+      formData.availableSlots = formData.totalSlots
       await createSchedule(formData)
       ElMessage.success('创建成功')
     }
@@ -1365,7 +1513,21 @@ const handleBatchSubmit = async () => {
     batchSubmitting.value = true
     
     const data = {
-      ...batchFormData
+      doctorId: Array.isArray(batchFormData.doctorIds) ? batchFormData.doctorIds[0] : (batchFormData.doctorId || null),
+      startDate: Array.isArray(batchFormData.dateRange) ? batchFormData.dateRange[0] : null,
+      endDate: Array.isArray(batchFormData.dateRange) ? batchFormData.dateRange[1] : null,
+      timeSlots: batchFormData.timeSlots,
+      slotType: batchFormData.slotType,
+      totalSlots: batchFormData.totalSlots,
+      skipWeekends: batchFormData.skipWeekends,
+      excludeDates: batchFormData.excludeDates || []
+    }
+    
+    // 简单校验，避免后端NotNull报错
+    if (!data.doctorId || !data.startDate || !data.endDate) {
+      ElMessage.warning('请先选择医生和日期范围')
+      batchSubmitting.value = false
+      return
     }
     
     const response = await batchCreateSchedule(data)
@@ -1420,15 +1582,89 @@ const resetBatchFormData = () => {
 
 // 导出功能
 const exportSchedules = async () => {
+  // 限制：必须筛选科室或医生
+  if (!filters.departmentId && !filters.doctorId) {
+    ElMessage.warning('请先在左侧筛选科室或医生后再导出')
+    return
+  }
+  exportMode.value = calendarMode.value // 默认使用当前视图
+  exportDialogVisible.value = true
+}
+
+const performExport = async () => {
   try {
     exporting.value = true
-    // 这里可以调用导出API
-    ElMessage.success('导出功能开发中...')
+    const wb = XLSX.utils.book_new()
+    const title = exportMode.value === 'week' ? '周视图' : '月视图'
+
+    // 构造矩阵（二维数组）
+    const aoa = exportMode.value === 'week' ? buildWeekMatrix() : buildMonthMatrix()
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    // 列宽适配
+    ws['!cols'] = new Array(7).fill({ wch: 28 })
+    XLSX.utils.book_append_sheet(wb, ws, title)
+
+    // 文件名：包含筛选对象与周期
+    const targetName = filters.doctorId
+      ? (doctorList.value.find(d => d.id === filters.doctorId)?.name || '医生')
+      : (departmentList.value.find(dept => Number(dept.id) === Number(filters.departmentId))?.name || '科室')
+    const period = exportMode.value === 'week'
+      ? `${weekDates.value[0].dateStr}_至_${weekDates.value[6].dateStr}`
+      : `${currentDate.value.getFullYear()}年${String(currentDate.value.getMonth() + 1).padStart(2, '0')}月`
+    const filename = `排班表_${targetName}_${title}_${period}.xlsx`
+
+    XLSX.writeFile(wb, filename)
+    ElMessage.success('导出成功')
+    exportDialogVisible.value = false
   } catch (error) {
+    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   } finally {
     exporting.value = false
   }
+}
+
+// 周视图矩阵：第一行是周几与日期，随后两行分别是“上午”与“下午”内容
+const buildWeekMatrix = () => {
+  const header = weekDates.value.map(d => `${d.dayName} (${d.dateStr})`)
+  const morningRow = weekDates.value.map(d => buildSlotContent(d.dateStr, 'morning'))
+  const afternoonRow = weekDates.value.map(d => buildSlotContent(d.dateStr, 'afternoon'))
+  return [header, morningRow, afternoonRow]
+}
+
+// 月视图矩阵：第一行是周几；每周使用两行，分别输出“上午”与“下午”内容
+const buildMonthMatrix = () => {
+  const header = ['日', '一', '二', '三', '四', '五', '六']
+  const rows = []
+  for (let i = 0; i < 6; i++) {
+    const morningRow = []
+    const afternoonRow = []
+    for (let j = 0; j < 7; j++) {
+      const index = i * 7 + j
+      const date = monthDates.value[index]
+      const prefix = `${date.dateStr}${date.isCurrentMonth ? '' : ' (其他月)'}\n`
+      const morning = buildSlotContent(date.dateStr, 'morning')
+      const afternoon = buildSlotContent(date.dateStr, 'afternoon')
+      morningRow.push(`${prefix}${morning}`)
+      afternoonRow.push(`${afternoon}`)
+    }
+    rows.push(morningRow)
+    rows.push(afternoonRow)
+  }
+  return [header, ...rows]
+}
+
+// 构造某日期某时间段内容（展开所有排班）
+const buildSlotContent = (dateStr, slot) => {
+  const grouped = getGroupedSchedulesForDate(dateStr)
+  const list = slot === 'morning' ? grouped.morning : grouped.afternoon
+  if (!list || list.length === 0) return '—'
+  return list.map(s => {
+    const tag = s.slotType === 'vip' ? '[特需]' : (s.slotType === 'expert' ? '[专家]' : '')
+    const name = s.doctorName || '未知医生'
+    const avail = typeof s.availableSlots === 'number' ? s.availableSlots : 0
+    return `• ${name} ${tag} 余${avail}`
+  }).join('\n')
 }
 
 // 辅助方法
@@ -1541,6 +1777,10 @@ const getScheduleBadgeClass = (schedule) => {
   const timeSlot = (schedule.timeSlot || '').toUpperCase()
   if (timeSlot === 'MORNING') classes.push('badge-morning')
   else if (timeSlot === 'AFTERNOON') classes.push('badge-afternoon')
+  
+  // 根据号别添加醒目标识样式
+  if (schedule.slotType === 'expert') classes.push('expert-badge')
+  else if (schedule.slotType === 'vip') classes.push('vip-badge')
   
   return classes.join(' ')
 }
@@ -1774,6 +2014,16 @@ onMounted(async () => {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+}
+
+.export-dialog-content {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.export-tip {
+  color: #909399;
+  font-size: 13px;
 }
 
 
@@ -2101,6 +2351,7 @@ onMounted(async () => {
   gap: 2px;
   line-height: 1.3;
   margin-bottom: 4px;
+  border-left: 3px solid transparent;
 }
 
 .schedule-badge .doctor-name {
@@ -2125,6 +2376,41 @@ onMounted(async () => {
 
 .schedule-badge.badge-afternoon {
   background: #67c23a;
+}
+
+/* 专家/特需醒目标识与左侧色条 */
+.schedule-badge.expert-badge {
+  border-left-color: #e6a23c;
+}
+.schedule-badge.vip-badge {
+  border-left-color: #f56c6c;
+}
+
+.badge-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge-label {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 10px;
+  line-height: 18px;
+  background: rgba(255, 255, 255, 0.9);
+}
+.badge-expert {
+  color: #a76a1d;
+  border: 1px solid #e6a23c;
+}
+.badge-vip {
+  color: #c45656;
+  border: 1px solid #f56c6c;
+}
+.badge-normal {
+  color: #606266;
+  border: 1px solid #909399;
 }
 
 .schedule-badge.badge-more {
@@ -2455,6 +2741,17 @@ onMounted(async () => {
 .schedule-item.vip-slot {
   border-left-color: #f56c6c;
   font-weight: 600;
+}
+
+/* 专家号在日历视图中颜色更深，区分于普通上午/下午 */
+.schedule-item.morning-slot.expert-slot {
+  background-color: #d9ecd9; /* 深一点的绿色背景 */
+  color: #3f7f3a; /* 更深的文字颜色 */
+}
+
+.schedule-item.afternoon-slot.expert-slot {
+  background-color: #fae7d3; /* 深一点的橙色背景 */
+  color: #a76a1d; /* 更深的文字颜色 */
 }
 
 .schedule-item.low-slots {

@@ -2,6 +2,8 @@ package com.example.springboot.dto;
 
 import lombok.Data;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.util.Date;
 
 /**
@@ -14,8 +16,10 @@ public class ScheduleQueryRequest {
     
     private Long departmentId;
     
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     private Date startDate;
     
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     private Date endDate;
     
     private String timeSlot; // morning/afternoon/evening

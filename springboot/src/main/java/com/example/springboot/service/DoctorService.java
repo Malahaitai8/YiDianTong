@@ -88,21 +88,45 @@ public class DoctorService {
      * 医生查看自己的排班
      */
     public Map<String, Object> getMySchedules(Long doctorId, Date startDate, Date endDate, String timeSlot) {
-        // 如果未指定日期范围，默认查询未来30天
+        // 规范化开始/结束日期，并确保结束日期为“次日零点”（用于 < endDate 的区间查询）
+        // 如果未指定日期范围，默认查询从今天开始的未来30天（含最后一天）
+        Calendar cal = Calendar.getInstance();
         if (startDate == null) {
-            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            startDate = cal.getTime();
+        } else {
+            cal.setTime(startDate);
             cal.set(Calendar.HOUR_OF_DAY, 0);
             cal.set(Calendar.MINUTE, 0);
             cal.set(Calendar.SECOND, 0);
             cal.set(Calendar.MILLISECOND, 0);
             startDate = cal.getTime();
         }
-        
+
         if (endDate == null) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(startDate);
-            cal.add(Calendar.DAY_OF_MONTH, 30);
-            endDate = cal.getTime();
+            Calendar endCal = Calendar.getInstance();
+            endCal.setTime(startDate);
+            endCal.add(Calendar.DAY_OF_MONTH, 30); // 默认30天区间
+            // 设为次日零点以便使用 < endDate 包含最后一天
+            endCal.add(Calendar.DAY_OF_MONTH, 1);
+            endCal.set(Calendar.HOUR_OF_DAY, 0);
+            endCal.set(Calendar.MINUTE, 0);
+            endCal.set(Calendar.SECOND, 0);
+            endCal.set(Calendar.MILLISECOND, 0);
+            endDate = endCal.getTime();
+        } else {
+            Calendar endCal = Calendar.getInstance();
+            endCal.setTime(endDate);
+            // 用户传入的 endDate 通常为当天零点；将其规范为“次日零点”，以包含传入当日
+            endCal.add(Calendar.DAY_OF_MONTH, 1);
+            endCal.set(Calendar.HOUR_OF_DAY, 0);
+            endCal.set(Calendar.MINUTE, 0);
+            endCal.set(Calendar.SECOND, 0);
+            endCal.set(Calendar.MILLISECOND, 0);
+            endDate = endCal.getTime();
         }
 
         // 查询排班
@@ -110,9 +134,13 @@ public class DoctorService {
             doctorId, startDate, endDate
         );
 
-        // 如果指定了时间段，进行筛选
+        // 如果指定了时间段，进行筛选（兼容大小写与中文传参）
         if (timeSlot != null && !timeSlot.isEmpty()) {
-            schedules.removeIf(s -> !timeSlot.equals(s.getTimeSlot()));
+            String normalized = normalizeTimeSlot(timeSlot);
+            schedules.removeIf(s -> {
+                String slot = s.getTimeSlot();
+                return slot == null || !normalized.equalsIgnoreCase(slot);
+            });
         }
 
         // 为每个排班统计预约信息
@@ -185,7 +213,9 @@ public class DoctorService {
             // 获取排班信息（用于时间段筛选）
             Schedule schedule = scheduleMapper.selectById(appointment.getScheduleId());
             if (timeSlot != null && !timeSlot.isEmpty()) {
-                if (schedule == null || !timeSlot.equals(schedule.getTimeSlot())) {
+                String normalized = normalizeTimeSlot(timeSlot);
+                if (schedule == null || schedule.getTimeSlot() == null ||
+                    !normalized.equalsIgnoreCase(schedule.getTimeSlot())) {
                     continue;
                 }
             }
@@ -403,11 +433,39 @@ public class DoctorService {
     }
 
     private int getTimeSlotOrder(String timeSlot) {
-        switch (timeSlot) {
+        if (timeSlot == null) return 99;
+        String t = timeSlot.trim().toUpperCase();
+        switch (t) {
             case "MORNING": return 1;
             case "AFTERNOON": return 2;
             case "EVENING": return 3;
-            default: return 4;
+            case "上午": return 1;
+            case "下午": return 2;
+            case "晚上": return 3;
+            default:
+                // 兼容数据库 lowercase
+                if ("morning".equalsIgnoreCase(timeSlot)) return 1;
+                if ("afternoon".equalsIgnoreCase(timeSlot)) return 2;
+                if ("evening".equalsIgnoreCase(timeSlot)) return 3;
+                return 99;
+        }
+    }
+
+    private String normalizeTimeSlot(String timeSlot) {
+        if (timeSlot == null) return null;
+        String t = timeSlot.trim().toUpperCase();
+        switch (t) {
+            case "MORNING":
+            case "上午":
+                return "morning";
+            case "AFTERNOON":
+            case "下午":
+                return "afternoon";
+            case "EVENING":
+            case "晚上":
+                return "evening";
+            default:
+                return timeSlot.toLowerCase();
         }
     }
 }
