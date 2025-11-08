@@ -1,46 +1,93 @@
 <template>
 	<view class="home-page">
+		<!-- 顶部区域 -->
 		<view class="header">
-			<image class="logo" src="/static/logo.png" mode="aspectFit" />
-			<text class="app-name">医点通</text>
-			<text class="slogan">智慧医疗，一点就通</text>
-		</view>
-
-		<!-- 未登录状态 -->
-		<view v-if="!isLoggedIn" class="welcome-card">
-			<text class="welcome-title">欢迎使用医点通</text>
-			<text class="welcome-desc">便捷预约，高效就医</text>
-			<view class="btn-group">
-				<button class="btn-primary" @click="goToLogin">登录</button>
-				<button class="btn-secondary" @click="goToRegister">新用户注册</button>
+			<view class="greeting">
+				<text class="greeting-text">{{ greeting }}，{{ userName }}</text>
+				<view class="qa-entry" @click="goToQA" v-if="isLoggedIn">
+					<text class="qa-icon">💬</text>
+					<text class="qa-text">智能问答</text>
+				</view>
+				<view class="login-entry" @click="goToLogin" v-else>
+					<text class="login-text">登录/注册</text>
+				</view>
 			</view>
 		</view>
 
-		<!-- 已登录状态 -->
-		<view v-else class="user-card">
-			<view class="user-info">
-				<text class="welcome-text">欢迎回来，{{ userInfo.username || '用户' }}</text>
-				<text class="role-tag">{{ roleText }}</text>
+		<!-- 搜索框 -->
+		<view class="search-container">
+			<view class="search-box" @click="goToSearch">
+				<text class="search-icon">🔍</text>
+				<text class="search-placeholder">搜索科室 / 医生 / 日期</text>
 			</view>
-			<view class="quick-actions">
-				<button class="action-btn" @click="goToProfile">
-					<text class="icon">👤</text>
-					<text>个人信息</text>
-				</button>
-				<button class="action-btn" @click="goToAppointment">
-					<text class="icon">📅</text>
-					<text>预约挂号</text>
-				</button>
-				<button class="action-btn" @click="goToMyAppointments">
-					<text class="icon">📋</text>
-					<text>我的预约</text>
-				</button>
-				<button class="action-btn" @click="goToSubstitute">
-					<text class="icon">⏰</text>
-					<text>我的候补</text>
-				</button>
+		</view>
+
+		<!-- 核心功能区 -->
+		<view class="main-section">
+			<!-- 主入口卡片 -->
+			<view class="main-card" @click="goToAppointment">
+				<view class="main-card-content">
+					<text class="main-card-icon">📅</text>
+					<view class="main-card-text">
+						<text class="main-card-title">线上挂号预约</text>
+						<text class="main-card-desc">快速预约，无需排队</text>
+					</view>
+				</view>
+				<text class="main-card-arrow">›</text>
 			</view>
-			<button class="btn-logout" @click="handleLogout">退出登录</button>
+
+			<!-- 四宫格导航 -->
+			<view class="nav-grid">
+				<view class="nav-item" @click="goToDepartments">
+					<view class="nav-icon-box">
+						<text class="nav-icon">🏥</text>
+					</view>
+					<text class="nav-text">按科室</text>
+				</view>
+				<view class="nav-item" @click="goToDoctors">
+					<view class="nav-icon-box">
+						<text class="nav-icon">👨‍⚕️</text>
+					</view>
+					<text class="nav-text">找医生</text>
+				</view>
+				<view class="nav-item" @click="goToMyAppointments">
+					<view class="nav-icon-box">
+						<text class="nav-icon">📋</text>
+					</view>
+					<text class="nav-text">我的预约</text>
+				</view>
+				<view class="nav-item" @click="goToMySubstitute">
+					<view class="nav-icon-box">
+						<text class="nav-icon">⏰</text>
+					</view>
+					<text class="nav-text">我的候补</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 就诊提醒 -->
+		<view class="reminder-card" v-if="hasReminder">
+			<view class="reminder-header">
+				<text class="reminder-icon">🔔</text>
+				<text class="reminder-title">就诊提醒</text>
+			</view>
+			<view class="reminder-content">
+				<text class="reminder-text">您有一条预约，明天上午9:00 呼吸内科 李文华医生</text>
+			</view>
+		</view>
+
+		<!-- 猜你想问 -->
+		<view class="faq-section">
+			<view class="section-header">
+				<text class="section-title">猜你想问</text>
+				<text class="section-more" @click="goToQA">更多 ›</text>
+			</view>
+			<view class="faq-list">
+				<view class="faq-item" v-for="(item, index) in faqList" :key="index" @click="goToFAQDetail(item)">
+					<text class="faq-q">Q</text>
+					<text class="faq-question">{{ item.question }}</text>
+				</view>
+			</view>
 		</view>
 	</view>
 </template>
@@ -48,55 +95,82 @@
 <script>
 export default {
 	data() {
-		return {};
+		return {
+			hasReminder: false,
+			faqList: [
+				{ question: '如何预约挂号？', answer: '...' },
+				{ question: '挂号费用如何计算？', answer: '...' },
+				{ question: '可以取消预约吗？', answer: '...' },
+				{ question: '候补功能怎么使用？', answer: '...' }
+			]
+		};
 	},
 	computed: {
 		isLoggedIn() {
 			return !!this.$store.state.user.token;
 		},
-		userInfo() {
-			return this.$store.state.user.userInfo || {};
+		userName() {
+			const userInfo = this.$store.state.user.userInfo;
+			return userInfo.username || '游客';
 		},
-		roleText() {
-			const role = this.userInfo.role;
-			const roleMap = {
-				patient: '患者',
-				doctor: '医生',
-				admin: '管理员'
-			};
-			return roleMap[role] || '用户';
+		greeting() {
+			const hour = new Date().getHours();
+			if (hour < 12) return '早上好';
+			if (hour < 18) return '下午好';
+			return '晚上好';
 		}
 	},
+	onLoad() {
+		// 不强制弹窗，允许浏览
+	},
 	methods: {
-		goToLogin() {
-			uni.navigateTo({ url: '/pages/login/login' });
+		goToQA() {
+			uni.navigateTo({ url: '/pkg-helper/qa-robot/qa-robot' });
 		},
-		goToRegister() {
-			uni.navigateTo({ url: '/pages/register/register' });
+		goToSearch() {
+			uni.showToast({ title: '搜索功能开发中', icon: 'none' });
 		},
-		goToProfile() {
-			uni.navigateTo({ url: '/pages/profile/profile' });
+		checkLoginAndGo(url, message) {
+			if (!this.isLoggedIn) {
+				uni.showModal({
+					title: '提示',
+					content: '请先登录',
+					confirmText: '去登录',
+					success: (res) => {
+						if (res.confirm) {
+							uni.navigateTo({ url: '/pages/login/login' });
+						}
+					}
+				});
+				return false;
+			}
+			if (url) {
+				uni.navigateTo({ url });
+			} else if (message) {
+				uni.showToast({ title: message, icon: 'none' });
+			}
+			return true;
 		},
 		goToAppointment() {
-			uni.showToast({ title: '功能开发中', icon: 'none' });
+			this.checkLoginAndGo('', '预约功能开发中');
+		},
+		goToDepartments() {
+			this.checkLoginAndGo('', '科室列表开发中');
+		},
+		goToDoctors() {
+			this.checkLoginAndGo('', '医生列表开发中');
 		},
 		goToMyAppointments() {
-			uni.showToast({ title: '功能开发中', icon: 'none' });
+			this.checkLoginAndGo('', '我的预约开发中');
 		},
-		goToSubstitute() {
-			uni.navigateTo({ url: '/pkg-user/my-substitute/my-substitute' });
+		goToMySubstitute() {
+			this.checkLoginAndGo('/pkg-user/my-substitute/my-substitute');
 		},
-		handleLogout() {
-			uni.showModal({
-				title: '提示',
-				content: '确定要退出登录吗？',
-				success: (res) => {
-					if (res.confirm) {
-						this.$store.dispatch('user/logout');
-						uni.showToast({ title: '已退出', icon: 'success' });
-					}
-				}
-			});
+		goToFAQDetail(item) {
+			uni.showToast({ title: item.question, icon: 'none' });
+		},
+		goToLogin() {
+			uni.navigateTo({ url: '/pages/login/login' });
 		}
 	}
 };
@@ -105,133 +179,236 @@ export default {
 <style scoped>
 .home-page {
 	min-height: 100vh;
-	background: linear-gradient(180deg, #1976d2 0%, #42a5f5 100%);
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 80rpx 40rpx;
+	background: #f5f7fa;
+	padding-bottom: 120rpx;
 }
+
+/* 顶部区域 */
 .header {
+	height: 200rpx;
+	background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+	padding: 40rpx 30rpx 20rpx;
+}
+.greeting {
 	display: flex;
-	flex-direction: column;
-	align-items: center;
-	margin-bottom: 80rpx;
-}
-.logo {
-	width: 160rpx;
-	height: 160rpx;
-	margin-bottom: 30rpx;
-}
-.app-name {
-	font-size: 48rpx;
-	color: #fff;
-	font-weight: bold;
-	margin-bottom: 15rpx;
-}
-.slogan {
-	font-size: 26rpx;
-	color: rgba(255, 255, 255, 0.9);
-}
-.welcome-card, .user-card {
-	width: 640rpx;
-	background: #fff;
-	border-radius: 20rpx;
-	padding: 60rpx 40rpx;
-	box-shadow: 0 10rpx 40rpx rgba(0, 0, 0, 0.15);
-}
-.welcome-title {
-	display: block;
-	font-size: 36rpx;
-	font-weight: 600;
-	color: #0d47a1;
-	text-align: center;
-	margin-bottom: 20rpx;
-}
-.welcome-desc {
-	display: block;
-	font-size: 28rpx;
-	color: #666;
-	text-align: center;
-	margin-bottom: 50rpx;
-}
-.btn-group {
-	display: flex;
-	flex-direction: column;
-	gap: 30rpx;
-}
-.btn-primary {
-	width: 100%;
-	height: 90rpx;
-	background: #1e88e5;
-	color: #fff;
-	border-radius: 10rpx;
-	font-size: 32rpx;
-	font-weight: 600;
-	border: none;
-}
-.btn-primary::after { border: none; }
-.btn-secondary {
-	width: 100%;
-	height: 90rpx;
-	background: #fff;
-	color: #1e88e5;
-	border: 2rpx solid #1e88e5;
-	border-radius: 10rpx;
-	font-size: 32rpx;
-	font-weight: 600;
-}
-.btn-secondary::after { border: none; }
-.user-info {
-	display: flex;
-	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 40rpx;
-	padding-bottom: 30rpx;
-	border-bottom: 1rpx solid #e0e0e0;
+	align-items: center;
 }
-.welcome-text {
+.greeting-text {
 	font-size: 32rpx;
-	color: #0d47a1;
+	color: #fff;
 	font-weight: 600;
 }
-.role-tag {
-	font-size: 24rpx;
-	color: #1e88e5;
-	background: #e3f2fd;
-	padding: 8rpx 20rpx;
-	border-radius: 20rpx;
-}
-.quick-actions {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 20rpx;
-	margin-bottom: 40rpx;
-}
-.action-btn {
-	height: 140rpx;
-	background: #f1f7ff;
-	border-radius: 10rpx;
+.qa-entry {
 	display: flex;
-	flex-direction: column;
 	align-items: center;
-	justify-content: center;
-	gap: 10rpx;
-	border: none;
-	font-size: 26rpx;
-	color: #333;
+	gap: 8rpx;
+	background: rgba(255, 255, 255, 0.2);
+	padding: 12rpx 24rpx;
+	border-radius: 30rpx;
 }
-.action-btn::after { border: none; }
-.icon {
-	font-size: 48rpx;
+.qa-icon {
+	font-size: 28rpx;
 }
-.btn-logout {
-	width: 100%;
+.qa-text {
+	font-size: 24rpx;
+	color: #fff;
+}
+.login-entry {
+	display: flex;
+	align-items: center;
+	background: rgba(255, 255, 255, 0.95);
+	padding: 12rpx 24rpx;
+	border-radius: 30rpx;
+}
+.login-text {
+	font-size: 24rpx;
+	color: #1976d2;
+	font-weight: 600;
+}
+
+/* 搜索框 */
+.search-container {
+	padding: 0 35rpx;
+	margin-top: -40rpx;
+	position: relative;
+	z-index: 10;
+}
+.search-box {
+	width: 680rpx;
 	height: 80rpx;
 	background: #fff;
-	color: #f44336;
-	border: 2rpx solid #f44336;
-	border-radius: 10rpx;
+	border-radius: 40rpx;
+	box-shadow: 0 4rpx 20rpx rgba(25, 118, 210, 0.15);
+	display: flex;
+	align-items: center;
+	padding: 0 30rpx;
+	gap: 15rpx;
+}
+.search-icon {
+	font-size: 32rpx;
+	color: #999;
+}
+.search-placeholder {
+	font-size: 28rpx;
+	color: #999;
+}
+
+/* 核心功能区 */
+.main-section {
+	margin: 30rpx;
+}
+.main-card {
+	background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
+	border-radius: 20rpx;
+	padding: 40rpx 30rpx;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	box-shadow: 0 8rpx 30rpx rgba(30, 136, 229, 0.25);
+	margin-bottom: 30rpx;
+}
+.main-card-content {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+}
+.main-card-icon {
+	font-size: 56rpx;
+}
+.main-card-text {
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+.main-card-title {
+	font-size: 34rpx;
+	color: #fff;
+	font-weight: 600;
+}
+.main-card-desc {
+	font-size: 24rpx;
+	color: rgba(255, 255, 255, 0.9);
+}
+.main-card-arrow {
+	font-size: 60rpx;
+	color: #fff;
+	font-weight: 300;
+}
+
+/* 四宫格导航 */
+.nav-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 20rpx;
+}
+.nav-item {
+	background: #fff;
+	border-radius: 15rpx;
+	padding: 30rpx 10rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 15rpx;
+	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+}
+.nav-icon-box {
+	width: 88rpx;
+	height: 88rpx;
+	background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.nav-icon {
+	font-size: 44rpx;
+}
+.nav-text {
+	font-size: 24rpx;
+	color: #333;
+}
+
+/* 就诊提醒 */
+.reminder-card {
+	margin: 30rpx;
+	background: #fff;
+	border-radius: 20rpx;
+	padding: 30rpx;
+	border-left: 6rpx solid #ff9800;
+	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+}
+.reminder-header {
+	display: flex;
+	align-items: center;
+	gap: 10rpx;
+	margin-bottom: 15rpx;
+}
+.reminder-icon {
 	font-size: 28rpx;
 }
-.btn-logout::after { border: none; }
+.reminder-title {
+	font-size: 28rpx;
+	color: #333;
+	font-weight: 600;
+}
+.reminder-content {
+	
+}
+.reminder-text {
+	font-size: 26rpx;
+	color: #666;
+	line-height: 1.6;
+}
+
+/* 猜你想问 */
+.faq-section {
+	margin: 30rpx;
+}
+.section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20rpx;
+}
+.section-title {
+	font-size: 30rpx;
+	color: #333;
+	font-weight: 600;
+}
+.section-more {
+	font-size: 24rpx;
+	color: #1976d2;
+}
+.faq-list {
+	
+}
+.faq-item {
+	background: #fff;
+	border-radius: 15rpx;
+	padding: 25rpx 30rpx;
+	margin-bottom: 15rpx;
+	display: flex;
+	align-items: center;
+	gap: 15rpx;
+	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+}
+.faq-q {
+	width: 48rpx;
+	height: 48rpx;
+	background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
+	color: #fff;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 24rpx;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+.faq-question {
+	font-size: 26rpx;
+	color: #333;
+	flex: 1;
+}
 </style>

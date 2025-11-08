@@ -17,27 +17,48 @@ const app = new Vue({
 const whiteList = [
   '/pages/index/index',
   '/pages/login/login',
-  '/pages/register/register'
-] // 路由白名单
+  '/pages/register/register',
+  '/pages/appointment/appointment',
+  '/pages/records/records',
+  '/pages/profile/profile'
+] // 路由白名单（TabBar页面都在白名单内，但部分功能需要登录后才能使用）
 
+// 检查登录状态的函数
+function checkLogin(url) {
+  const urlPath = url.split('?')[0]
+  // TabBar页面允许访问，但会在页面内部提示登录
+  if (whiteList.includes(urlPath)) {
+    return true
+  }
+  // 其他页面需要登录
+  if (!store.state.user.token) {
+    uni.showToast({
+      title: '请先登录',
+      icon: 'none'
+    })
+    uni.navigateTo({
+      url: '/pages/login/login'
+    })
+    return false
+  }
+  return true
+}
+
+// 拦截 navigateTo
 uni.addInterceptor('navigateTo', {
   invoke(args) {
-    // 检查是否在白名单
-    if (!whiteList.includes(args.url.split('?')[0])) {
-      // 检查是否登录
-      if (!store.state.user.token) {
-        uni.showToast({
-          title: '请先登录',
-          icon: 'none'
-        })
-        // 未登录，跳转到登录页
-        uni.navigateTo({
-          url: '/pages/login/login'
-        })
-        return false // 阻止本次跳转
-      }
-    }
-    return true // 允许跳转
+    return checkLogin(args.url)
+  },
+  fail(err) {
+    console.log(err)
+  }
+})
+
+// 拦截 switchTab（用于TabBar切换）
+uni.addInterceptor('switchTab', {
+  invoke(args) {
+    // TabBar页面都允许访问
+    return true
   },
   fail(err) {
     console.log(err)
