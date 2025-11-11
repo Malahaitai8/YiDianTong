@@ -93,6 +93,12 @@ public interface ScheduleMapper {
                                                @Param("startDate") Date startDate,
                                                @Param("endDate") Date endDate);
     
+    @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +
+            "AND schedule_date >= #{startDate} AND schedule_date < #{endDate}")
+    int countByDoctorAndDateRange(@Param("doctorId") Long doctorId,
+                                  @Param("startDate") Date startDate,
+                                  @Param("endDate") Date endDate);
+    
     /**
      * 检查排班是否已存在（防止重复创建）
      */

@@ -4,6 +4,7 @@ package com.example.springboot.controller;
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.BatchDepartmentRequest;
 import com.example.springboot.entity.Department;
+import com.example.springboot.entity.Doctor;
 import com.example.springboot.service.DepartmentService;
 import jakarta.annotation.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,6 +51,14 @@ public class DepartmentController {
 
         Department department = departmentService.selectById(id);
         return Result.success(department);
+    }
+
+    @Operation(summary = "查询科室下的医生", description = "根据科室ID获取所属医生列表")
+    @GetMapping("/{id}/doctors")
+    public Result selectDoctorsByDepartment(@PathVariable Long id) {
+
+        List<Doctor> doctors = departmentService.getDoctorsByDepartment(id);
+        return Result.success(doctors);
     }
 
     /**

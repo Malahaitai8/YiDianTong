@@ -49,6 +49,30 @@
 			"style": {
 				"navigationBarTitleText": "个人信息"
 			}
+		},
+		{
+			"path": "pages/search/search",
+			"style": {
+				"navigationBarTitleText": "搜索"
+			}
+		},
+		{
+			"path": "pages/department-list/department-list",
+			"style": {
+				"navigationBarTitleText": "选择科室"
+			}
+		},
+		{
+			"path": "pages/doctor-list/doctor-list",
+			"style": {
+				"navigationBarTitleText": "医生列表"
+			}
+		},
+		{
+			"path": "pages/doctor-detail/doctor-detail",
+			"style": {
+				"navigationBarTitleText": "医生详情"
+			}
 		}
 	],
 	"tabBar": {
