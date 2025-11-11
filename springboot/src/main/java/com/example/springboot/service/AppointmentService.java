@@ -47,11 +47,47 @@ public class AppointmentService {
 
     /** 新增预约 */
     public Appointment create(Appointment appointment) {
-        // 计算费用：优先根据排班的 slotType 从 SystemConfig 读取
+        // ========== 规则校验 ==========
+        var schedule = scheduleMapper.selectById(appointment.getScheduleId());
+        if (schedule == null) {
+            throw new CustomerException("排班不存在");
+        }
+
+        // 预约时间必须为未来时间，且与排班日期一致
+        Date now = new Date();
+        if (appointment.getAppointmentTime() == null || !appointment.getAppointmentTime().after(now)) {
+            throw new CustomerException("预约时间必须为未来时间");
+        }
+        Date dayStart = atStartOfDay(schedule.getScheduleDate());
+        Date dayEnd = atStartOfNextDay(schedule.getScheduleDate());
+        if (appointment.getAppointmentTime().before(dayStart) || !appointment.getAppointmentTime().before(dayEnd)) {
+            throw new CustomerException("预约时间与排班日期不一致");
+        }
+
+        // 每个患者每天最多预约N次（默认3）
+        Long patientId = appointment.getPatientId();
+        int dailyLimit = systemConfigService.getIntOrDefault("APPOINTMENT_DAILY_LIMIT", 3);
+        int todayCount = appointmentMapper.countByPatientAndDate(patientId, dayStart, dayEnd);
+        if (todayCount >= dailyLimit) {
+            throw new CustomerException("当天预约次数已达上限");
+        }
+
+        // 同一排班禁止重复预约
+        int exists = appointmentMapper.existsByPatientAndSchedule(patientId, appointment.getScheduleId());
+        if (exists > 0) {
+            throw new CustomerException("请勿重复预约该排班");
+        }
+
+        // ========== 扣减号源（原子性） ==========
+        int decreased = scheduleMapper.decreaseAvailableSlots(schedule.getId());
+        if (decreased <= 0) {
+            throw new CustomerException("号源不足");
+        }
+
+        // ========== 费用计算 ==========
         try {
             if (appointment.getFee() == null || appointment.getFee().compareTo(BigDecimal.ZERO) <= 0) {
-                var schedule = scheduleMapper.selectById(appointment.getScheduleId());
-                String slotType = schedule != null ? schedule.getSlotType() : null;
+                String slotType = schedule.getSlotType();
                 String normalized = slotType == null ? "NORMAL" : slotType.trim().toUpperCase();
                 String key;
                 switch (normalized) {
@@ -79,6 +115,8 @@ public class AppointmentService {
                 appointment.setActualFee(appointment.getFee());
             }
         }
+
+        // ========== 入库 ==========
         appointmentMapper.insert(appointment);
         return appointment;
     }
@@ -118,16 +156,23 @@ public class AppointmentService {
         // 删除预约
         int result = appointmentMapper.deleteById(id);
         
-        // 如果删除成功，尝试从候补队列中弹出下一个患者并创建预约
+        // 如果删除成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
         if (result > 0) {
-            processWaitlistAfterDeletion(appointment.getScheduleId());
+            boolean filled = processWaitlistAfterDeletion(appointment.getScheduleId());
+            if (!filled) {
+                try {
+                    scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
+                } catch (Exception e) {
+                    logger.warn("归还号源失败: {}", e.getMessage());
+                }
+            }
         }
         
         return result;
     }
 
-    /** 处理候补队列：当预约被删除后，为队首患者创建预约 */
-    private void processWaitlistAfterDeletion(Long scheduleId) {
+        /** 处理候补队列：当预约被删除或取消后，为队首患者创建预约；返回是否已被候补填充 */
+        private boolean processWaitlistAfterDeletion(Long scheduleId) {
         try {
             // 从候补队列中弹出下一个患者
             Waitlist nextWaitlist = waitlistService.popNext(scheduleId);
@@ -146,14 +191,24 @@ public class AppointmentService {
                     newAppointment.setDoctorId(schedule.getDoctorId());
                 }
                 
+                // 扣减号源（如果还有余量）
+                int decreased = scheduleMapper.decreaseAvailableSlots(scheduleId);
+                if (decreased <= 0) {
+                    // 没有余量，放弃创建（理论上不应发生，因为是删除/取消后触发）
+                    logger.warn("候补创建失败：无可用号源 scheduleId={}", scheduleId);
+                    return false;
+                }
+
                 appointmentMapper.insert(newAppointment);
                 logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}", 
                            nextWaitlist.getPatientId(), scheduleId);
+                return true;
             }
         } catch (Exception e) {
             // 记录日志但不影响主流程
             logger.error("处理候补队列失败: {}", e.getMessage(), e);
         }
+            return false;
     }
 
     /**
@@ -187,12 +242,28 @@ public class AppointmentService {
                 throw new CustomerException("403", "无权限取消其他患者的预约");
             }
         }
-        
+
+        // 退号时限：就诊前2小时内不可退号（可通过配置覆盖）
+        int cancelLimitMinutes = systemConfigService.getIntOrDefault("CANCEL_LIMIT_MINUTES", 120);
+        Date now = new Date();
+        long diffMillis = appointment.getAppointmentTime().getTime() - now.getTime();
+        long remainMinutes = diffMillis / (60 * 1000);
+        if (remainMinutes < cancelLimitMinutes) {
+            throw new CustomerException("距离就诊不足" + cancelLimitMinutes + "分钟，不可退号");
+        }
+
         int result = appointmentMapper.updateStatus(id, "CANCELLED");
         
-        // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约
+        // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
         if (result > 0) {
-            processWaitlistAfterDeletion(appointment.getScheduleId());
+            boolean filled = processWaitlistAfterDeletion(appointment.getScheduleId());
+            if (!filled) {
+                try {
+                    scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
+                } catch (Exception e) {
+                    logger.warn("归还号源失败: {}", e.getMessage());
+                }
+            }
         }
         
         return result;
@@ -223,5 +294,27 @@ public class AppointmentService {
             String timeSlot) {
         return scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot);
     }
+
+        // ===== 工具方法 =====
+        private Date atStartOfDay(Date date) {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTime(date);
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            cal.set(java.util.Calendar.MINUTE, 0);
+            cal.set(java.util.Calendar.SECOND, 0);
+            cal.set(java.util.Calendar.MILLISECOND, 0);
+            return cal.getTime();
+        }
+
+        private Date atStartOfNextDay(Date date) {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTime(date);
+            cal.add(java.util.Calendar.DATE, 1);
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            cal.set(java.util.Calendar.MINUTE, 0);
+            cal.set(java.util.Calendar.SECOND, 0);
+            cal.set(java.util.Calendar.MILLISECOND, 0);
+            return cal.getTime();
+        }
 }
 

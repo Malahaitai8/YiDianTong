@@ -29,5 +29,11 @@ public interface AppointmentMapper {
 
     /** 根据主键更新预约信息 */
     int updateById(Appointment appointment);
+
+    /** 统计患者在某天的预约数量（不含已取消） */
+    int countByPatientAndDate(Long patientId, java.util.Date dayStart, java.util.Date dayEnd);
+
+    /** 判断是否已对同一排班预约（不含已取消） */
+    int existsByPatientAndSchedule(Long patientId, Long scheduleId);
 }
 

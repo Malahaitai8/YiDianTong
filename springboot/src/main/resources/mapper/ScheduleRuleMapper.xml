@@ -295,7 +295,7 @@
             END as slotTypeName,
             CASE sr.status
                 WHEN 'ACTIVE' THEN '启用'
-                WHEN 'DISABLED' THEN '禁用'
+                WHEN 'INACTIVE' THEN '禁用'
                 WHEN 'EXPIRED' THEN '已过期'
                 WHEN 'DRAFT' THEN '草稿'
                 ELSE sr.status

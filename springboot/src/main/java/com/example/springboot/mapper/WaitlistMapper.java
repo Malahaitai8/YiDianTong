@@ -23,5 +23,9 @@ public interface WaitlistMapper {
 
     /** 更新候补记录状态 */
     int updateStatus(@org.apache.ibatis.annotations.Param("id") Long id, @org.apache.ibatis.annotations.Param("status") String status);
+
+    /** 判断是否已存在相同患者对同一排班的候补记录 */
+    int existsByPatientAndSchedule(@org.apache.ibatis.annotations.Param("patientId") Long patientId,
+                                   @org.apache.ibatis.annotations.Param("scheduleId") Long scheduleId);
 }
 

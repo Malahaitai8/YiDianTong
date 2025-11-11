@@ -57,4 +57,21 @@
         where id = #{id}
     </update>
 
+    <!-- 统计患者在某天的预约数量（不含已取消） -->
+    <select id="countByPatientAndDate" resultType="int">
+        select count(*) from appointment
+        where patient_id = #{patientId}
+          and status != 'CANCELLED'
+          and appointment_time >= #{dayStart}
+          and appointment_time < #{dayEnd}
+    </select>
+
+    <!-- 判断是否已对同一排班预约（不含已取消） -->
+    <select id="existsByPatientAndSchedule" resultType="int">
+        select count(*) from appointment
+        where patient_id = #{patientId}
+          and schedule_id = #{scheduleId}
+          and status != 'CANCELLED'
+    </select>
+
 </mapper>
