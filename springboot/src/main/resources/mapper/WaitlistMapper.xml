@@ -57,5 +57,13 @@
         where id = #{id}
     </update>
 
+    <!-- 判断是否已存在相同患者对同一排班的候补记录 -->
+    <select id="existsByPatientAndSchedule" resultType="int">
+        select count(*)
+        from waitlist
+        where patient_id = #{patientId}
+          and schedule_id = #{scheduleId}
+    </select>
+
 </mapper>
 

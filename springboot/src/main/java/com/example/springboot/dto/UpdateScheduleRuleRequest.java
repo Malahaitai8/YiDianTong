@@ -52,7 +52,7 @@ public class UpdateScheduleRuleRequest {
     @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
     private Date endDate;
     
-    @Pattern(regexp = "ACTIVE|DISABLED", message = "状态只能是 ACTIVE, DISABLED")
+    @Pattern(regexp = "ACTIVE|INACTIVE", message = "状态只能是 ACTIVE, INACTIVE")
     private String status;
     
     private Integer priority;

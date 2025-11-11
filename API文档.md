@@ -1591,12 +1591,14 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 - `scheduleId`: 排班ID（必填，从搜索接口获取）
 - `appointmentTime`: 预约时间（必填，格式: yyyy-MM-dd HH:mm:ss）
 
-**业务逻辑**:
-1. 系统自动获取当前登录患者ID
-2. 从排班中获取医生ID
-3. 扣减排班的可用号源数（availableSlots - 1）
-4. 计算挂号费和优惠费用
-5. 创建预约记录
+**业务校验与逻辑**:
+1. 系统自动获取当前登录患者ID；
+2. 校验排班存在，预约时间必须是未来且与排班日期一致；
+3. 校验同日次数上限（默认3次，可通过 `APPOINTMENT_DAILY_LIMIT` 配置）；
+4. 校验同一排班禁止重复预约（排除已取消记录）；
+5. 原子扣减排班的可用号源数（availableSlots - 1，号源不足报错）；
+6. 按排班 `slotType` 计算挂号费（`FEE_NORMAL/FEE_EXPERT/FEE_VIP`，失败回退0），同步设置 `actualFee`；
+7. 创建预约记录。
 
 **响应示例**:
 ```json
@@ -1618,11 +1620,25 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 }
 ```
 
-**错误示例**:
+**常见错误**:
 ```json
 {
   "code": "500",
-  "msg": "号源已满，无法预约",
+  "msg": "号源不足",
+  "data": null
+}
+```
+```json
+{
+  "code": "500",
+  "msg": "当天预约次数已达上限",
+  "data": null
+}
+```
+```json
+{
+  "code": "500",
+  "msg": "请勿重复预约该排班",
   "data": null
 }
 ```
@@ -1694,15 +1710,16 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 **权限**: 患者本人
 
-**说明**: 将预约状态更新为 CANCELLED，并恢复号源
+**说明**: 将预约状态更新为 CANCELLED。系统将优先用候补队列自动填充；若无候补则归还号源。
 
 **路径参数**:
 - `id`: 预约ID
 
-**业务逻辑**:
-1. 验证预约是否属于当前患者
-2. 将预约状态更新为 CANCELLED
-3. 恢复排班的号源数（availableSlots + 1）
+**业务校验与逻辑**:
+1. 验证预约是否属于当前患者或管理员操作；
+2. 校验退号时限：距就诊时间不足配置时长不可退号（默认120分钟，可通过 `CANCEL_LIMIT_MINUTES` 配置）；
+3. 将预约状态更新为 CANCELLED；
+4. 取消成功后：尝试从候补队列弹出队首并自动创建预约；若无候补再归还号源（availableSlots + 1）。
 
 **响应示例**:
 ```json
@@ -1713,11 +1730,18 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 }
 ```
 
-**错误示例**:
+**常见错误**:
 ```json
 {
   "code": "500",
   "msg": "预约不存在或已取消",
+  "data": null
+}
+```
+```json
+{
+  "code": "500",
+  "msg": "距离就诊不足120分钟，不可退号",
   "data": null
 }
 ```
@@ -1730,7 +1754,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 **权限**: 患者本人或管理员
 
-**说明**: 物理删除预约记录
+**说明**: 物理删除预约记录。删除成功后将尝试候补填充；若无候补则归还号源。
 
 **路径参数**:
 - `id`: 预约ID
@@ -1754,7 +1778,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 **权限**: 患者
 
-**说明**: 当预约已满时，患者可加入候补队列
+**说明**: 当预约已满时，患者可加入候补队列（若仍有号源，则返回错误提示“当前仍有号源，可直接预约”）
 
 **请求体**:
 ```json
@@ -1782,6 +1806,11 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 **字段说明**:
 - `queuePosition`: 队列位置（第几位）
 - `status`: 状态（WAITING-等待中/NOTIFIED-已通知/EXPIRED-已过期）
+
+**错误说明**:
+- `排班不存在`: 提交的 `scheduleId` 无效
+- `当前仍有号源，可直接预约`: 仅在 `availableSlots` 为 0 时才能加入候补
+- `已在候补队列中，请勿重复提交`: 同一患者在同一排班仅允许一条候补记录
 
 ---
 
@@ -2095,7 +2124,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
   - `outsider` 外部人员
 - 状态取值：
   - `active` 启用
-  - `disabled` 停用
+  - `inactive` 停用
 
 #### 9.4.1 查询所有白名单
 - 接口: `GET /admin/whitelist/selectAll`
@@ -2902,7 +2931,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 **权限**: 仅管理员
 
 **路径参数**:
-- `status`: 状态（ACTIVE 或 DISABLED）
+- `status`: 状态（ACTIVE 或 INACTIVE）
 
 **说明**: 查询指定状态的排班规则。
 
@@ -2986,7 +3015,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 **路径参数**:
 - `ruleId`: 规则ID
 
-**说明**: 将规则状态设置为 DISABLED，禁用后无法应用生成排班。
+**说明**: 将规则状态设置为 INACTIVE，禁用后无法应用生成排班。
 
 ---
 
@@ -3188,14 +3217,14 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 5. **管理规则**:
    - 启用规则: `POST /api/admin/schedule-rules/{ruleId}/enable`
-   - 禁用规则: `POST /api/admin/schedule-rules/{ruleId}/disable`
+- 禁用规则: `POST /api/admin/schedule-rules/{ruleId}/disable`
    - 更新规则: `PUT /api/admin/schedule-rules/{ruleId}`
    - 删除规则: `DELETE /api/admin/schedule-rules/{ruleId}`
 
 **使用场景**:
 - 新医生入职：创建规则 → 应用规则生成未来一个月排班
 - 调整排班：修改规则 → 覆盖模式重新生成排班
-- 临时调整：禁用规则 → 手动创建单个排班
+ - 临时调整：禁用规则 → 手动创建单个排班
 - 批量管理：查询所有规则 → 按需启用/禁用
 
 ---
@@ -3670,6 +3699,364 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
+## 1️⃣5️⃣ 号别与号源上限管理（管理员） ⭐
+
+说明：统一管理不同层级（全局/医生/门诊）的排班与预约容量策略，解耦具体排班记录中的 `slotType`、`totalSlots` 与平台治理策略，支持覆盖继承。
+
+### 15.1 查询全局上限配置
+**接口**: `GET /api/admin/schedule-settings`  
+**权限**: 管理员  
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "allowedSlotTypes": ["normal", "expert", "vip"],
+    "defaultTotalSlots": 20,
+    "maxSlotsPerSchedule": 50,
+    "maxAppointmentsPerDayPerDoctor": 60,
+    "maxAppointmentsPerDayPerPatient": 3,
+    "vipDailyLimitPerDoctor": 10,
+    "enforceWeekendLimits": true,
+    "cancelPolicy": {
+      "latestCancelHours": 2,
+      "penaltyEnabled": false
+    },
+    "overrideStrategy": "INHERIT"
+  }
+}
+```
+
+字段说明：
+- `allowedSlotTypes`: 允许的号别集合（`normal/expert/vip`）
+- `defaultTotalSlots`: 未配置时默认每条排班的总号源
+- `maxSlotsPerSchedule`: 单条排班最大可配置总号源上限
+- `maxAppointmentsPerDayPerDoctor`: 单医生单日预约总上限（跨排班累计）
+- `maxAppointmentsPerDayPerPatient`: 单患者单日预约上限（与系统配置保持一致，允许在此冗余管理）
+- `vipDailyLimitPerDoctor`: 单医生单日 VIP 号上限
+- `enforceWeekendLimits`: 是否对周末启用更严格的上限策略
+- `cancelPolicy.latestCancelHours`: 就诊前最晚允许取消的小时数
+- `cancelPolicy.penaltyEnabled`: 逾期取消是否触发惩罚（由业务决定处理方式）
+- `overrideStrategy`: 下级（医生/门诊）策略与上级的关系（`INHERIT`/`OVERRIDE`）
+
+---
+
+### 15.2 更新全局上限配置
+**接口**: `PUT /api/admin/schedule-settings`  
+**权限**: 管理员  
+**请求体（部分字段可选）**:
+```json
+{
+  "allowedSlotTypes": ["normal", "expert", "vip"],
+  "defaultTotalSlots": 25,
+  "maxSlotsPerSchedule": 60,
+  "maxAppointmentsPerDayPerDoctor": 80,
+  "maxAppointmentsPerDayPerPatient": 3,
+  "vipDailyLimitPerDoctor": 12,
+  "enforceWeekendLimits": true,
+  "cancelPolicy": {
+    "latestCancelHours": 4,
+    "penaltyEnabled": true
+  },
+  "overrideStrategy": "INHERIT",
+  "effectiveStartDate": "2025-11-15",
+  "effectiveEndDate": null
+}
+```
+说明：
+- 支持设置生效期（`effectiveStartDate`/`effectiveEndDate`），不传则立即生效且不限期
+- 只传需要调整的字段，未传字段保持不变
+
+---
+
+### 15.3 查询医生级上限
+**接口**: `GET /api/admin/schedule-settings/doctor/{doctorId}`  
+**权限**: 管理员  
+**路径参数**:
+- `doctorId`: 医生ID  
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "doctorId": 1,
+    "allowedSlotTypes": ["normal", "expert"],
+    "defaultTotalSlots": 30,
+    "maxSlotsPerSchedule": 40,
+    "vipDailyLimitPerDoctor": 8,
+    "overrideStrategy": "OVERRIDE",
+    "effectiveStartDate": "2025-11-10",
+    "effectiveEndDate": null
+  }
+}
+```
+
+---
+
+### 15.4 更新医生级上限
+**接口**: `PUT /api/admin/schedule-settings/doctor/{doctorId}`  
+**权限**: 管理员  
+**路径参数**:
+- `doctorId`: 医生ID  
+**请求体（部分字段可选）**:
+```json
+{
+  "allowedSlotTypes": ["normal", "expert"],
+  "defaultTotalSlots": 30,
+  "maxSlotsPerSchedule": 40,
+  "vipDailyLimitPerDoctor": 8,
+  "overrideStrategy": "OVERRIDE",
+  "effectiveStartDate": "2025-11-10",
+  "effectiveEndDate": null,
+  "description": "主任医师特需"
+}
+```
+说明：
+- 当 `overrideStrategy=OVERRIDE` 时，未显式给出的字段将不继承全局，建议显式给全量字段
+- 当设为 `INHERIT` 时，下级未配置字段从全局继承
+
+---
+
+### 15.5 查询门诊级上限
+**接口**: `GET /api/admin/schedule-settings/clinic/{clinicId}`  
+**权限**: 管理员  
+**路径参数**:
+- `clinicId`: 门诊ID  
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "clinicId": 1,
+    "allowedSlotTypes": ["normal", "expert", "vip"],
+    "defaultTotalSlots": 20,
+    "maxSlotsPerSchedule": 50,
+    "overrideStrategy": "INHERIT",
+    "effectiveStartDate": null,
+    "effectiveEndDate": null
+  }
+}
+```
+
+---
+
+### 15.6 更新门诊级上限
+**接口**: `PUT /api/admin/schedule-settings/clinic/{clinicId}`  
+**权限**: 管理员  
+**路径参数**:
+- `clinicId`: 门诊ID  
+**请求体（部分字段可选）**:
+```json
+{
+  "allowedSlotTypes": ["normal", "expert", "vip"],
+  "defaultTotalSlots": 22,
+  "maxSlotsPerSchedule": 55,
+  "overrideStrategy": "INHERIT",
+  "effectiveStartDate": "2025-11-20",
+  "effectiveEndDate": null
+}
+```
+
+---
+
+使用说明：
+- 排班创建/更新与预约创建时，可参考上述配置进行约束校验：
+  1) 校验 `slotType` 是否在 `allowedSlotTypes` 内  
+  2) 校验 `totalSlots` 不超过 `maxSlotsPerSchedule`  
+  3) 跨排班累计校验医生单日预约量不超过 `maxAppointmentsPerDayPerDoctor`  
+  4) 患者侧校验单日预约次数不超过 `maxAppointmentsPerDayPerPatient`  
+  5) 取消时根据 `cancelPolicy` 执行时间窗与惩罚策略  
+- 覆盖优先级：医生级 > 门诊级 > 全局；同层级使用最新的有效期配置  
+
+---
+
+## 1️⃣6️⃣ 患者端 - 智能问答助手
+
+说明：为小程序/患者端提供问答助手能力，支持“猜你想问”（高频问题）与“关键词匹配”两类接口。数据来源于系统配置中的 FAQ/统计条目，后续可对接专门知识库表。
+
+### 16.1 高频问题统计
+接口：`GET /api/patient/qa/top-questions`  
+权限：患者（`PATIENT`）  
+请求参数：
+- `limit` 可选，返回条数，默认 10  
+
+响应示例：
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    { "question": "如何预约挂号？", "count": 128 },
+    { "question": "可以取消预约吗？", "count": 97 }
+  ]
+}
+```
+
+说明：
+- 统计数据暂从系统配置 `qa.stats` 读取，格式：`{ "问题A": 100, "问题B": 50 }`
+- 未来可接驳日志埋点与离线/实时统计
+
+---
+
+### 16.2 关键词匹配接口
+接口：`POST /api/patient/qa/keyword-match`  
+权限：患者（`PATIENT`）  
+请求体：
+```json
+{ "query": "退号 时限", "topK": 5 }
+```
+
+响应示例：
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "question": "可以取消预约吗？",
+      "answer": "就诊前2小时可在个人中心取消，逾期将记一次违约。",
+      "score": 0.9
+    },
+    {
+      "question": "退号有时间限制吗？",
+      "answer": "距就诊时间不足2小时不可退号。",
+      "score": 0.7
+    }
+  ]
+}
+```
+
+说明：
+- FAQ 数据暂从系统配置 `qa.faqs` 读取，格式：`[{ "question": "...", "answer": "..." }, ...]`
+- 匹配规则为朴素的关键字相似度打分，未来可替换为向量检索或更强检索器
+
+---
+
+### 16.3 管理端 FAQ 管理（CRUD）
+说明：管理员维护问答助手的知识库与统计，支持导入/导出。
+
+- 接口：`GET /api/admin/qa/faqs`  
+  权限：管理员  
+  说明：分页/全量获取 FAQ 列表  
+  查询参数：`page`、`pageSize`（可选）  
+
+- 接口：`POST /api/admin/qa/faqs`  
+  权限：管理员  
+  请求体（单条）：
+  ```json
+  { "question": "可以取消预约吗？", "answer": "就诊前2小时可在个人中心取消。" }
+  ```
+
+- 接口：`PUT /api/admin/qa/faqs/{id}`  
+  权限：管理员  
+  请求体（部分字段可选）：
+  ```json
+  { "question": "可以取消预约吗？", "answer": "就诊前2小时可在个人中心取消，逾期计违约。" }
+  ```
+
+- 接口：`DELETE /api/admin/qa/faqs/{id}`  
+  权限：管理员  
+  说明：删除 FAQ
+
+- 接口：`POST /api/admin/qa/faqs/import`  
+  权限：管理员  
+  说明：批量导入 FAQ  
+  请求体：
+  ```json
+  {
+    "faqs": [
+      { "question": "如何预约挂号？", "answer": "进入预约页选择科室/医生/时段提交即可。" },
+      { "question": "退号有时间限制吗？", "answer": "就诊前2小时内不可退号。" }
+    ]
+  }
+  ```
+
+- 接口：`GET /api/admin/qa/faqs/export`  
+  权限：管理员  
+  说明：导出当前 FAQ 列表（JSON）
+
+- 接口：`PUT /api/admin/qa/stats`  
+  权限：管理员  
+  说明：维护高频问题统计（可人工校正或清零）  
+  请求体：
+  ```json
+  { "stats": { "如何预约挂号？": 128, "可以取消预约吗？": 97 } }
+  ```
+
+数据存储说明：
+- 可先存放于 `system_config`（键：`qa.faqs`、`qa.stats`），后续平滑迁移至专门表 `qa_faq`、`qa_stats`。
+
+---
+
+### 16.4 面向未来的大模型集成端点（预留）
+接口：`POST /api/patient/qa/ask`  
+权限：患者  
+用途：统一对话入口，优先使用大模型（如已启用且有配额），否则回退关键词匹配。
+
+请求体：
+```json
+{
+  "query": "如何退号？",
+  "context": {
+    "patientId": 1,
+    "preferredLanguage": "zh-CN"
+  }
+}
+```
+
+响应（使用 LLM 时）：
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "answer": "就诊前2小时可在个人中心取消预约...",
+    "source": "LLM",
+    "traceId": "req_20251111_abc123"
+  }
+}
+```
+
+响应（回退关键词匹配时）：
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "answer": "就诊前2小时可在个人中心取消预约...",
+    "source": "FAQ",
+    "matches": [
+      { "question": "可以取消预约吗？", "score": 0.88 }
+    ]
+  }
+}
+```
+
+固定身份回答规则（强制）：
+- 若用户问题涉及“模型是什么/是谁”等元问题（例如：你是什么模型？你是谁？由谁提供支持？），必须直接返回以下固定回答，不走 LLM 推理或 FAQ 匹配：
+  - “您好，我是由claude-4.5-sonnet-thinking模型提供支持，作为Cursor IDE的核心功能之一，可协助完成各类开发任务，只要是编程相关的问题，都可以问我！你现在有什么想做的吗？”
+
+开关与配置（`system_config` 或 `application.yml`）：
+- `qa.llm.enabled`：是否启用 LLM（默认 false）
+- `qa.llm.provider`：`anthropic`/`openai`/`azure`/`local` 等（默认空）
+- `qa.llm.apiKey`：大模型 API Key（建议通过安全配置注入）
+- `qa.llm.model`：模型名称（如 `claude-4.5-sonnet-thinking`）
+- `qa.answer.language`：默认语言，`zh-CN`
+- `qa.safety.maxTokens`、`qa.safety.timeoutMs`、`qa.safety.blocklist`：安全与风控配置
+
+回退策略：
+1) 当 `qa.llm.enabled=false` 或调用异常/超时，回退至关键词匹配  
+2) 当命中“固定身份回答”规则时，直接返回固定文本  
+
+审计与埋点（建议）：
+- 记录 `query`、`source`（LLM/FAQ/IDENTITY_RULE）、`latencyMs`、`traceId`
+- 匿名化采样统计命中与点击数据以更新 `qa.stats`
+
+---
+
 ## 📋 常见业务流程更新
 
 ### 流程6: 医生调班申请审核流程
@@ -3777,13 +4164,29 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-**文档版本**: v1.5  
+**文档版本**: v1.7  
 **最后更新**: 2025-11-11  
 **维护者**: YiDianTong 开发团队
 
 ---
 
 ## 📝 更新日志
+### v1.7 (2025-11-11)
+- ✅ 更新预约业务规则与文档细节
+  - 创建预约新增：同日次数上限（`APPOINTMENT_DAILY_LIMIT`）、同排班防重复、未来时间与排班日期一致校验、号源原子扣减、费用按 `slotType` 配置
+  - 取消/删除预约：优先候补自动填充；无候补再归还号源；新增退号时限（`CANCEL_LIMIT_MINUTES`）
+  - 错误示例补充与文案统一（“号源不足/当天预约次数已达上限/请勿重复预约该排班/距离就诊不足X分钟，不可退号”）
+
+### v1.6 (2025-11-11)
+- ✅ 新增“号别与号源上限管理”模块（管理员）
+  - 全局/医生/门诊三级上限配置查询与更新
+  - 字段覆盖策略、默认号源、号别白名单、取消政策等
+  - 与排班与预约相关接口解耦，便于统一治理
+- ✅ 新增患者端“智能问答助手”接口
+  - `GET /api/patient/qa/top-questions` 高频问题统计
+  - `POST /api/patient/qa/keyword-match` 关键词匹配FAQ
+  - 管理端 FAQ 管理 CRUD：`/api/admin/qa/faqs*`、`/api/admin/qa/stats`
+  - 预留大模型集成端点：`POST /api/patient/qa/ask`，含固定身份回答规则与回退策略
 
 ### v1.5 (2025-11-11)
 - ✅ 新增患者端“医生坐诊时间”接口文档
