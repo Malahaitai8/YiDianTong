@@ -6,11 +6,14 @@
 				<text class="user-avatar">{{ userInitial }}</text>
 			</view>
 			<view class="user-basic">
-				<text class="user-name">{{ userInfo.username || '未登录' }}</text>
-				<view class="identity-status">
+				<text class="user-name">{{ userInfo.username || '游客' }}</text>
+				<view class="identity-status" v-if="isLoggedIn">
 					<text class="status-text" :class="{ verified: isVerified }">
 						{{ isVerified ? '✓ 已认证' : '未认证' }}
 					</text>
+				</view>
+				<view class="identity-status" v-else>
+					<text class="status-text">点击登录按钮登录</text>
 				</view>
 			</view>
 		</view>
@@ -63,14 +66,17 @@
 			</view>
 		</view>
 
-		<!-- 退出登录 -->
+		<!-- 退出登录/登录按钮 -->
 		<view class="logout-section">
-			<button class="logout-btn" @click="handleLogout">退出登录</button>
+			<button class="logout-btn" @click="handleLogout" v-if="isLoggedIn">退出登录</button>
+			<button class="login-btn" @click="goToLogin" v-else>立即登录</button>
 		</view>
 	</view>
 </template>
 
 <script>
+import { promptLogin } from '@/utils/auth.js';
+
 export default {
 	data() {
 		return {
@@ -79,29 +85,52 @@ export default {
 		};
 	},
 	computed: {
+		// 检查是否已登录
+		isLoggedIn() {
+			return !!this.$store.state.user.token;
+		},
 		userInfo() {
 			return this.$store.state.user.userInfo || {};
 		},
 		userInitial() {
-			const username = this.userInfo.username || '用';
+			const username = this.userInfo.username || '游';
 			return username.substring(0, 1).toUpperCase();
 		}
 	},
 	methods: {
 		goToPersonalInfo() {
+			if (!this.isLoggedIn) {
+			promptLogin();
+				return;
+			}
 			uni.navigateTo({ url: '/pages/personal-info/personal-info' });
 		},
 		goToMyAppointments() {
+			if (!this.isLoggedIn) {
+			promptLogin();
+				return;
+			}
 			uni.showToast({ title: '我的预约功能开发中', icon: 'none' });
 		},
 		goToRecords() {
+			if (!this.isLoggedIn) {
+			promptLogin();
+				return;
+			}
 			uni.showToast({ title: '就诊记录功能开发中', icon: 'none' });
 		},
 		goToSubstitute() {
+			if (!this.isLoggedIn) {
+			promptLogin();
+				return;
+			}
 			uni.navigateTo({ url: '/pkg-user/my-substitute/my-substitute' });
 		},
 		goToRules() {
 			uni.showToast({ title: '规则说明功能开发中', icon: 'none' });
+		},
+		goToLogin() {
+			uni.navigateTo({ url: '/pages/login/login' });
 		},
 		handleLogout() {
 			uni.showModal({
@@ -278,6 +307,20 @@ export default {
 	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
 }
 .logout-btn::after {
+	border: none;
+}
+.login-btn {
+	width: 100%;
+	height: 88rpx;
+	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+	color: #fff;
+	border: none;
+	border-radius: 15rpx;
+	font-size: 28rpx;
+	font-weight: 600;
+	box-shadow: 0 8rpx 20rpx rgba(25, 118, 210, 0.3);
+}
+.login-btn::after {
 	border: none;
 }
 </style>

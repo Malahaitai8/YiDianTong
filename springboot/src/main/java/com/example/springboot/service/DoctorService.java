@@ -37,11 +37,15 @@ public class DoctorService {
 
     public List<Doctor> selectAll() {
         List<Doctor> list = doctorMapper.selectAll();
+        markTodayDuty(list);
         return list;
     }
 
     public Doctor selectById(Long id) {
         Doctor doctor = doctorMapper.selectById(id);
+        if (doctor != null && doctor.getId() != null) {
+            doctor.setOnDutyToday(isDoctorOnDutyToday(doctor.getId()));
+        }
         return doctor;
     }
 
@@ -80,6 +84,36 @@ public class DoctorService {
 
     public int delete(Long id) {
         return doctorMapper.delete(id);
+    }
+
+    private boolean isDoctorOnDutyToday(Long doctorId) {
+        if (doctorId == null) {
+            return false;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        Date startOfDay = calendar.getTime();
+
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        Date endOfDay = calendar.getTime();
+
+        int count = scheduleMapper.countByDoctorAndDateRange(doctorId, startOfDay, endOfDay);
+        return count > 0;
+    }
+
+    private void markTodayDuty(List<Doctor> doctors) {
+        if (doctors == null || doctors.isEmpty()) {
+            return;
+        }
+        for (Doctor doctor : doctors) {
+            if (doctor == null) {
+                continue;
+            }
+            doctor.setOnDutyToday(isDoctorOnDutyToday(doctor.getId()));
+        }
     }
 
     // ==================== 医生端功能 ====================

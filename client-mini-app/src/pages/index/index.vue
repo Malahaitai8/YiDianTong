@@ -93,6 +93,8 @@
 </template>
 
 <script>
+import { promptLogin } from '@/utils/auth.js';
+
 export default {
 	data() {
 		return {
@@ -107,7 +109,10 @@ export default {
 	},
 	computed: {
 		isLoggedIn() {
-			return !!this.$store.state.user.token;
+			const stateUser = this.$store.state.user || {};
+			const hasToken = !!stateUser.token;
+			const hasUserId = !!(stateUser.userInfo && stateUser.userInfo.userId);
+			return hasToken && hasUserId;
 		},
 		userName() {
 			const userInfo = this.$store.state.user.userInfo;
@@ -124,24 +129,22 @@ export default {
 		// 不强制弹窗，允许浏览
 	},
 	methods: {
+		guardedNavigate(url) {
+			if (!this.isLoggedIn) {
+				promptLogin();
+				return;
+			}
+			uni.navigateTo({ url });
+		},
 		goToQA() {
-			uni.navigateTo({ url: '/pkg-helper/qa-robot/qa-robot' });
+			this.guardedNavigate('/pkg-helper/qa-robot/qa-robot');
 		},
 		goToSearch() {
-			uni.showToast({ title: '搜索功能开发中', icon: 'none' });
+			this.guardedNavigate('/pages/search/search');
 		},
 		checkLoginAndGo(url, message) {
 			if (!this.isLoggedIn) {
-				uni.showModal({
-					title: '提示',
-					content: '请先登录',
-					confirmText: '去登录',
-					success: (res) => {
-						if (res.confirm) {
-							uni.navigateTo({ url: '/pages/login/login' });
-						}
-					}
-				});
+				promptLogin();
 				return false;
 			}
 			if (url) {
@@ -152,19 +155,28 @@ export default {
 			return true;
 		},
 		goToAppointment() {
-			this.checkLoginAndGo('', '预约功能开发中');
+			// 线上挂号入口（需要登录）
+			this.guardedNavigate('/pages/department-list/department-list');
 		},
 		goToDepartments() {
-			this.checkLoginAndGo('', '科室列表开发中');
+			// 按科室浏览（需要登录）
+			this.guardedNavigate('/pages/department-list/department-list');
 		},
 		goToDoctors() {
-			this.checkLoginAndGo('', '医生列表开发中');
+			// 直接查看所有医生（需要登录）
+			this.guardedNavigate('/pages/doctor-list/doctor-list');
 		},
 		goToMyAppointments() {
-			this.checkLoginAndGo('', '我的预约开发中');
+			// 我的预约（需要登录；登录后暂时提示开发中）
+			if (!this.isLoggedIn) {
+				promptLogin();
+				return;
+			}
+			uni.showToast({ title: '我的预约开发中', icon: 'none' });
 		},
 		goToMySubstitute() {
-			this.checkLoginAndGo('/pkg-user/my-substitute/my-substitute');
+			// 我的候补（需要登录）
+			this.guardedNavigate('/pkg-user/my-substitute/my-substitute');
 		},
 		goToFAQDetail(item) {
 			uni.showToast({ title: item.question, icon: 'none' });

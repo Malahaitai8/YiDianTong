@@ -13,5 +13,6 @@ public class Doctor {
     private String bio;
     private User user;
     private Clinic clinic;
+    private Boolean onDutyToday;
 }
 
