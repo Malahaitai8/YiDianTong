@@ -63,7 +63,7 @@
         where patient_id = #{patientId}
           and status != 'CANCELLED'
           and appointment_time >= #{dayStart}
-          and appointment_time < #{dayEnd}
+          and appointment_time &lt; #{dayEnd}
     </select>
 
     <!-- 判断是否已对同一排班预约（不含已取消） -->
