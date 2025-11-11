@@ -1,8 +1,11 @@
 package com.example.springboot.service;
 
+import com.example.springboot.config.SecurityUtils;
 import com.example.springboot.entity.User;
+import com.example.springboot.exception.CustomerException;
 import com.example.springboot.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,6 +14,9 @@ import java.util.List;
 public class UserService {
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     public User getById(Long id) {
         return userMapper.selectById(id);
@@ -67,5 +73,32 @@ public class UserService {
      */
     public int rejectUser(Long userId) {
         return userMapper.updateStatus(userId, "inactive");
+    }
+    
+    /**
+     * 修改当前登录用户的密码
+     * @param oldPassword 旧密码
+     * @param newPassword 新密码
+     */
+    public void changePassword(String oldPassword, String newPassword) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new CustomerException("401", "未登录");
+        }
+        
+        // 获取当前用户
+        User user = userMapper.selectById(currentUserId);
+        if (user == null) {
+            throw new CustomerException("用户不存在");
+        }
+        
+        // 验证旧密码
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new CustomerException("旧密码不正确");
+        }
+        
+        // 更新密码
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        userMapper.updatePassword(currentUserId, encodedNewPassword);
     }
 }

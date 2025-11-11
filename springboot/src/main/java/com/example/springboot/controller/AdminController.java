@@ -4,7 +4,9 @@ package com.example.springboot.controller;
 import com.example.springboot.common.Result;
 import com.example.springboot.constants.RoleConstants;
 import com.example.springboot.entity.Admin;
+import com.example.springboot.entity.Whitelist;
 import com.example.springboot.service.AdminService;
+import com.example.springboot.service.WhitelistService;
 import com.example.springboot.dto.DoctorCreateRequest;
 import com.example.springboot.entity.User;
 import com.example.springboot.mapper.UserMapper;
@@ -42,6 +44,9 @@ public class AdminController {
 
     @Resource
     private com.example.springboot.mapper.DoctorMapper doctorMapper;
+
+    @Resource
+    private WhitelistService whitelistService;
 
 
     @Operation(summary = "查询所有管理员", description = "管理员列表")
@@ -130,6 +135,75 @@ public class AdminController {
         String encoded = passwordEncoder.encode("123456");
         int affected = userMapper.updateAllPasswords(encoded);
         return Result.success("已重置密码的用户数量: " + affected);
+    }
+
+    // ==================== 白名单管理接口 ====================
+
+    @Operation(summary = "查询所有白名单", description = "管理员查询所有白名单记录")
+    @GetMapping("/whitelist/selectAll")
+    public Result selectAllWhitelist() {
+        try {
+            List<Whitelist> list = whitelistService.selectAll();
+            return Result.success(list);
+        } catch (Exception e) {
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "根据ID查询白名单", description = "管理员查询指定白名单记录")
+    @GetMapping("/whitelist/selectById/{id}")
+    public Result selectWhitelistById(@PathVariable Long id) {
+        try {
+            Whitelist whitelist = whitelistService.selectById(id);
+            return Result.success(whitelist);
+        } catch (Exception e) {
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "根据角色类型查询白名单", description = "管理员根据角色类型（student/teacher/outsider）查询白名单")
+    @GetMapping("/whitelist/selectByRoleType/{roleType}")
+    public Result selectWhitelistByRoleType(@PathVariable String roleType) {
+        try {
+            List<Whitelist> list = whitelistService.selectByRoleType(roleType);
+            return Result.success(list);
+        } catch (Exception e) {
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "添加白名单", description = "管理员添加学号/工号到白名单")
+    @PostMapping("/whitelist")
+    public Result createWhitelist(@jakarta.validation.Valid @RequestBody Whitelist whitelist) {
+        try {
+            whitelistService.create(whitelist);
+            return Result.success("白名单添加成功");
+        } catch (Exception e) {
+            return Result.error("添加失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新白名单", description = "管理员更新白名单记录")
+    @org.springframework.web.bind.annotation.PutMapping("/whitelist/{id}")
+    public Result updateWhitelist(@PathVariable Long id, @jakarta.validation.Valid @RequestBody Whitelist whitelist) {
+        try {
+            whitelist.setId(id);
+            whitelistService.update(whitelist);
+            return Result.success("白名单更新成功");
+        } catch (Exception e) {
+            return Result.error("更新失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "删除白名单", description = "管理员删除白名单记录")
+    @org.springframework.web.bind.annotation.DeleteMapping("/whitelist/{id}")
+    public Result deleteWhitelist(@PathVariable Long id) {
+        try {
+            whitelistService.delete(id);
+            return Result.success("白名单删除成功");
+        } catch (Exception e) {
+            return Result.error("删除失败: " + e.getMessage());
+        }
     }
 }
 

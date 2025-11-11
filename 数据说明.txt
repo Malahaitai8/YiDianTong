@@ -1,2 +1,0 @@
-user表里的role分为doctor patient admin
-user表里的status分为active inactive

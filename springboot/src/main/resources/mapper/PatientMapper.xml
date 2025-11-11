@@ -12,6 +12,7 @@
         <result column="id_status" property="idStatus"/>
         <result column="phone_number" property="phoneNumber"/>
         <result column="id_card_number" property="idCardNumber"/>
+        <result column="identity_number" property="identityNumber"/>
         <association property="user" javaType="com.example.springboot.entity.User">
             <id column="user_id" property="id"/>
             <result column="username" property="username"/>
@@ -48,9 +49,16 @@
         where p.phone_number = #{phoneNumber}
     </select>
 
+    <select id="selectByIdentityNumber" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
+        where p.identity_number = #{identityNumber}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        insert into patient(user_id, name, specific_role, id_status, phone_number, id_card_number)
-        values(#{userId}, #{name}, #{specificRole}, #{idStatus}, #{phoneNumber}, #{idCardNumber})
+        insert into patient(user_id, name, specific_role, id_status, phone_number, id_card_number, identity_number)
+        values(#{userId}, #{name}, #{specificRole}, #{idStatus}, #{phoneNumber}, #{idCardNumber}, #{identityNumber})
     </insert>
 
     <update id="update">
@@ -61,6 +69,7 @@
             <if test="idStatus != null">id_status = #{idStatus},</if>
             <if test="phoneNumber != null">phone_number = #{phoneNumber},</if>
             <if test="idCardNumber != null">id_card_number = #{idCardNumber},</if>
+            <if test="identityNumber != null">identity_number = #{identityNumber},</if>
         </set>
         where id = #{id}
     </update>

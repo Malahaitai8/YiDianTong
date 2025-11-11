@@ -11,6 +11,7 @@ public class Patient {
     private String idStatus;
     private String phoneNumber;
     private String idCardNumber;
+    private String identityNumber;  // 学号或工号
     private User user;
 }
 

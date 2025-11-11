@@ -22,5 +22,6 @@ public class RegisterRequest {
     private String specificRole;   // student/teacher（缺省为 student）
     private String phoneNumber;    // 手机号（可选）
     private String idCardNumber;   // 身份证号（可选）
+    private String identityNumber; // 学号或工号（可选，根据specificRole判断：student=学号，teacher=工号）
 }
 

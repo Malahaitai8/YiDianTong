@@ -24,43 +24,43 @@ INSERT INTO `clinic` (`department_id`, `name`, `description`) VALUES
 (6, '眼科门诊', '近视、结膜炎、干眼症等诊治。');
 
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('doctor_lwh1', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zxw2', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_wjj3', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zm4', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_lq5', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_cl6', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_sdw7', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zm8', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_wf9', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zw10', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_ql11', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_ft12', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_gy13', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_wd14', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_xhy15', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_xl16', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zb17', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_qy18', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_cy19', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_yy20', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_yj21', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_xm22', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_hj23', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_cl24', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_dh25', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_xq26', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_lp27', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_gml28', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_tl29', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_hw30', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_mt31', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_zy32', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_cl33', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_pg34', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_hj35', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_jh36', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active'),
-('doctor_xf37', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'doctor', 'active');
+('doctor_lwh1', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zxw2', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_wjj3', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zm4', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_lq5', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_cl6', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_sdw7', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zm8', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_wf9', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zw10', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_ql11', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_ft12', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_gy13', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_wd14', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_xhy15', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_xl16', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zb17', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_qy18', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_cy19', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_yy20', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_yj21', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_xm22', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_hj23', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_cl24', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_dh25', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_xq26', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_lp27', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_gml28', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_tl29', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_hw30', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_mt31', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_zy32', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_cl33', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_pg34', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_hj35', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_jh36', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active'),
+('doctor_xf37', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'doctor', 'active');
 
 INSERT INTO `doctor` (`user_id`, `clinic_id`, `name`, `title`, `specialty`, `bio`) VALUES
 (1, 1, '李文华', '主任医师', '慢性咳嗽、哮喘、肺部感染', '资深呼吸内科专家，擅长呼吸系统疑难病诊治。'),
@@ -245,59 +245,129 @@ INSERT INTO `schedule` (`doctor_id`, `schedule_date`, `time_slot`, `slot_type`, 
 -- 测试账号数据
 -- ========================================
 -- 所有测试账号密码均为: 123456
--- BCrypt加密后: $2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK
+-- BCrypt加密后: $2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu
+-- 注意：此哈希值已通过BCrypt验证，对应密码 123456
+-- 如果遇到密码不匹配问题，可以使用应用程序的 /test/password/reset-admin 端点重置密码
 -- ========================================
 
 -- 1. 管理员测试账号
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('admin', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'admin', 'active');
+('admin', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'admin', 'active');
 
 INSERT INTO `admin` (`user_id`, `name`, `admin_role`) VALUES
 (LAST_INSERT_ID(), '系统管理员', '超级管理员');
 
--- 2. 患者测试账号
--- 2.1 学生账号
+-- ========================================
+-- 2. 白名单测试数据（必须在患者数据之前插入）
+-- ========================================
+-- 学生学号白名单
+INSERT INTO `whitelist` (`identity_number`, `role_type`, `status`) VALUES
+('2021001001', 'student', 'active'),
+('2021001002', 'student', 'active'),
+('2021001003', 'student', 'active'),
+('2021001004', 'student', 'active'),
+('2021001005', 'student', 'active'),
+('2022001001', 'student', 'active'),
+('2022001002', 'student', 'active'),
+('2023001001', 'student', 'active');
+
+-- 教师工号白名单
+INSERT INTO `whitelist` (`identity_number`, `role_type`, `status`) VALUES
+('T2021001', 'teacher', 'active'),
+('T2021002', 'teacher', 'active'),
+('T2021003', 'teacher', 'active'),
+('T2022001', 'teacher', 'active'),
+('T2022002', 'teacher', 'active');
+
+-- ========================================
+-- 3. 患者测试账号
+-- ========================================
+-- 3.1 已认证的学生账号（用于测试已认证用户的功能）
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('student1', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'patient', 'active');
+('student1', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
 SET @student1_id = LAST_INSERT_ID();
 
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('student2', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'patient', 'active');
+('student2', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
 SET @student2_id = LAST_INSERT_ID();
 
+-- 插入已认证的学生患者信息（已通过身份认证）
+INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`, `identity_number`, `id_card_number`) VALUES
+(@student1_id, '张小明', 'student', 'verified', '13800138001', '2021001001', '110101199001011234'),
+(@student2_id, '李小红', 'student', 'verified', '13800138002', '2021001002', '110101199002021234');
+
+-- 3.2 未认证的学生账号（用于测试注册和认证流程）
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('student3', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'patient', 'active');
+('student3', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
 SET @student3_id = LAST_INSERT_ID();
 
--- 插入学生患者信息
-INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`) VALUES
-(@student1_id, '张小明', 'student', 'verified', '13800138001'),
-(@student2_id, '李小红', 'student', 'verified', '13800138002'),
-(@student3_id, '王小强', 'student', 'pending', '13800138003');
-
--- 2.2 教师账号
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('teacher1', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'patient', 'active');
+('student4', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
+SET @student4_id = LAST_INSERT_ID();
+
+-- 插入未认证的学生患者信息（注册时只填写手机号，其他字段为NULL）
+INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`, `identity_number`, `id_card_number`) VALUES
+(@student3_id, NULL, NULL, 'pending', '13800138003', NULL, NULL),
+(@student4_id, NULL, NULL, 'pending', '13800138004', NULL, NULL);
+
+-- 3.3 已认证的教师账号
+INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
+('teacher1', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
 SET @teacher1_id = LAST_INSERT_ID();
 
 INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
-('teacher2', '$2a$10$eB/uC37WojM56Sy1tNnfC.MLo0eM9r7ZB4mew1xVr0SjSHadImqAK', 'patient', 'active');
+('teacher2', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
 SET @teacher2_id = LAST_INSERT_ID();
 
--- 插入教师患者信息
-INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`) VALUES
-(@teacher1_id, '赵老师', 'teacher', 'verified', '13900139001'),
-(@teacher2_id, '钱老师', 'teacher', 'verified', '13900139002');
+-- 插入已认证的教师患者信息（已通过身份认证）
+INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`, `identity_number`, `id_card_number`) VALUES
+(@teacher1_id, '赵老师', 'teacher', 'verified', '13900139001', 'T2021001', '110101198001011234'),
+(@teacher2_id, '钱老师', 'teacher', 'verified', '13900139002', 'T2021002', '110101198002021234');
+
+-- 3.4 未认证的教师账号（用于测试注册和认证流程）
+INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
+('teacher3', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
+SET @teacher3_id = LAST_INSERT_ID();
+
+-- 插入未认证的教师患者信息（注册时只填写手机号，其他字段为NULL）
+INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`, `identity_number`, `id_card_number`) VALUES
+(@teacher3_id, NULL, NULL, 'pending', '13900139003', NULL, NULL);
+
+-- 3.5 校外人员账号（学号/工号不在白名单中）
+INSERT INTO `user` (`username`, `password`, `role`, `status`) VALUES
+('outsider1', '$2a$10$6qVVSBhnSGhY6A/0iyFqqukp0aJaSqO0zUgt75jqTEriamesQwjBu', 'patient', 'active');
+SET @outsider1_id = LAST_INSERT_ID();
+
+-- 插入已认证的校外人员患者信息（认证时学号不在白名单，自动设置为outsider）
+INSERT INTO `patient` (`user_id`, `name`, `specific_role`, `id_status`, `phone_number`, `identity_number`, `id_card_number`) VALUES
+(@outsider1_id, '校外人员', 'outsider', 'verified', '13700137001', 'OUTSIDER001', '110101199501011234');
 
 -- ========================================
 -- 测试账号清单
 -- ========================================
 -- 管理员: admin / 123456
--- 学生1: student1 / 123456 (张小明 - 已认证)
--- 学生2: student2 / 123456 (李小红 - 已认证)
--- 学生3: student3 / 123456 (王小强 - 待认证)
--- 教师1: teacher1 / 123456 (赵老师 - 已认证)
--- 教师2: teacher2 / 123456 (钱老师 - 已认证)
+-- 
+-- 已认证学生账号:
+--   student1 / 123456 (张小明 - 学号: 2021001001 - 已认证)
+--   student2 / 123456 (李小红 - 学号: 2021001002 - 已认证)
+-- 
+-- 未认证学生账号（用于测试认证流程）:
+--   student3 / 123456 (手机号: 13800138003 - 待认证，学号2021001003在白名单中)
+--   student4 / 123456 (手机号: 13800138004 - 待认证，学号2021001004在白名单中)
+-- 
+-- 已认证教师账号:
+--   teacher1 / 123456 (赵老师 - 工号: T2021001 - 已认证)
+--   teacher2 / 123456 (钱老师 - 工号: T2021002 - 已认证)
+-- 
+-- 未认证教师账号（用于测试认证流程）:
+--   teacher3 / 123456 (手机号: 13900139003 - 待认证，工号T2021003在白名单中)
+-- 
+-- 校外人员账号:
+--   outsider1 / 123456 (校外人员 - 学号: OUTSIDER001 - 已认证，不在白名单中)
+-- 
+-- 白名单数据:
+--   学生学号: 2021001001-2021001005, 2022001001-2022001002, 2023001001
+--   教师工号: T2021001-T2021003, T2022001-T2022002
 -- ========================================
 
 -- ========================================

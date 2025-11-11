@@ -20,6 +20,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // 去除用户名首尾空格，避免因空格导致的查询失败
+        if (username != null) {
+            username = username.trim();
+        }
+        
         User user = userMapper.selectByUsername(username);
         
         if (user == null) {

@@ -15,7 +15,7 @@ import java.util.List;
  * 
  * 注意：这个类只在首次初始化时运行一次，之后应该注释掉@Component注解
  */
-// @Component  // 首次运行时取消注释，加密完成后重新注释掉
+//@Component  // 首次运行时取消注释，加密完成后重新注释掉
 public class PasswordEncoderUtil implements CommandLineRunner {
 
     @Autowired

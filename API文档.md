@@ -2016,6 +2016,121 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
+### 9.4 白名单管理（统一） ⭐
+
+说明：统一使用 `Whitelist` 白名单表，按 `roleType` 区分学生/教师/外部用户，通过学工号统一字段 `identityNumber` 管理。
+
+- 角色类型取值：
+  - `student` 学生
+  - `teacher` 教师
+  - `outsider` 外部人员
+- 状态取值：
+  - `active` 启用
+  - `disabled` 停用
+
+#### 9.4.1 查询所有白名单
+- 接口: `GET /admin/whitelist/selectAll`
+- 权限: 管理员
+- 响应示例:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "identityNumber": "20230001",
+      "roleType": "student",
+      "status": "active",
+      "createdAt": "2025-11-01 10:00:00",
+      "updatedAt": "2025-11-01 10:00:00"
+    }
+  ]
+}
+```
+
+#### 9.4.2 根据ID查询白名单
+- 接口: `GET /admin/whitelist/selectById/{id}`
+- 权限: 管理员
+- 路径参数:
+  - `id`: 白名单ID
+- 响应示例:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "identityNumber": "T0001",
+    "roleType": "teacher",
+    "status": "active",
+    "createdAt": "2025-11-01 10:00:00",
+    "updatedAt": "2025-11-01 10:00:00"
+  }
+}
+```
+
+#### 9.4.3 按角色类型查询白名单
+- 接口: `GET /admin/whitelist/selectByRoleType/{roleType}`
+- 权限: 管理员
+- 路径参数:
+  - `roleType`: `student`/`teacher`/`outsider`
+- 响应: 同 9.4.1
+
+#### 9.4.4 新增白名单
+- 接口: `POST /admin/whitelist`
+- 权限: 管理员
+- 请求体:
+```json
+{
+  "identityNumber": "20230002",
+  "roleType": "student",
+  "status": "active"
+}
+```
+- 字段说明:
+  - `identityNumber` (必填): 学号/工号/证件号
+  - `roleType` (必填): 角色类型
+  - `status` (可选): 默认 `active`
+- 响应示例:
+```json
+{ "code": "200", "msg": "白名单添加成功", "data": null }
+```
+- 错误示例:
+```json
+{ "code": "500", "msg": "该 identityNumber 已存在", "data": null }
+```
+
+#### 9.4.5 更新白名单
+- 接口: `PUT /admin/whitelist/{id}`
+- 权限: 管理员
+- 路径参数:
+  - `id`: 白名单ID
+- 请求体（部分字段可选更新）:
+```json
+{
+  "identityNumber": "20230002",
+  "roleType": "student",
+  "status": "disabled"
+}
+```
+- 响应示例:
+```json
+{ "code": "200", "msg": "白名单更新成功", "data": null }
+```
+
+#### 9.4.6 删除白名单
+- 接口: `DELETE /admin/whitelist/{id}`
+- 权限: 管理员
+- 路径参数:
+  - `id`: 白名单ID
+- 响应示例:
+```json
+{ "code": "200", "msg": "白名单删除成功", "data": null }
+```
+
+---
+
 ---
 
 ### 9.5 停用医生账号
@@ -2145,6 +2260,129 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
   }
 }
 ```
+
+---
+
+## 1️⃣1️⃣ 个人信息管理模块 ⭐
+
+### 11.1 患者个人信息
+
+- 接口: `GET /patient/profile`
+- 权限: 患者
+- 说明: 获取当前登录患者的个人信息（合并用户与患者表关键字段）
+- 响应示例:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "userId": 10,
+    "name": "张三",
+    "specificRole": "student",
+    "idStatus": "verified",
+    "phoneNumber": "13800138000",
+    "idCardNumber": "110101199001011234",
+    "user": {
+      "id": 10,
+      "username": "patient001",
+      "role": "patient",
+      "status": "active"
+    }
+  }
+}
+```
+
+- 接口: `PUT /patient/profile`
+- 权限: 患者
+- 说明: 更新当前登录患者的个人资料（仅允许更新非认证类字段，如手机号）
+- 请求体:
+```json
+{
+  "phoneNumber": "13800138001"
+}
+```
+- 响应: `{ "code": "200", "msg": "个人信息更新成功", "data": null }`
+
+- 接口: `PUT /patient/password`
+- 权限: 患者
+- 说明: 修改当前登录患者的登录密码，需要校验旧密码
+- 请求体:
+```json
+{
+  "oldPassword": "123456",
+  "newPassword": "newpass123"
+}
+```
+- 响应: `{ "code": "200", "msg": "密码修改成功", "data": null }`
+
+---
+
+### 11.2 身份认证
+
+- 接口: `POST /auth/verify/identity`
+- 权限: 患者
+- 说明: 患者提交姓名、学号/工号（统一字段 identityNumber）、身份证号进行身份认证。后端将据此检索白名单（`Whitelist`），确定 `specificRole` 为 `student`/`teacher`/`outsider` 并更新患者信息与认证状态。
+- 请求体:
+```json
+{
+  "name": "张三",
+  "identityNumber": "20230001",
+  "idCardNumber": "110101199001011234"
+}
+```
+- 成功响应（示例）:
+```json
+{
+  "code": "200",
+  "msg": "身份认证成功",
+  "data": {
+    "id": 1,
+    "userId": 10,
+    "name": "张三",
+    "specificRole": "student",
+    "idStatus": "verified",
+    "phoneNumber": "13800138000",
+    "idCardNumber": "110101199001011234"
+  }
+}
+```
+- 错误示例:
+```json
+{ "code": "500", "msg": "白名单不存在或信息不匹配", "data": null }
+```
+
+- 接口: `GET /auth/verify/status`
+- 权限: 患者
+- 说明: 查询当前登录患者的认证状态与信息（含 `idStatus`、`specificRole` 等）
+
+---
+
+### 11.3 医生个人信息
+
+- 接口: `GET /doctor/my-info`
+- 权限: 医生
+- 说明: 获取当前登录医生的详细信息
+
+- 接口: `POST /doctor/apply-info-update`
+- 权限: 医生
+- 说明: 医生提交个人信息修改申请，需管理员审核通过后生效
+- 请求体:
+```json
+{
+  "fieldName": "title",
+  "newValue": "主任医师",
+  "reason": "已获得主任医师资格"
+}
+```
+- 响应: 返回创建的申请详情（见下）
+
+- 接口: `GET /doctor/my-info-applications`
+- 权限: 医生
+- 说明: 查看当前医生提交的所有个人信息修改申请及状态
+
+提示：
+- 管理端可通过“申请管理模块”统一审核信息修改申请（`/api/application-requests/review`）。
 
 ---
 

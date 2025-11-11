@@ -88,5 +88,50 @@ public class PatientService {
     public int delete(Long id) {
         return patientMapper.delete(id);
     }
+    
+    /**
+     * 获取当前登录患者的个人信息
+     * 患者端专用：自动获取当前登录用户关联的患者信息
+     */
+    public Patient getCurrentPatientProfile() {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new CustomerException("401", "未登录");
+        }
+        
+        Patient patient = patientMapper.selectByUserId(currentUserId);
+        if (patient == null) {
+            throw new CustomerException("患者信息不存在，请先注册");
+        }
+        
+        return patient;
+    }
+    
+    /**
+     * 更新当前登录患者的个人信息
+     * 患者端专用：只能更新允许的字段（如手机号），不能修改认证相关字段
+     * @param phoneNumber 手机号码（可选）
+     */
+    public void updateCurrentPatientProfile(String phoneNumber) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new CustomerException("401", "未登录");
+        }
+        
+        // 获取当前患者信息
+        Patient patient = patientMapper.selectByUserId(currentUserId);
+        if (patient == null) {
+            throw new CustomerException("患者信息不存在，请先注册");
+        }
+        
+        // 只更新允许的字段
+        if (phoneNumber != null && !phoneNumber.trim().isEmpty()) {
+            patient.setPhoneNumber(phoneNumber);
+        }
+        
+        // 更新患者信息
+        patientMapper.update(patient);
+        logger.info("用户 {} 更新了个人信息", currentUserId);
+    }
 }
 

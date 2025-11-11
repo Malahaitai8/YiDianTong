@@ -48,11 +48,15 @@ public class AuthController {
     @PostMapping("/login")
     public Result login(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest) {
         try {
+            // 去除用户名和密码的首尾空格，避免因空格导致的认证失败
+            String username = loginRequest.getUsername() != null ? loginRequest.getUsername().trim() : null;
+            String password = loginRequest.getPassword() != null ? loginRequest.getPassword().trim() : null;
+            
             // 使用Spring Security进行认证
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                    loginRequest.getUsername(),
-                    loginRequest.getPassword()
+                    username,
+                    password
                 )
             );
 
@@ -112,8 +116,12 @@ public class AuthController {
     @PostMapping("/register")
     public Result register(@jakarta.validation.Valid @RequestBody RegisterRequest registerRequest) {
         try {
+            // 去除用户名和手机号的首尾空格
+            String username = registerRequest.getUsername() != null ? registerRequest.getUsername().trim() : null;
+            String phoneNumber = registerRequest.getPhoneNumber() != null ? registerRequest.getPhoneNumber().trim() : null;
+            
             // 检查用户名是否已存在
-            User existingUser = userMapper.selectByUsername(registerRequest.getUsername());
+            User existingUser = userMapper.selectByUsername(username);
             if (existingUser != null) {
                 return Result.error("用户名已存在");
             }
@@ -129,31 +137,31 @@ public class AuthController {
 
             // 1. 创建用户账号
             User user = new User();
-            user.setUsername(registerRequest.getUsername());
-            // 密码加密
-            user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+            user.setUsername(username);
+            // 密码加密（密码也需要trim）
+            String password = registerRequest.getPassword() != null ? registerRequest.getPassword().trim() : null;
+            user.setPassword(passwordEncoder.encode(password));
             user.setRole(role);
             // 患者直接激活
             user.setStatus("active");
 
             userMapper.insert(user);
 
-            // 2. 创建患者详细信息
+            // 2. 创建患者详细信息（注册时只保存手机号，其他信息待认证）
             com.example.springboot.entity.Patient patient = new com.example.springboot.entity.Patient();
             patient.setUserId(user.getId());
             
-            // 使用提供的姓名，若未提供则使用用户名
-            patient.setName(registerRequest.getName() != null ? registerRequest.getName() : registerRequest.getUsername());
+            // 注册时只保存手机号，姓名、角色等信息在认证时填写
+            patient.setPhoneNumber(phoneNumber);
             
-            // 设置具体角色，默认为学生
-            patient.setSpecificRole(registerRequest.getSpecificRole() != null ? registerRequest.getSpecificRole() : "student");
-            
-            // 设置身份认证状态，默认待验证
+            // 设置身份认证状态为待认证
             patient.setIdStatus("pending");
             
-            // 设置手机号和身份证号（可选）
-            patient.setPhoneNumber(registerRequest.getPhoneNumber());
-            patient.setIdCardNumber(registerRequest.getIdCardNumber());
+            // 其他字段（name, specificRole, idCardNumber, identityNumber）在认证时填写
+            // 临时设置name为用户名，认证时会更新
+            patient.setName(username);
+            // 未认证时默认为外来人员，认证时根据白名单确定（可能更新为student或teacher）
+            patient.setSpecificRole("outsider");
 
             patientMapper.insert(patient);
 

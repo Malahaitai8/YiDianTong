@@ -141,7 +141,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // 允许访问测试接口和健康检查
-                        .requestMatchers("/hello", "/actuator/health").permitAll()
+                        .requestMatchers("/hello", "/actuator/health", "/test/**").permitAll()
 
                         // ----------- [修改] -----------
                         // 患者相关接口 (移除)

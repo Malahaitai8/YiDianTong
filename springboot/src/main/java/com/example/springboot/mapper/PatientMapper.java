@@ -15,6 +15,9 @@ public interface PatientMapper {
     // 根据手机号查询病人
     Patient selectByPhoneNumber(String phoneNumber);
     
+    // 根据学号/工号查询患者
+    Patient selectByIdentityNumber(String identityNumber);
+    
     // 添加新病人
     int insert(Patient patient);
 

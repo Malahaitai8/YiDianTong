@@ -52,18 +52,34 @@ CREATE TABLE `doctor` (
 CREATE TABLE `patient` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '患者唯一ID',
     `user_id` BIGINT NOT NULL COMMENT '关联的用户ID (外键关联user表)',
-    `name` VARCHAR(50) NOT NULL COMMENT '患者真实姓名',
-    `specific_role` VARCHAR(20) NOT NULL COMMENT '具体角色 (student/teacher)',
+    `name` VARCHAR(50) NULL COMMENT '患者真实姓名（注册时为空，认证时填写）',
+    `specific_role` VARCHAR(20) NULL COMMENT '具体角色 (student/teacher/outsider，注册时为空，认证时根据白名单确定)',
     `id_status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '身份认证状态 (pending/verified)',
     `phone_number` VARCHAR(20) NULL COMMENT '手机号码',
-    `id_card_number` VARCHAR(255) NULL COMMENT '身份证号 (需加密存储)',
+    `id_card_number` VARCHAR(255) NULL COMMENT '身份证号 (需加密存储，认证时填写)',
+    `identity_number` VARCHAR(50) NULL COMMENT '学号或工号（认证时填写）',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_patient_user_id` (`user_id`),
-    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX `idx_patient_identity_number` (`identity_number`)
 ) COMMENT='患者(师生)信息表';
 
 
--- 6. 管理员表 (admin)
+-- 6. 白名单表 (whitelist)
+CREATE TABLE `whitelist` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '白名单唯一ID',
+    `identity_number` VARCHAR(50) NOT NULL COMMENT '学号或工号',
+    `role_type` VARCHAR(20) NOT NULL COMMENT '角色类型 (student/teacher/outsider)',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '状态 (active/inactive)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_whitelist_identity_number` (`identity_number`),
+    INDEX `idx_whitelist_role_type` (`role_type`),
+    INDEX `idx_whitelist_status` (`status`)
+) COMMENT='身份认证白名单表（学号/工号）';
+
+-- 7. 管理员表 (admin)
 CREATE TABLE `admin` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '管理员唯一ID',
     `user_id` BIGINT NOT NULL COMMENT '关联的用户ID (外键关联user表)',
@@ -75,7 +91,7 @@ CREATE TABLE `admin` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) COMMENT='管理员信息表';
 
--- 7. 创建排班表 (schedule)
+-- 8. 创建排班表 (schedule)
 CREATE TABLE `schedule` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '排班唯一ID',
     `doctor_id` BIGINT NOT NULL COMMENT '医生ID',
@@ -90,7 +106,7 @@ CREATE TABLE `schedule` (
     UNIQUE KEY `uk_doctor_schedule` (`doctor_id`, `schedule_date`, `time_slot`) -- 一个医生在一个时间段只能有一个排班
 ) COMMENT='医生排班表';
 
--- 8. 创建预约记录表 (appointment)
+-- 9. 创建预约记录表 (appointment)
 CREATE TABLE `appointment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '预约唯一ID',
     `patient_id` BIGINT NOT NULL COMMENT '患者ID (外键关联patient表)',
@@ -108,7 +124,7 @@ CREATE TABLE `appointment` (
     FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='预约记录表';
 
--- 9. 创建候补队列表 (waitlist)
+-- 10. 创建候补队列表 (waitlist)
 CREATE TABLE `waitlist` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '候补记录唯一ID',
     `schedule_id` BIGINT NOT NULL COMMENT '目标排班ID',
@@ -127,7 +143,7 @@ CREATE TABLE `waitlist` (
     FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='预约候补队列记录表';
 
--- 10. 创建系统配置与规则表 (system_config)
+-- 11. 创建系统配置与规则表 (system_config)
 CREATE TABLE `system_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '配置唯一ID',
     `key` VARCHAR(100) NOT NULL COMMENT '配置项键名 (如：STUDENT_REIMBURSEMENT_RATE)',
@@ -141,16 +157,17 @@ CREATE TABLE `system_config` (
     UNIQUE KEY `uk_config_key` (`key`)
 ) COMMENT='系统全局配置与规则表';
 
--- 11. 插入初始数据示例
+-- 12. 插入系统配置初始数据
 INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例'),
 ('TEACHER_REIMBURSEMENT_RATE', '0.90', '教师挂号费报销比例'),
 ('CANCELLATION_FREE_HOURS', '24', '就诊前多久取消可免费退号，否则记录爽约（单位：小时）');
 
-alter table appointment add column source_type varchar(20);
+-- 13. 为预约表添加来源类型字段
+ALTER TABLE `appointment` ADD COLUMN `source_type` VARCHAR(20) COMMENT '预约来源类型';
 
 -- ========================================
--- 12. 排班规则表 (schedule_rule)
+-- 14. 排班规则表 (schedule_rule)
 -- ========================================
 CREATE TABLE `schedule_rule` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '规则唯一ID',
@@ -195,7 +212,7 @@ CREATE TABLE `schedule_rule` (
 ) COMMENT='排班规则配置表 - 管理员可设置自动化排班策略';
 
 -- ========================================
--- 13. 申请记录表 (application_request)
+-- 15. 申请记录表 (application_request)
 -- ========================================
 CREATE TABLE `application_request` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '申请唯一ID',

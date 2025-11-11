@@ -32,6 +32,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response, 
                                     FilterChain filterChain) throws ServletException, IOException {
         
+        // 跳过测试接口，不需要JWT验证
+        String path = request.getRequestURI();
+        if (path != null && path.startsWith("/test/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         // 从请求头中获取token
         String authHeader = request.getHeader("Authorization");
         String token = null;
