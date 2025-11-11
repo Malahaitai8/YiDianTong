@@ -13,11 +13,16 @@ import com.example.springboot.service.ApplicationRequestService;
 import com.example.springboot.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.annotation.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.prepost.PreAuthorize; // <-- [新增] 导入
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,8 +55,23 @@ public class DoctorController {
     @Resource
     private UserMapper userMapper;
 
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
 
     @Operation(summary = "查询所有医生", description = "获取系统中所有医生信息")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/selectAll")
     @PreAuthorize("isAuthenticated()") // <-- [新增] 任何登录用户
     public Result selectAll() {
@@ -60,6 +80,14 @@ public class DoctorController {
     }
 
     @Operation(summary = "根据ID查询医生", description = "通过医生ID获取医生详情")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限"),
+        @ApiResponse(responseCode = "404", description = "医生不存在")
+    })
     @GetMapping("/selectById/{id}")
     @PreAuthorize("isAuthenticated()") // <-- [新增] 任何登录用户
     public Result selectById(
@@ -69,25 +97,67 @@ public class DoctorController {
     }
 
     @Operation(summary = "新增医生", description = "仅管理员可创建医生记录")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "创建成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 仅管理员
-    public Result create(@jakarta.validation.Valid @RequestBody Doctor doctor) {
+    public Result create(
+            @jakarta.validation.Valid
+            @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "医生对象，包含姓名、职称、专业等字段",
+                    required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Doctor.class))
+            )
+            Doctor doctor) {
         doctorService.create(doctor);
         return Result.success();
     }
 
     @Operation(summary = "更新医生", description = "管理员或医生本人可更新医生信息")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "更新成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限"),
+        @ApiResponse(responseCode = "404", description = "医生不存在")
+    })
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
     public Result update(
             @Parameter(description = "医生ID", required = true) @PathVariable Long id,
-            @jakarta.validation.Valid @RequestBody Doctor doctor) {
+            @jakarta.validation.Valid
+            @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "医生对象，允许更新的字段将被保存",
+                    required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Doctor.class))
+            )
+            Doctor doctor) {
         doctor.setId(id); // 使用路径参数中的ID
         doctorService.update(doctor); // Service层已实现本人权限校验
         return Result.success();
     }
 
     @Operation(summary = "删除医生", description = "仅管理员可删除医生记录")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "删除成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限"),
+        @ApiResponse(responseCode = "404", description = "医生不存在")
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 仅管理员
     public Result delete(
@@ -103,6 +173,13 @@ public class DoctorController {
      * GET /doctor/my-schedules
      */
     @Operation(summary = "查看我的排班", description = "医生查看自己的排班记录，支持日期范围筛选")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/my-schedules")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMySchedules(
@@ -139,6 +216,13 @@ public class DoctorController {
      * GET /doctor/my-patients
      */
     @Operation(summary = "查看预约患者列表", description = "医生查看自己名下的预约患者清单")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/my-patients")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMyPatients(
@@ -178,6 +262,13 @@ public class DoctorController {
      * GET /doctor/dashboard
      */
     @Operation(summary = "医生个人Dashboard", description = "展示医生的统计数据和关键信息")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getDashboard() {
@@ -206,9 +297,26 @@ public class DoctorController {
      */
     @Operation(summary = "提交个人信息修改申请", 
                description = "医生提交修改个人信息的申请，需要管理员审核通过后才会生效")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "提交成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @PostMapping("/apply-info-update")
     @PreAuthorize("hasRole('DOCTOR')")
-    public Result applyInfoUpdate(@jakarta.validation.Valid @RequestBody DoctorInfoUpdateRequest request) {
+    public Result applyInfoUpdate(
+            @jakarta.validation.Valid
+            @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "信息修改申请体",
+                    required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = DoctorInfoUpdateRequest.class))
+            )
+            DoctorInfoUpdateRequest request) {
         try {
             // 获取当前用户
             String username = SecurityUtils.getCurrentUsername();
@@ -242,10 +350,111 @@ public class DoctorController {
     }
     
     /**
+     * 前端兼容：提交医生信息变更（支持多字段一次提交）
+     * 前端调用路径：POST /api/doctor/change-request
+     * 注意：本控制器类级路径为 /doctor，因此此处方法路径定义为 /change-request，
+     * 若服务全局 context-path 为 /api，则完整路径为 /api/doctor/change-request。
+     */
+    @Operation(summary = "提交医生信息变更（前端兼容）", 
+               description = "接受前端的 name/title/specialization/bio/clinicId/reason，批量创建信息更新申请")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "提交成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
+    @PostMapping("/change-request")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public Result applyInfoUpdateFrontend(
+            @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "前端兼容信息变更请求体，至少包含一个可变更字段",
+                    required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = FrontendDoctorChangeRequest.class))
+            )
+            FrontendDoctorChangeRequest request) {
+        try {
+            // 获取当前用户
+            String username = SecurityUtils.getCurrentUsername();
+            User user = userMapper.selectByUsername(username);
+            if (user == null) {
+                return Result.error("用户不存在");
+            }
+            
+            // 获取当前医生
+            Doctor doctor = doctorMapper.selectByUserId(user.getId());
+            if (doctor == null) {
+                return Result.error("当前用户不是医生");
+            }
+            
+            // 处理理由，允许为空则给默认
+            String reason = trimToNull(request.getReason());
+            if (reason == null) {
+                reason = "医生端提交信息更新";
+            }
+            
+            // 收集前端可提交字段并做映射
+            java.util.LinkedHashMap<String, String> fields = new java.util.LinkedHashMap<>();
+            if (request.getName() != null) {
+                fields.put("name", request.getName().trim());
+            }
+            if (request.getTitle() != null) {
+                fields.put("title", request.getTitle().trim());
+            }
+            // specialization -> specialty
+            if (request.getSpecialization() != null) {
+                fields.put("specialty", request.getSpecialization().trim());
+            }
+            if (request.getBio() != null) {
+                fields.put("bio", request.getBio().trim());
+            }
+            // clinicId 为前端字段，这里忽略不创建申请
+            
+            if (fields.isEmpty()) {
+                return Result.error("未检测到可提交的变更字段");
+            }
+            
+            java.util.List<ApplicationRequestDetailDTO> created = new java.util.ArrayList<>();
+            for (java.util.Map.Entry<String, String> entry : fields.entrySet()) {
+                String fieldName = entry.getKey();
+                String newValue = entry.getValue();
+                
+                CreateApplicationRequestDTO dto = new CreateApplicationRequestDTO();
+                dto.setRequestType("INFO_UPDATE");
+                dto.setDoctorId(doctor.getId());
+                dto.setFieldName(fieldName);
+                dto.setNewValue(newValue);
+                dto.setReason(reason);
+                
+                ApplicationRequestDetailDTO detail = applicationRequestService.createRequest(
+                        dto, user.getId(), user.getRole());
+                created.add(detail);
+            }
+            
+            java.util.HashMap<String, Object> resp = new java.util.HashMap<>();
+            resp.put("createdCount", created.size());
+            resp.put("items", created);
+            return Result.success(resp);
+        } catch (Exception e) {
+            return Result.error("提交失败: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 医生查看自己的信息修改申请
      * GET /doctor/my-info-applications
      */
     @Operation(summary = "查看我的信息修改申请", description = "医生查看自己提交的所有个人信息修改申请")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/my-info-applications")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMyInfoApplications() {
@@ -277,6 +486,13 @@ public class DoctorController {
      * GET /doctor/my-info
      */
     @Operation(summary = "查看我的个人信息", description = "医生查看自己的详细信息")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
     @GetMapping("/my-info")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMyInfo() {
@@ -298,13 +514,13 @@ public class DoctorController {
      * 内部类：医生信息修改申请请求体
      */
     public static class DoctorInfoUpdateRequest {
-        @Parameter(description = "要修改的字段名（name/title/specialty/bio）", required = true)
+        @Schema(description = "要修改的字段名（name/title/specialty/bio）", example = "title", requiredMode = Schema.RequiredMode.REQUIRED)
         private String fieldName;
         
-        @Parameter(description = "新值", required = true)
+        @Schema(description = "新值", example = "主任医师", requiredMode = Schema.RequiredMode.REQUIRED)
         private String newValue;
         
-        @Parameter(description = "修改理由", required = true)
+        @Schema(description = "修改理由", example = "职称升级", requiredMode = Schema.RequiredMode.REQUIRED)
         private String reason;
         
         public String getFieldName() {
@@ -327,6 +543,77 @@ public class DoctorController {
             return reason;
         }
         
+        public void setReason(String reason) {
+            this.reason = reason;
+        }
+    }
+    
+    /**
+     * 前端兼容请求体
+     */
+    public static class FrontendDoctorChangeRequest {
+        @Schema(description = "新的姓名", example = "张三")
+        private String name;
+        
+        @Schema(description = "新的职称", example = "副主任医师")
+        private String title;
+        
+        @Schema(description = "新的专业方向（前端字段名 specialization）", example = "心内科")
+        private String specialization;
+        
+        @Schema(description = "新的个人简介", example = "从业10年以上，擅长心血管疾病诊治")
+        private String bio;
+        
+        @Schema(description = "所属门诊ID（忽略）", example = "123")
+        private String clinicId;
+        
+        @Schema(description = "修改理由（可选）", example = "完善信息")
+        private String reason;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getSpecialization() {
+            return specialization;
+        }
+
+        public void setSpecialization(String specialization) {
+            this.specialization = specialization;
+        }
+
+        public String getBio() {
+            return bio;
+        }
+
+        public void setBio(String bio) {
+            this.bio = bio;
+        }
+
+        public String getClinicId() {
+            return clinicId;
+        }
+
+        public void setClinicId(String clinicId) {
+            this.clinicId = clinicId;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
         public void setReason(String reason) {
             this.reason = reason;
         }
