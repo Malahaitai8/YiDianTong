@@ -632,6 +632,75 @@ Authorization: Bearer <your_token_here>
 
 ---
 
+### 3.9 医生坐诊时间（患者端）
+
+**接口**: `GET /doctor/{id}/schedules`  
+**权限**: 需要登录（患者/医生/管理员均可）  
+**说明**: 患者在医生详情页查看该医生在指定日期范围内的坐诊安排。  
+
+**路径参数**:
+- `id`: 医生ID
+
+**查询参数**:
+- `startDate` (可选): 开始日期（格式: yyyy-MM-dd），默认“今天”
+- `endDate` (可选): 结束日期（格式: yyyy-MM-dd），默认从 startDate 起未来 30 天
+- `timeSlot` (可选): 时间段（可选值：`MORNING`/`AFTERNOON`/`EVENING`，亦兼容中文：`上午`/`下午`/`晚上`）
+
+**规则说明**:
+1. 未传 `startDate`/`endDate` 时，默认从“今天”起的未来 30 天；  
+2. `endDate` 会被规范化为“次日零点”，以确保包含传入的当天；  
+3. `timeSlot` 兼容英文与中文取值（内部统一为 `morning/afternoon/evening`）；  
+4. 返回结构与医生端“我的排班”一致，便于前端复用。  
+
+**响应示例**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "schedules": [
+      {
+        "id": 101,
+        "scheduleDate": "2025-11-12",
+        "timeSlot": "morning",
+        "slotType": "expert",
+        "totalSlots": 20,
+        "availableSlots": 5,
+        "bookedSlots": 15,
+        "appointmentCount": 15
+      },
+      {
+        "id": 102,
+        "scheduleDate": "2025-11-12",
+        "timeSlot": "afternoon",
+        "slotType": "normal",
+        "totalSlots": 20,
+        "availableSlots": 12,
+        "bookedSlots": 8,
+        "appointmentCount": 8
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+**字段说明**:
+- `id`: 排班ID  
+- `scheduleDate`: 排班日期（yyyy-MM-dd）  
+- `timeSlot`: 时间段（morning/afternoon/evening）  
+- `slotType`: 号别（normal/expert/vip）  
+- `totalSlots`: 总号源数  
+- `availableSlots`: 剩余可预约号源数  
+- `bookedSlots`: 已预约号源数（totalSlots - availableSlots）  
+- `appointmentCount`: 预约记录数（与 bookedSlots 一般一致，保留用于统计）  
+
+**关联说明**:
+- 通过 `id`（即 `scheduleId`）可用于创建预约（见 7.5 创建预约）。  
+- 若需跨科室/医生搜索号源，请使用 7.4 “搜索可预约时段”。  
+
+---
+
 ## 4️⃣ 科室管理模块
 
 ### 4.1 查询所有科室
@@ -3708,13 +3777,19 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-**文档版本**: v1.4  
-**最后更新**: 2025-11-04  
+**文档版本**: v1.5  
+**最后更新**: 2025-11-11  
 **维护者**: YiDianTong 开发团队
 
 ---
 
 ## 📝 更新日志
+
+### v1.5 (2025-11-11)
+- ✅ 新增患者端“医生坐诊时间”接口文档
+  - `GET /doctor/{id}/schedules`：支持 `startDate`/`endDate`/`timeSlot` 参数
+  - 说明 `endDate` 规范化为“次日零点”，`timeSlot` 兼容中英文
+  - 返回结构包含 `bookedSlots`、`appointmentCount`
 
 ### v1.4 (2025-11-04)
 - ✅ 新增医生端个人信息修改申请接口
