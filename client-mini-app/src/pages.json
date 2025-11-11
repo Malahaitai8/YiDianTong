@@ -9,28 +9,72 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "医点通"
+				"navigationBarTitleText": "首页"
 			}
 		},
 		{
-			"path": "pages/login/login",
+			"path": "pages/appointment/appointment",
 			"style": {
-				"navigationBarTitleText": "登录"
+				"navigationBarTitleText": "挂号"
 			}
 		},
 		{
-			"path": "pages/register/register",
+			"path": "pages/records/records",
 			"style": {
-				"navigationBarTitleText": "注册"
+				"navigationBarTitleText": "记录"
 			}
 		},
 		{
 			"path": "pages/profile/profile",
 			"style": {
+				"navigationBarTitleText": "我的"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationBarTitleText": "注册",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/personal-info/personal-info",
+			"style": {
 				"navigationBarTitleText": "个人信息"
 			}
 		}
 	],
+	"tabBar": {
+		"color": "#666666",
+		"selectedColor": "#1976d2",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "white",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/appointment/appointment",
+				"text": "挂号"
+			},
+			{
+				"pagePath": "pages/records/records",
+				"text": "记录"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的"
+			}
+		]
+	},
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "医点通",

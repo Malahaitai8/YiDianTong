@@ -1,7 +1,8 @@
 import store from '@/store' // 引入 Vuex store
+import config from '@/config' // 引入配置文件
 
-// 从 .env.development 文件读取 API 地址，如果没有则使用默认值
-const BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:8080'
+// 从配置文件读取 API 地址
+const BASE_URL = config.baseURL
 
 const request = (options) => {
     return new Promise((resolve, reject) => {
