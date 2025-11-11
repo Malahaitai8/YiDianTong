@@ -63,5 +63,18 @@ public class SystemConfigService {
             return defaultValue;
         }
     }
+
+    /** 读取配置为 int，容错返回默认值 */
+    public int getIntOrDefault(String key, int defaultValue) {
+        SystemConfig cfg = systemConfigMapper.selectByKey(key);
+        if (cfg == null || cfg.getValue() == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(cfg.getValue().trim());
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
 }
 
