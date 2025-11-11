@@ -658,11 +658,11 @@ public class DoctorController {
         public void setClinicId(String clinicId) {
             this.clinicId = clinicId;
         }
-
+        
         public String getReason() {
             return reason;
         }
-
+        
         public void setReason(String reason) {
             this.reason = reason;
         }

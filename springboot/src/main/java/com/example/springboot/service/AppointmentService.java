@@ -198,7 +198,7 @@ public class AppointmentService {
                     logger.warn("候补创建失败：无可用号源 scheduleId={}", scheduleId);
                     return false;
                 }
-
+                
                 appointmentMapper.insert(newAppointment);
                 logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}", 
                            nextWaitlist.getPatientId(), scheduleId);
@@ -251,7 +251,7 @@ public class AppointmentService {
         if (remainMinutes < cancelLimitMinutes) {
             throw new CustomerException("距离就诊不足" + cancelLimitMinutes + "分钟，不可退号");
         }
-
+        
         int result = appointmentMapper.updateStatus(id, "CANCELLED");
         
         // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
@@ -315,6 +315,6 @@ public class AppointmentService {
             cal.set(java.util.Calendar.SECOND, 0);
             cal.set(java.util.Calendar.MILLISECOND, 0);
             return cal.getTime();
-        }
+    }
 }
 
