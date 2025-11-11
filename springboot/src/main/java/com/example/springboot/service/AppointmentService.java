@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Date;
 
@@ -34,6 +35,9 @@ public class AppointmentService {
     @Resource
     private ScheduleMapper scheduleMapper;
 
+    @Resource
+    private SystemConfigService systemConfigService;
+
     public List<Appointment> selectAll() {
 
         List<Appointment> list = appointmentMapper.selectAll();
@@ -43,6 +47,38 @@ public class AppointmentService {
 
     /** 新增预约 */
     public Appointment create(Appointment appointment) {
+        // 计算费用：优先根据排班的 slotType 从 SystemConfig 读取
+        try {
+            if (appointment.getFee() == null || appointment.getFee().compareTo(BigDecimal.ZERO) <= 0) {
+                var schedule = scheduleMapper.selectById(appointment.getScheduleId());
+                String slotType = schedule != null ? schedule.getSlotType() : null;
+                String normalized = slotType == null ? "NORMAL" : slotType.trim().toUpperCase();
+                String key;
+                switch (normalized) {
+                    case "EXPERT":
+                        key = "FEE_EXPERT";
+                        break;
+                    case "VIP":
+                        key = "FEE_VIP";
+                        break;
+                    default:
+                        key = "FEE_NORMAL";
+                }
+                BigDecimal fee = systemConfigService.getDecimalOrDefault(key, new BigDecimal("0.00"));
+                appointment.setFee(fee);
+                if (appointment.getActualFee() == null || appointment.getActualFee().compareTo(BigDecimal.ZERO) <= 0) {
+                    appointment.setActualFee(fee);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("计算预约费用失败，使用默认0: {}", e.getMessage());
+            if (appointment.getFee() == null) {
+                appointment.setFee(new BigDecimal("0.00"));
+            }
+            if (appointment.getActualFee() == null) {
+                appointment.setActualFee(appointment.getFee());
+            }
+        }
         appointmentMapper.insert(appointment);
         return appointment;
     }

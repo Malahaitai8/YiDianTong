@@ -288,6 +288,55 @@ public class DoctorController {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
+
+    // ==================== 患者/前端：医生详情页坐诊时间 ====================
+
+    /**
+     * 前端患者在医生详情页查看该医生的坐诊时间
+     * GET /doctor/{id}/schedules
+     * - 支持按日期范围与时间段筛选
+     * - 返回字段与医生端“我的排班”一致，便于前端复用
+     */
+    @Operation(summary = "医生坐诊时间（患者端）", 
+               description = "患者在医生详情页查看该医生的坐诊安排；支持按日期范围与时间段筛选。\n"
+                           + "注意：\n"
+                           + "1) 未传 startDate/endDate 时，默认从“今天”起的未来 30 天；\n"
+                           + "2) endDate 会被规范化为“次日零点”，以便包含传入的当天；\n"
+                           + "3) timeSlot 兼容英文 MORNING/AFTERNOON/EVENING 与中文 上午/下午/晚上；\n"
+                           + "4) 需要登录（任意角色），用于前端展示。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限"),
+        @ApiResponse(responseCode = "404", description = "医生不存在")
+    })
+    @GetMapping("/{id}/schedules")
+    @PreAuthorize("isAuthenticated()") // 任意登录用户可见（患者/医生/管理员）
+    public Result getDoctorSchedulesForPatient(
+            @Parameter(description = "医生ID", required = true, example = "123") @PathVariable Long id,
+            @Parameter(description = "开始日期（格式：yyyy-MM-dd），默认今天", example = "2025-11-01")
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @Parameter(description = "结束日期（格式：yyyy-MM-dd），默认 startDate 起未来30天", example = "2025-11-30")
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "时间段；兼容 MORNING/AFTERNOON/EVENING 与 上午/下午/晚上", 
+                       schema = @Schema(allowableValues = {"MORNING","AFTERNOON","EVENING","上午","下午","晚上"}), 
+                       example = "MORNING")
+            @RequestParam(required = false) String timeSlot) {
+        try {
+            // 校验医生是否存在
+            Doctor doctor = doctorService.selectById(id);
+            if (doctor == null) {
+                return Result.error("医生不存在");
+            }
+            // 直接复用医生端“我的排班”服务方法（入参为指定 doctorId）
+            Map<String, Object> result = doctorService.getMySchedules(id, startDate, endDate, timeSlot);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
     
     // ==================== 个人信息修改申请 ====================
     
