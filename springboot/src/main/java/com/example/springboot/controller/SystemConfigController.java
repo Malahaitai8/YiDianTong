@@ -24,7 +24,7 @@ import com.example.springboot.dto.FeesUpdateRequest;
 
 @Tag(name = "系统配置", description = "系统配置查询相关接口")
 @RestController
-@RequestMapping("/systemConfig")
+@RequestMapping({"/systemConfig", "/api/systemConfig"})
 @SecurityRequirement(name = "bearer-jwt")
 public class SystemConfigController {
 
@@ -41,6 +41,13 @@ public class SystemConfigController {
         return Result.success(list);
     }
 
+    /** 兼容：GET /systemConfig 与 /api/systemConfig 直接返回全部配置 */
+    @Operation(summary = "查询所有配置(REST-风格别名)", description = "兼容前端调用 GET /api/systemConfig")
+    @GetMapping({"", "/"})
+    public Result selectAllAlias() {
+        return selectAll();
+    }
+
     @Operation(summary = "根据ID查询配置", description = "通过配置ID获取详情")
     @GetMapping("/selectById/{id}")
     public Result selectById(@PathVariable Long id) {
@@ -49,12 +56,26 @@ public class SystemConfigController {
         return Result.success(systemConfig);
     }
     
+    /** 兼容：GET /systemConfig/{id} */
+    @Operation(summary = "根据ID查询配置(REST-风格别名)", description = "兼容前端调用 GET /api/systemConfig/{id}")
+    @GetMapping("/{id}")
+    public Result selectByIdRest(@PathVariable Long id) {
+        return selectById(id);
+    }
+
     @Operation(summary = "根据Key查询配置", description = "通过配置Key获取详情")
     @GetMapping("/selectByKey/{key}")
     public Result selectByKey(@PathVariable String key) {
 
         SystemConfig systemConfig = systemConfigService.selectByKey(key);
         return Result.success(systemConfig);
+    }
+
+    /** 兼容：GET /systemConfig/key/{key} */
+    @Operation(summary = "根据Key查询配置(REST-风格别名)", description = "兼容前端调用 GET /api/systemConfig/key/{key}")
+    @GetMapping("/key/{key}")
+    public Result selectByKeyRest(@PathVariable String key) {
+        return selectByKey(key);
     }
 
     @Operation(summary = "根据Key更新配置", description = "通过配置Key更新其value值")
@@ -67,6 +88,13 @@ public class SystemConfigController {
         return Result.error("更新失败或未找到对应配置");
     }
 
+    /** 兼容：PUT /systemConfig/key/{key} */
+    @Operation(summary = "根据Key更新配置(REST-风格别名)", description = "兼容前端调用 PUT /api/systemConfig/key/{key}")
+    @PutMapping("/key/{key}")
+    public Result updateByKeyRest(@PathVariable String key, @RequestBody com.example.springboot.dto.ConfigUpdateRequest request) {
+        return updateByKey(key, request);
+    }
+
     @Operation(summary = "根据Key删除配置", description = "通过配置Key删除配置项")
     @DeleteMapping("/deleteByKey/{key}")
     public Result deleteByKey(@PathVariable String key) {
@@ -75,6 +103,13 @@ public class SystemConfigController {
             return Result.success();
         }
         return Result.error("删除失败或未找到对应配置");
+    }
+
+    /** 兼容：DELETE /systemConfig/key/{key} */
+    @Operation(summary = "根据Key删除配置(REST-风格别名)", description = "兼容前端调用 DELETE /api/systemConfig/key/{key}")
+    @DeleteMapping("/key/{key}")
+    public Result deleteByKeyRest(@PathVariable String key) {
+        return deleteByKey(key);
     }
 
     @Operation(summary = "获取号别费用配置", description = "返回 normal/expert/vip 三类费用配置")

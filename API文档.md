@@ -3217,14 +3217,14 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 5. **管理规则**:
    - 启用规则: `POST /api/admin/schedule-rules/{ruleId}/enable`
-- 禁用规则: `POST /api/admin/schedule-rules/{ruleId}/disable`
+   - 禁用规则: `POST /api/admin/schedule-rules/{ruleId}/disable`
    - 更新规则: `PUT /api/admin/schedule-rules/{ruleId}`
    - 删除规则: `DELETE /api/admin/schedule-rules/{ruleId}`
 
 **使用场景**:
 - 新医生入职：创建规则 → 应用规则生成未来一个月排班
 - 调整排班：修改规则 → 覆盖模式重新生成排班
- - 临时调整：禁用规则 → 手动创建单个排班
+- 临时调整：禁用规则 → 手动创建单个排班
 - 批量管理：查询所有规则 → 按需启用/禁用
 
 ---
