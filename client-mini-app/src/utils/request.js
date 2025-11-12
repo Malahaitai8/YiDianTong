@@ -24,7 +24,11 @@ const request = (options) => {
         options.url = BASE_URL + options.url
 
         // 2. 注入 JWT Token (关键)
-        if (store.state.user.token) {
+        // 排除认证相关接口（登录、注册），这些接口不需要token
+        const authUrls = ['/auth/login', '/auth/register', '/auth/admin/login']
+        const isAuthRequest = authUrls.some(url => options.url.includes(url))
+        
+        if (store.state.user.token && !isAuthRequest) {
             options.header = {
                 ...options.header,
                 'Authorization': 'Bearer ' + store.state.user.token

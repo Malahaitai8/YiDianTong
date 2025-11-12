@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
 import java.util.List;
@@ -129,6 +130,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 允许所有人访问登录接口
                         .requestMatchers("/auth/**").permitAll()
+
+                        // 患者端匿名访问：医生详情页排班接口
+                        .requestMatchers(HttpMethod.GET, "/doctor/*/schedules").permitAll()
 
                         // 允许访问Swagger文档
                         .requestMatchers(

@@ -34,4 +34,31 @@ export function register(data) {
     })
 }
 
+/**
+ * 身份认证
+ * @param {Object} data - 认证数据
+ * @param {string} data.name - 真实姓名
+ * @param {string} data.identityNumber - 学号/工号（统一字段）
+ * @param {string} data.idCardNumber - 身份证号
+ * @returns {Promise} 返回认证结果
+ */
+export function verifyIdentity(data) {
+    return request({
+        url: '/auth/verify/identity',
+        method: 'POST',
+        data
+    })
+}
+
+/**
+ * 查询认证状态
+ * @returns {Promise} 返回当前登录患者的认证信息（含 idStatus、specificRole 等）
+ */
+export function getVerifyStatus() {
+    return request({
+        url: '/auth/verify/status',
+        method: 'GET'
+    })
+}
+
 

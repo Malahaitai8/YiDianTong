@@ -160,7 +160,7 @@ export default {
 			}
 		},
 		goToLogin() {
-			uni.navigateBack();
+			uni.redirectTo({ url: '/pages/login/login' });
 		}
 	}
 };

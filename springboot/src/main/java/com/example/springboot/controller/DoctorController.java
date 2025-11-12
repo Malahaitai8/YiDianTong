@@ -313,7 +313,7 @@ public class DoctorController {
         @ApiResponse(responseCode = "404", description = "医生不存在")
     })
     @GetMapping("/{id}/schedules")
-    @PreAuthorize("isAuthenticated()") // 任意登录用户可见（患者/医生/管理员）
+    @PreAuthorize("permitAll()") // 前端医生详情页需要匿名可访问
     public Result getDoctorSchedulesForPatient(
             @Parameter(description = "医生ID", required = true, example = "123") @PathVariable Long id,
             @Parameter(description = "开始日期（格式：yyyy-MM-dd），默认今天", example = "2025-11-01")

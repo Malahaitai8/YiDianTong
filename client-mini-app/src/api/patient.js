@@ -25,3 +25,14 @@ export function updatePatient(id, data) {
         data
     })
 }
+
+/**
+ * 获取当前登录患者的个人信息
+ * @returns {Promise} 返回患者个人信息（合并用户与患者表关键字段）
+ */
+export function getPatientProfile() {
+    return request({
+        url: '/patient/profile',
+        method: 'GET'
+    })
+}

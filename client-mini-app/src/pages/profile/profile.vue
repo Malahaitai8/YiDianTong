@@ -6,10 +6,13 @@
 				<text class="user-avatar">{{ userInitial }}</text>
 			</view>
 			<view class="user-basic">
-				<text class="user-name">{{ userInfo.username || '游客' }}</text>
+				<text class="user-name">{{ patientInfo.name || userInfo.username || '游客' }}</text>
 				<view class="identity-status" v-if="isLoggedIn">
 					<text class="status-text" :class="{ verified: isVerified }">
-						{{ isVerified ? '✓ 已认证' : '未认证' }}
+						{{ statusText }}
+					</text>
+					<text class="role-text" v-if="isVerified && patientInfo.specificRole">
+						{{ roleText }}
 					</text>
 				</view>
 				<view class="identity-status" v-else>
@@ -76,12 +79,15 @@
 
 <script>
 import { promptLogin } from '@/utils/auth.js';
+import { getVerifyStatus } from '@/api/auth.js';
+import { getPatientProfile } from '@/api/patient.js';
 
 export default {
 	data() {
 		return {
 			isVerified: false,
-			substituteCount: 0
+			substituteCount: 0,
+			patientInfo: {} // 患者信息（包含认证状态）
 		};
 	},
 	computed: {
@@ -93,14 +99,61 @@ export default {
 			return this.$store.state.user.userInfo || {};
 		},
 		userInitial() {
-			const username = this.userInfo.username || '游';
-			return username.substring(0, 1).toUpperCase();
+			const name = this.patientInfo.name || this.userInfo.username || '游';
+			return name.substring(0, 1).toUpperCase();
+		},
+		// 认证状态文本
+		statusText() {
+			if (this.isVerified) {
+				return '✓ 已认证';
+			}
+			return '未认证';
+		},
+		// 角色文本
+		roleText() {
+			const role = this.patientInfo.specificRole;
+			if (role === 'student') return '学生';
+			if (role === 'teacher') return '教师';
+			if (role === 'outsider') return '外部人员';
+			return '';
+		}
+	},
+	onShow() {
+		// 页面显示时刷新认证状态
+		if (this.isLoggedIn) {
+			this.loadVerifyStatus();
 		}
 	},
 	methods: {
+		// 加载认证状态
+		async loadVerifyStatus() {
+			if (!this.isLoggedIn) return;
+			
+			try {
+				// 获取患者个人信息（包含认证状态）
+				const data = await getPatientProfile();
+				if (data) {
+					this.patientInfo = data;
+					// 判断是否已认证：idStatus === 'verified' 或 '已认证'
+					this.isVerified = data.idStatus === 'verified' || data.idStatus === '已认证';
+				}
+			} catch (error) {
+				console.error('获取认证状态失败:', error);
+				// 如果接口不存在或失败，尝试使用认证状态接口
+				try {
+					const verifyData = await getVerifyStatus();
+					if (verifyData) {
+						this.patientInfo = verifyData;
+						this.isVerified = verifyData.idStatus === 'verified' || verifyData.idStatus === '已认证';
+					}
+				} catch (err) {
+					console.error('获取认证状态失败:', err);
+				}
+			}
+		},
 		goToPersonalInfo() {
 			if (!this.isLoggedIn) {
-			promptLogin();
+				promptLogin();
 				return;
 			}
 			uni.navigateTo({ url: '/pages/personal-info/personal-info' });
@@ -207,6 +260,12 @@ export default {
 .status-text.verified {
 	color: #4caf50;
 	background: #e8f5e9;
+}
+.role-text {
+	font-size: 22rpx;
+	color: #666;
+	margin-top: 6rpx;
+	display: block;
 }
 
 /* 数据统计卡片 */

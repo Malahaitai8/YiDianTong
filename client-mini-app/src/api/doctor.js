@@ -57,28 +57,27 @@ export function searchDoctors(keyword) {
  * @returns {Promise} 返回医生排班信息
  */
 export function getDoctorSchedules(doctorId, startDate, endDate) {
-    // 使用 /schedule/week 接口获取本周排班，然后前端过滤和格式转换
+    // 调用后端患者端接口：GET /doctor/{id}/schedules
     return request({
-        url: '/schedule/week',
+        url: `/doctor/${doctorId}/schedules`,
         method: 'GET',
-        // 传递查询参数，便于后端按需返回
         data: {
-            doctorId,
             startDate,
             endDate
         }
     }).then(data => {
         // 兼容不同返回包裹结构
+        // data 为 Result.success 返回的 data 字段，这里是一个对象，包含 schedules 数组
         const rawList = Array.isArray(data)
             ? data
-            : (data && (data.list || data.records || data.rows || data.items || data.data)) || [];
+            : (data && (data.schedules || data.list || data.records || data.rows || data.items || data.data)) || [];
 
         // 前端过滤：只返回指定医生的排班
         if (!rawList || !Array.isArray(rawList)) return [];
         // 先做宽容映射，兼容后端不同字段命名
         const mapped = rawList.map((raw) => {
             // id 相关
-            const rawDoctorId = raw.doctorId ?? raw.doctorID ?? raw.doctor_id ?? raw.doctorid ?? (raw.doctor && (raw.doctor.id ?? raw.doctor.doctorId));
+            const rawDoctorId = raw.doctorId ?? raw.doctorID ?? raw.doctor_id ?? raw.doctorid ?? (raw.doctor && (raw.doctor.id ?? raw.doctor.doctorId)) ?? doctorId;
             // 日期相关
             const rawDate = raw.scheduleDate ?? raw.date ?? raw.schedule_date ?? raw.scheduleDay ?? raw.day ?? raw.dateStr;
             // 时段相关
@@ -111,9 +110,9 @@ export function getDoctorSchedules(doctorId, startDate, endDate) {
                 totalSlots,
                 availableSlots
             };
-        }).filter(item => !!item.doctorId && !!item.date);
+        }).filter(item => !!item.date);
 
-        let filtered = mapped.filter(schedule => Number(schedule.doctorId) === Number(doctorId));
+        let filtered = mapped.filter(schedule => Number(schedule.doctorId ?? doctorId) === Number(doctorId));
         
         // 如果指定了日期范围，进一步过滤
         if (startDate || endDate) {

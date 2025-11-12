@@ -1,24 +1,93 @@
 <template>
 	<view class="records-page">
 		<view class="page-header">
-			<text class="header-title">就诊记录</text>
-			<text class="header-desc">查看您的就诊历史</text>
+			<text class="header-title">就診記錄</text>
+			<text class="header-desc">查看您的就診歷史</text>
 		</view>
 
 		<view class="content">
-			<view class="empty-state">
+			<view v-if="!list.length" class="empty-state">
 				<text class="empty-icon">📋</text>
-				<text class="empty-text">暂无就诊记录</text>
-				<text class="empty-desc">您还没有就诊记录</text>
+				<text class="empty-text">暫無就診記錄</text>
+				<text class="empty-desc">您還沒有就診記錄</text>
+			</view>
+
+			<view v-else>
+				<view class="record-card" v-for="item in list" :key="item.id">
+					<view class="row">
+						<text class="label">就診醫生</text>
+						<text class="value">{{ item.doctorName || ('#' + item.doctorId) }}</text>
+					</view>
+					<view class="row">
+						<text class="label">就診時間</text>
+						<text class="value">{{ item.appointmentTime }}</text>
+					</view>
+					<view class="row">
+						<text class="label">狀態</text>
+						<text class="value status" :class="String(item.status||'').toLowerCase()">{{ statusName(item.status) }}</text>
+					</view>
+					<view class="row">
+						<text class="label">費用</text>
+						<text class="value price">¥{{ item.actualFee != null ? item.actualFee : (item.fee != null ? item.fee : 0) }}</text>
+					</view>
+					<view class="actions">
+						<button v-if="item.status==='PENDING' || item.status==='CONFIRMED'" class="btn cancel" @click="cancel(item)">取消預約</button>
+						<button class="btn delete" @click="remove(item)">刪除</button>
+					</view>
+				</view>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script>
+import { getMyAppointments, cancelAppointment, deleteAppointment } from '@/api/appointment.js'
+
 export default {
 	data() {
-		return {};
+		return {
+			list: []
+		};
+	},
+	onShow() {
+		this.loadData();
+	},
+	methods: {
+		async loadData() {
+			try {
+				const data = await getMyAppointments();
+				this.list = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+			} catch (e) {
+				uni.showToast({ title: e.msg || '載入失敗', icon: 'none' });
+			}
+		},
+		statusName(s) {
+			switch (s) {
+				case 'PENDING': return '待就診';
+				case 'CONFIRMED': return '已確認';
+				case 'COMPLETED': return '已完成';
+				case 'CANCELLED': return '已取消';
+				default: return s || '-';
+			}
+		},
+		async cancel(item) {
+			try {
+				await cancelAppointment(item.id);
+				uni.showToast({ title: '已取消', icon: 'success' });
+				this.loadData();
+			} catch (e) {
+				uni.showToast({ title: e.msg || '取消失敗', icon: 'none' });
+			}
+		},
+		async remove(item) {
+			try {
+				await deleteAppointment(item.id);
+				uni.showToast({ title: '已刪除', icon: 'success' });
+				this.loadData();
+			} catch (e) {
+				uni.showToast({ title: e.msg || '刪除失敗', icon: 'none' });
+			}
+		}
 	}
 };
 </script>
@@ -66,8 +135,40 @@ export default {
 	font-size: 24rpx;
 	color: #999;
 }
+.record-card{
+	background:#fff;
+	border-radius:16rpx;
+	padding:26rpx 26rpx 16rpx;
+	margin-bottom:20rpx;
+}
+.row{
+	display:flex;
+	justify-content:space-between;
+	padding:12rpx 0;
+	border-bottom:1rpx solid #f5f5f5;
+}
+.row:last-child{ border-bottom:none; }
+.label{ color:#666; font-size:26rpx; }
+.value{ color:#333; font-size:28rpx; }
+.price{ color:#ff5722; font-weight:600; }
+.status{ font-weight:600; }
+.status.pending{ color:#ff9800; }
+.status.confirmed{ color:#1976d2; }
+.status.completed{ color:#4caf50; }
+.status.cancelled{ color:#999; }
+.actions{
+	display:flex;
+	justify-content:flex-end;
+	gap:16rpx;
+	padding-top:10rpx;
+}
+.btn{
+	font-size:26rpx;
+	height:64rpx;
+	line-height:64rpx;
+	padding:0 24rpx;
+	border-radius:32rpx;
+}
+.cancel{ background:#fff3e0; color:#f57c00; }
+.delete{ background:#ffebee; color:#d32f2f; }
 </style>
-
-
-
-

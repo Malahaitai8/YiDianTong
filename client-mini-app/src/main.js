@@ -64,11 +64,18 @@ uni.addInterceptor('request', {
     const isPublicApi = (url = '', method = 'GET') => {
       const u = String(url)
       const m = String(method || 'GET').toUpperCase()
+
+      // 登录/注册接口必须允许未登录访问（不限请求方法）
+      if (/\/auth\/(login|register)/i.test(u)) {
+        return true
+      }
+
       // 医生列表、医生详情、排班数据均为公开展示
       const publicPatterns = [
         /\/doctor\/selectAll/i,
         /\/doctor\/selectById\/\d+/i,
-        /\/schedule\/week/i
+        /\/schedule\/week/i,
+        /\/doctor\/\d+\/schedules/i
       ]
       const matched = publicPatterns.some(re => re.test(u))
       // 仅放行 GET 的公共接口

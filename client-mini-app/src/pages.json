@@ -73,6 +73,12 @@
 			"style": {
 				"navigationBarTitleText": "医生详情"
 			}
+		},
+		{
+			"path": "pages/department-appointment/department-appointment",
+			"style": {
+				"navigationBarTitleText": "科室预约"
+			}
 		}
 	],
 	"tabBar": {

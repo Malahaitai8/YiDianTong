@@ -1,9 +1,9 @@
-import { getToken, setToken, removeToken } from '@/utils/auth.js'
+import { getToken, setToken, removeToken, getUserInfo as getUserInfoCache, setUserInfo as setUserInfoCache, removeUserInfo as removeUserInfoCache } from '@/utils/auth.js'
 import { login as loginApi } from '@/api/auth.js'
 
 const state = {
     token: getToken(), // 启动时从缓存读取 Token
-    userInfo: {} // 存储用户信息（如userId、username、role）
+    userInfo: getUserInfoCache() || {} // 启动时从缓存读取用户信息
 }
 
 const mutations = {
@@ -13,11 +13,13 @@ const mutations = {
     },
     SET_USERINFO: (state, userInfo) => {
         state.userInfo = userInfo
+        setUserInfoCache(userInfo) // 持久化用户信息
     },
     CLEAR_USER: (state) => {
         state.token = ''
         state.userInfo = {}
         removeToken() // 清除缓存
+        removeUserInfoCache()
     }
 }
 
