@@ -204,7 +204,7 @@
           <!-- 周视图 -->
           <div v-if="calendarMode === 'week'" class="calendar-grid-view">
             <div class="calendar-header-row">
-              <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="day-header-cell">
+              <div v-for="day in ['一', '二', '三', '四', '五', '六', '日']" :key="day" class="day-header-cell">
                 {{ day }}
               </div>
             </div>
@@ -288,7 +288,7 @@
           <!-- 月视图 -->
           <div v-else class="calendar-grid-view">
             <div class="calendar-header-row">
-              <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="day-header-cell">
+              <div v-for="day in ['一', '二', '三', '四', '五', '六', '日']" :key="day" class="day-header-cell">
                   {{ day }}
                 </div>
               </div>
@@ -1682,9 +1682,11 @@ const formatDateStr = (date) => {
 
 const getStartOfWeek = (date) => {
   const d = new Date(date)
+  // 将一周起始日设为周一；若为周日(getDay()==0)，则回退6天，否则回退(day-1)天
   const day = d.getDay()
-  const diff = d.getDate() - day
-  return new Date(d.setDate(diff))
+  const back = day === 0 ? 6 : day - 1
+  d.setDate(d.getDate() - back)
+  return d
 }
 
 const getDayName = (dayIndex) => {

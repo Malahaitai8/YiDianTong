@@ -65,6 +65,7 @@ const menuItems = ref([
   { path: '/admin/doctors', name: '医生管理' },
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
+  { path: '/admin/schedule-rules', name: '排班规则' },
   { path: '/admin/source-management', name: '号源管理' },
   { path: '/admin/qa-management', name: 'QA管理' },
   { path: '/admin/reports', name: '报表统计' }
