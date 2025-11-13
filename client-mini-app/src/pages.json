@@ -51,6 +51,12 @@
 			}
 		},
 		{
+			"path": "pages/edit-info/edit-info",
+			"style": {
+				"navigationBarTitleText": "修改信息"
+			}
+		},
+		{
 			"path": "pages/search/search",
 			"style": {
 				"navigationBarTitleText": "搜索"

@@ -6,7 +6,7 @@
 				<text class="user-avatar">{{ userInitial }}</text>
 			</view>
 			<view class="user-basic">
-				<text class="user-name">{{ patientInfo.name || userInfo.username || '游客' }}</text>
+				<text class="user-name">{{ userInfo.username || patientInfo.name || '游客' }}</text>
 				<view class="identity-status" v-if="isLoggedIn">
 					<text class="status-text" :class="{ verified: isVerified }">
 						{{ statusText }}
@@ -99,7 +99,7 @@ export default {
 			return this.$store.state.user.userInfo || {};
 		},
 		userInitial() {
-			const name = this.patientInfo.name || this.userInfo.username || '游';
+			const name = this.userInfo.username || this.patientInfo.name || '游';
 			return name.substring(0, 1).toUpperCase();
 		},
 		// 认证状态文本

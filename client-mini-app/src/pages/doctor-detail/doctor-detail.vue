@@ -58,13 +58,25 @@
 				<view class="date-list">
 					<view 
 						class="date-item" 
-						:class="{ active: selectedDate === item.date }" 
+						:class="{
+							active: selectedDate === item.date && item.hasSchedule,
+							disabled: !item.hasSchedule
+						}" 
 						v-for="item in dateList" 
 						:key="item.date" 
-						@click="selectDate(item.date)"
+						@click="selectDate(item)"
 					>
 						<text class="date-week">{{ item.week }}</text>
 						<text class="date-day">{{ item.day }}</text>
+						<text 
+							class="date-status" 
+							:class="{
+								active: selectedDate === item.date && item.hasSchedule,
+								disabled: !item.hasSchedule
+							}"
+						>
+							{{ item.hasSchedule ? '坐诊' : '停诊' }}
+						</text>
 					</view>
 				</view>
 			</scroll-view>
@@ -176,7 +188,8 @@ export default {
 				dates.push({
 					date: dateStr,
 					week: i === 0 ? '今天' : `周${weeks[date.getDay()]}`,
-					day: `${date.getMonth() + 1}/${date.getDate()}`
+					day: `${date.getMonth() + 1}/${date.getDate()}`,
+					hasSchedule: false
 				});
 			}
 			this.dateList = dates;
@@ -209,14 +222,52 @@ export default {
 				const endDate = this.dateList[this.dateList.length - 1].date;
 				const data = await getDoctorSchedules(this.doctorId, startDate, endDate);
 				this.schedules = data;
+				this.updateDateScheduleStatus();
 			} catch (error) {
 				console.error('加载排班信息失败:', error);
 			}
 		},
 		
+		// 更新日期坐诊标记
+		updateDateScheduleStatus() {
+			const dateMap = new Map();
+			this.schedules.forEach(schedule => {
+				if (!dateMap.has(schedule.date)) {
+					dateMap.set(schedule.date, false);
+				}
+				if (schedule.status !== 'unavailable') {
+					dateMap.set(schedule.date, true);
+				}
+			});
+
+			this.dateList = this.dateList.map(item => ({
+				...item,
+				hasSchedule: dateMap.get(item.date) || false
+			}));
+
+			const currentSelected = this.dateList.find(item => item.date === this.selectedDate);
+			if (!currentSelected || !currentSelected.hasSchedule) {
+				const firstAvailable = this.dateList.find(item => item.hasSchedule);
+				if (firstAvailable) {
+					this.selectedDate = firstAvailable.date;
+				}
+				this.selectedSlot = null;
+			}
+		},
+		
 		// 选择日期
-		selectDate(date) {
-			this.selectedDate = date;
+		selectDate(item) {
+			if (!item.hasSchedule) {
+				uni.showToast({
+					title: '该日期医生未坐诊',
+					icon: 'none'
+				});
+				return;
+			}
+			if (this.selectedDate === item.date) {
+				return;
+			}
+			this.selectedDate = item.date;
 			this.selectedSlot = null;
 		},
 		
@@ -512,12 +563,19 @@ export default {
 .date-item.active {
 	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
 }
+.date-item.disabled {
+	background: #eeeeee;
+	opacity: 0.7;
+}
 .date-week {
 	font-size: 24rpx;
 	color: #666;
 }
 .date-item.active .date-week {
 	color: rgba(255, 255, 255, 0.9);
+}
+.date-item.disabled .date-week {
+	color: #999;
 }
 .date-day {
 	font-size: 28rpx;
@@ -527,11 +585,21 @@ export default {
 .date-item.active .date-day {
 	color: #fff;
 }
+.date-item.disabled .date-day {
+	color: #999;
+}
+.date-status {
+	font-size: 20rpx;
+	color: #4caf50;
+}
+.date-status.active {
+	color: rgba(255, 255, 255, 0.9);
+}
+.date-status.disabled {
+	color: #999;
+}
 
 /* 时间段 */
-.time-slots {
-	
-}
 .time-period {
 	margin-bottom: 30rpx;
 }
