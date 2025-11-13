@@ -6,10 +6,30 @@
 		</view>
 
 		<view class="content">
-			<view class="empty-state">
-				<text class="empty-icon">📅</text>
-				<text class="empty-text">挂号功能开发中...</text>
-				<text class="empty-desc">敬请期待</text>
+			<view class="entry-card" @click="goToDepartments">
+				<view class="entry-left">
+					<text class="entry-icon">🏥</text>
+					<view class="entry-texts">
+						<text class="entry-title">按科室选择就诊</text>
+						<text class="entry-sub">热门科室、全部科室一览</text>
+					</view>
+				</view>
+				<text class="entry-arrow">›</text>
+			</view>
+
+			<view class="entry-card" @click="goToDoctors">
+				<view class="entry-left">
+					<text class="entry-icon">👨‍⚕️</text>
+					<view class="entry-texts">
+						<text class="entry-title">按医生预约挂号</text>
+						<text class="entry-sub">查看医生出诊与可约时段</text>
+					</view>
+				</view>
+				<text class="entry-arrow">›</text>
+			</view>
+
+			<view class="tip">
+				<text class="tip-text">小贴士：从这里进入，底部菜单会保留；进入后可通过左上角返回。</text>
 			</view>
 		</view>
 	</view>
@@ -19,6 +39,18 @@
 export default {
 	data() {
 		return {};
+	},
+	methods: {
+		goToDepartments() {
+			uni.navigateTo({
+				url: '/pages/department-list/department-list'
+			});
+		},
+		goToDoctors() {
+			uni.navigateTo({
+				url: '/pages/doctor-list/doctor-list'
+			});
+		}
 	}
 };
 </script>
@@ -46,25 +78,49 @@ export default {
 .content {
 	padding: 60rpx 30rpx;
 }
-.empty-state {
+.entry-card {
+	background: #fff;
+	border-radius: 16rpx;
+	padding: 28rpx 24rpx;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.06);
+	margin-bottom: 24rpx;
+}
+.entry-left {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+}
+.entry-icon {
+	font-size: 56rpx;
+}
+.entry-texts {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	padding: 120rpx 0;
+	gap: 6rpx;
 }
-.empty-icon {
-	font-size: 120rpx;
-	margin-bottom: 30rpx;
-	opacity: 0.3;
+.entry-title {
+	font-size: 30rpx;
+	color: #333;
+	font-weight: 600;
 }
-.empty-text {
-	font-size: 28rpx;
-	color: #666;
-	margin-bottom: 15rpx;
-}
-.empty-desc {
+.entry-sub {
 	font-size: 24rpx;
-	color: #999;
+	color: #888;
+}
+.entry-arrow {
+	font-size: 54rpx;
+	color: #bbb;
+	font-weight: 300;
+}
+.tip {
+	margin-top: 16rpx;
+}
+.tip-text {
+	font-size: 22rpx;
+	color: #9e9e9e;
 }
 </style>
 
