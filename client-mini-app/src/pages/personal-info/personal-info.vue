@@ -2,96 +2,156 @@
 	<view class="personal-info-page">
 		<!-- 页面标题 -->
 		<view class="page-title">
-			<text class="title-text">身份认证</text>
-			<text class="title-desc">完成认证后可享受医保报销服务</text>
+			<text class="title-text">个人信息</text>
+			<text class="title-desc">{{ isVerified ? '您的个人信息' : '完善信息并完成认证' }}</text>
 		</view>
 
-		<!-- 认证状态提示 -->
-		<view class="status-card" v-if="isVerified">
-			<view class="status-header">
-				<text class="status-icon">✓</text>
-				<text class="status-title">已认证</text>
-			</view>
-			<view class="status-info">
-				<text class="info-item">姓名：{{ patientInfo.name }}</text>
-				<text class="info-item" v-if="patientInfo.specificRole">
-					身份：{{ roleText }}
-				</text>
-				<text class="info-item" v-if="patientInfo.identityNumber">
-					学号/工号：{{ patientInfo.identityNumber }}
-				</text>
-			</view>
-		</view>
-
-		<!-- 表单区域 -->
-		<view class="form-section" v-if="!isVerified">
-			<!-- 真实姓名 -->
-			<view class="form-item">
-				<text class="label">真实姓名<text class="required">*</text></text>
-				<input 
-					class="input" 
-					v-model="formData.name" 
-					placeholder="请输入您的真实姓名"
-					placeholder-class="placeholder"
-				/>
-			</view>
-
-			<!-- 学号/工号 -->
-			<view class="form-item">
-				<text class="label">学号/工号<text class="required">*</text></text>
-				<input 
-					class="input" 
-					v-model="formData.identityNumber" 
-					placeholder="请输入您的学号或工号"
-					placeholder-class="placeholder"
-				/>
-				<text class="hint">系统将根据白名单自动识别您的身份类型（学生/教师/外部人员）</text>
-			</view>
-
-			<!-- 身份证号 -->
-			<view class="form-item">
-				<text class="label">身份证号<text class="required">*</text></text>
-				<input 
-					class="input" 
-					v-model="formData.idCardNumber" 
-					type="idcard"
-					placeholder="请输入身份证号"
-					placeholder-class="placeholder"
-					maxlength="18"
-				/>
-				<text class="hint">身份证号将加密存储，仅用于身份核验</text>
-			</view>
-		</view>
-
-		<!-- 温馨提示 -->
-		<view class="tips-card" v-if="!isVerified">
-			<view class="tips-header">
-				<text class="tips-icon">💡</text>
-				<text class="tips-title">温馨提示</text>
-			</view>
-			<text class="tips-text">完成身份认证后，您将享受校医院的医保报销服务：</text>
-			<view class="reimbursement-info">
-				<view class="reimbursement-item">
-					<text class="reimb-icon">🎓</text>
-					<text class="reimb-text">学生：95% 报销</text>
+		<!-- 未认证状态：可编辑信息 -->
+		<view v-if="!isVerified" class="info-section">
+			<!-- 基本信息卡片 -->
+			<view class="info-card">
+				<view class="card-title">基本信息</view>
+				
+				<!-- 用户名（只读） -->
+				<view class="info-item">
+					<text class="info-label">用户名</text>
+					<text class="info-value">{{ userInfo.username || '未设置' }}</text>
 				</view>
-				<view class="reimbursement-item">
-					<text class="reimb-icon">👨‍🏫</text>
-					<text class="reimb-text">教师：90% 报销</text>
+				
+				<!-- 电话号码 -->
+				<view class="info-item">
+					<text class="info-label">电话号码</text>
+					<text class="info-value">{{ patientInfo.phoneNumber || '未设置' }}</text>
 				</view>
-				<view class="reimbursement-item">
-					<text class="reimb-icon">👤</text>
-					<text class="reimb-text">外部人员：按标准报销</text>
+				
+				<!-- 认证状态 -->
+				<view class="info-item">
+					<text class="info-label">认证状态</text>
+					<view class="status-badge unverified">
+						<text class="status-icon">⚠</text>
+						<text class="status-text">未认证</text>
+					</view>
 				</view>
 			</view>
-			<text class="tips-text">请确保您的信息真实有效，系统将根据白名单自动识别您的身份类型。</text>
+
+			<!-- 修改信息按钮 -->
+			<view class="action-section">
+				<button class="edit-btn" @click="handleEditInfo">
+					修改信息
+				</button>
+			</view>
+
+			<!-- 认证入口 -->
+			<view class="verify-section">
+				<view class="verify-card">
+					<view class="verify-header">
+						<text class="verify-icon">🔐</text>
+						<text class="verify-title">身份认证</text>
+					</view>
+					<text class="verify-desc">完成身份认证后可享受医保报销服务</text>
+					<button class="verify-btn" @click="showVerifyForm = !showVerifyForm">
+						{{ showVerifyForm ? '收起认证表单' : '开始认证' }}
+					</button>
+				</view>
+
+				<!-- 认证表单（可展开/收起） -->
+				<view class="verify-form-card" v-if="showVerifyForm">
+					<!-- 真实姓名 -->
+					<view class="form-item">
+						<text class="label">真实姓名<text class="required">*</text></text>
+						<input 
+							class="input" 
+							v-model="verifyForm.name" 
+							placeholder="请输入您的真实姓名"
+							placeholder-class="placeholder"
+						/>
+					</view>
+
+					<!-- 学号/工号 -->
+					<view class="form-item">
+						<text class="label">学号/工号<text class="required">*</text></text>
+						<input 
+							class="input" 
+							v-model="verifyForm.identityNumber" 
+							placeholder="请输入您的学号或工号"
+							placeholder-class="placeholder"
+						/>
+						<text class="hint">系统将根据白名单自动识别您的身份类型（学生/教师/外部人员）</text>
+					</view>
+
+					<!-- 身份证号 -->
+					<view class="form-item">
+						<text class="label">身份证号<text class="required">*</text></text>
+						<input 
+							class="input" 
+							v-model="verifyForm.idCardNumber" 
+							type="idcard"
+							placeholder="请输入身份证号"
+							placeholder-class="placeholder"
+							maxlength="18"
+						/>
+						<text class="hint">身份证号将加密存储，仅用于身份核验</text>
+					</view>
+
+					<!-- 提交认证按钮 -->
+					<button class="submit-verify-btn" @click="handleVerify" :loading="verifying">
+						{{ verifying ? '认证中...' : '提交认证' }}
+					</button>
+				</view>
+			</view>
 		</view>
 
-		<!-- 提交按钮 -->
-		<view class="submit-section" v-if="!isVerified">
-			<button class="submit-btn" @click="handleSubmit" :loading="loading">
-				{{ loading ? '认证中...' : '提交认证' }}
-			</button>
+		<!-- 已认证状态：展示全部信息 -->
+		<view v-else class="info-section">
+			<view class="info-card">
+				<view class="card-title">个人信息</view>
+				
+				<!-- 用户名 -->
+				<view class="info-item">
+					<text class="info-label">用户名</text>
+					<text class="info-value">{{ userInfo.username || '未设置' }}</text>
+				</view>
+				
+				<!-- 电话号码 -->
+				<view class="info-item">
+					<text class="info-label">电话号码</text>
+					<text class="info-value">{{ patientInfo.phoneNumber || '未设置' }}</text>
+				</view>
+				
+				<!-- 认证状态 -->
+				<view class="info-item">
+					<text class="info-label">认证状态</text>
+					<view class="status-badge verified">
+						<text class="status-icon">✓</text>
+						<text class="status-text">已认证</text>
+					</view>
+				</view>
+				
+				<!-- 真实姓名 -->
+				<view class="info-item">
+					<text class="info-label">真实姓名</text>
+					<text class="info-value">{{ patientInfo.name || '未设置' }}</text>
+				</view>
+				
+				<!-- 用户身份 -->
+				<view class="info-item" v-if="patientInfo.specificRole">
+					<text class="info-label">用户身份</text>
+					<text class="info-value">{{ roleText }}</text>
+				</view>
+				
+				<!-- 学号/工号 -->
+				<view class="info-item" v-if="patientInfo.identityNumber">
+					<text class="info-label">学号/工号</text>
+					<text class="info-value">{{ patientInfo.identityNumber }}</text>
+				</view>
+			</view>
+			
+			<!-- 修改信息按钮 -->
+			<view class="action-section">
+				<button class="edit-btn" @click="handleEditInfo">
+					修改信息
+				</button>
+			</view>
 		</view>
 	</view>
 </template>
@@ -99,21 +159,30 @@
 <script>
 import { verifyIdentity } from '@/api/auth.js';
 import { getPatientProfile } from '@/api/patient.js';
+import { promptLogin } from '@/utils/auth.js';
 
 export default {
 	data() {
 		return {
-			formData: {
-				name: '', // 真实姓名
-				identityNumber: '', // 学号/工号（统一字段）
-				idCardNumber: '' // 身份证号
-			},
-			loading: false,
 			isVerified: false, // 是否已认证
-			patientInfo: {} // 患者信息
+			patientInfo: {}, // 患者信息
+			showVerifyForm: false, // 是否显示认证表单
+			verifying: false, // 认证中
+			verifyForm: {
+				name: '', // 真实姓名
+				identityNumber: '', // 学号/工号
+				idCardNumber: '' // 身份证号
+			}
 		};
 	},
 	computed: {
+		// 检查是否已登录
+		isLoggedIn() {
+			return !!this.$store.state.user.token;
+		},
+		userInfo() {
+			return this.$store.state.user.userInfo || {};
+		},
 		// 角色文本
 		roleText() {
 			const role = this.patientInfo.specificRole;
@@ -124,12 +193,28 @@ export default {
 		}
 	},
 	onLoad() {
+		// 检查登录状态
+		if (!this.isLoggedIn) {
+			promptLogin();
+			setTimeout(() => {
+				uni.navigateBack();
+			}, 1500);
+			return;
+		}
 		// 页面加载时检查认证状态
-		this.checkVerifyStatus();
+		this.loadPatientInfo();
 	},
-	methods: {
-		// 检查认证状态
-		async checkVerifyStatus() {
+	onShow() {
+		// 页面显示时刷新信息
+		if (this.isLoggedIn) {
+			this.loadPatientInfo();
+		}
+	},
+		methods: {
+		// 加载患者信息
+		async loadPatientInfo() {
+			if (!this.isLoggedIn) return;
+			
 			try {
 				const data = await getPatientProfile();
 				if (data) {
@@ -137,19 +222,29 @@ export default {
 					// 判断是否已认证：idStatus === 'verified' 或 '已认证'
 					this.isVerified = data.idStatus === 'verified' || data.idStatus === '已认证';
 					
-					// 如果已认证，填充表单数据（只读）
+					// 如果已认证，填充认证表单（只读显示用）
 					if (this.isVerified) {
-						this.formData.name = data.name || '';
-						this.formData.identityNumber = data.identityNumber || '';
-						this.formData.idCardNumber = data.idCardNumber || '';
+						this.verifyForm.name = data.name || '';
+						this.verifyForm.identityNumber = data.identityNumber || '';
 					}
 				}
 			} catch (error) {
-				console.error('获取认证状态失败:', error);
+				console.error('获取患者信息失败:', error);
+				uni.showToast({
+					title: '获取信息失败',
+					icon: 'none'
+				});
 			}
 		},
-		async handleSubmit() {
-			const { name, identityNumber, idCardNumber } = this.formData;
+		// 跳转到编辑信息页面
+		handleEditInfo() {
+			uni.navigateTo({
+				url: '/pages/edit-info/edit-info'
+			});
+		},
+		// 提交认证
+		async handleVerify() {
+			const { name, identityNumber, idCardNumber } = this.verifyForm;
 			
 			// 必填项验证
 			if (!name || !identityNumber || !idCardNumber) {
@@ -169,7 +264,7 @@ export default {
 				return;
 			}
 
-			this.loading = true;
+			this.verifying = true;
 			try {
 				// 调用身份认证接口
 				const data = await verifyIdentity({
@@ -187,11 +282,10 @@ export default {
 					// 更新认证状态
 					this.isVerified = true;
 					this.patientInfo = data;
+					this.showVerifyForm = false;
 					
-					// 延迟返回上一页
-					setTimeout(() => {
-						uni.navigateBack();
-					}, 1500);
+					// 刷新信息
+					await this.loadPatientInfo();
 				} else {
 					uni.showToast({
 						title: '认证失败，请重试',
@@ -207,7 +301,7 @@ export default {
 					duration: 3000
 				});
 			} finally {
-				this.loading = false;
+				this.verifying = false;
 			}
 		}
 	}
@@ -238,9 +332,152 @@ export default {
 	opacity: 0.9;
 }
 
-/* 表单区域 */
-.form-section {
-	margin: 30rpx;
+/* 信息区域 */
+.info-section {
+	padding: 30rpx;
+}
+
+/* 信息卡片 */
+.info-card {
+	background: #fff;
+	border-radius: 20rpx;
+	padding: 40rpx 30rpx;
+	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+	margin-bottom: 30rpx;
+}
+.card-title {
+	font-size: 32rpx;
+	color: #333;
+	font-weight: 600;
+	margin-bottom: 30rpx;
+	padding-bottom: 20rpx;
+	border-bottom: 2rpx solid #f5f5f5;
+}
+.info-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 25rpx 0;
+	border-bottom: 1rpx solid #f5f5f5;
+}
+.info-item:last-child {
+	border-bottom: none;
+}
+.info-label {
+	font-size: 28rpx;
+	color: #666;
+	font-weight: 500;
+	min-width: 160rpx;
+}
+.info-value {
+	font-size: 28rpx;
+	color: #333;
+	flex: 1;
+	text-align: right;
+}
+.info-input {
+	font-size: 28rpx;
+	color: #333;
+	flex: 1;
+	text-align: right;
+	padding: 10rpx 0;
+}
+.info-input.editable {
+	color: #1976d2;
+}
+
+/* 状态徽章 */
+.status-badge {
+	display: flex;
+	align-items: center;
+	gap: 8rpx;
+	padding: 8rpx 16rpx;
+	border-radius: 20rpx;
+	font-size: 24rpx;
+}
+.status-badge.verified {
+	background: #e8f5e9;
+	color: #4caf50;
+}
+.status-badge.unverified {
+	background: #fff3e0;
+	color: #ff9800;
+}
+.status-icon {
+	font-size: 24rpx;
+}
+.status-text {
+	font-size: 24rpx;
+	font-weight: 500;
+}
+
+/* 操作按钮区域 */
+.action-section {
+	margin-bottom: 30rpx;
+}
+.edit-btn {
+	width: 100%;
+	height: 88rpx;
+	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+	color: #fff;
+	border: none;
+	border-radius: 15rpx;
+	font-size: 28rpx;
+	font-weight: 600;
+	box-shadow: 0 8rpx 20rpx rgba(25, 118, 210, 0.3);
+}
+.edit-btn::after {
+	border: none;
+}
+
+/* 认证区域 */
+.verify-section {
+	margin-top: 30rpx;
+}
+.verify-card {
+	background: #fff;
+	border-radius: 20rpx;
+	padding: 40rpx 30rpx;
+	box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+	margin-bottom: 20rpx;
+}
+.verify-header {
+	display: flex;
+	align-items: center;
+	gap: 15rpx;
+	margin-bottom: 15rpx;
+}
+.verify-icon {
+	font-size: 36rpx;
+}
+.verify-title {
+	font-size: 32rpx;
+	color: #333;
+	font-weight: 600;
+}
+.verify-desc {
+	font-size: 24rpx;
+	color: #666;
+	line-height: 1.6;
+	margin-bottom: 25rpx;
+	display: block;
+}
+.verify-btn {
+	width: 100%;
+	height: 80rpx;
+	background: #fff;
+	color: #1976d2;
+	border: 2rpx solid #1976d2;
+	border-radius: 12rpx;
+	font-size: 28rpx;
+	font-weight: 600;
+}
+.verify-btn::after {
+	border: none;
+}
+
+/* 认证表单卡片 */
+.verify-form-card {
 	background: #fff;
 	border-radius: 20rpx;
 	padding: 40rpx 30rpx;
@@ -287,100 +524,7 @@ export default {
 	margin-top: 10rpx;
 	display: block;
 }
-
-/* 认证状态卡片 */
-.status-card {
-	margin: 30rpx;
-	background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-	border-radius: 20rpx;
-	padding: 40rpx 30rpx;
-	box-shadow: 0 4rpx 15rpx rgba(76, 175, 80, 0.2);
-}
-.status-header {
-	display: flex;
-	align-items: center;
-	gap: 15rpx;
-	margin-bottom: 25rpx;
-}
-.status-icon {
-	font-size: 48rpx;
-	color: #4caf50;
-	font-weight: bold;
-}
-.status-title {
-	font-size: 32rpx;
-	color: #2e7d32;
-	font-weight: 600;
-}
-.status-info {
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-}
-.info-item {
-	font-size: 26rpx;
-	color: #333;
-	line-height: 1.6;
-}
-
-/* 温馨提示 */
-.tips-card {
-	margin: 0 30rpx 30rpx;
-	background: #fff3e0;
-	border-radius: 20rpx;
-	padding: 30rpx;
-	border-left: 6rpx solid #ff9800;
-}
-.tips-header {
-	display: flex;
-	align-items: center;
-	gap: 10rpx;
-	margin-bottom: 15rpx;
-}
-.tips-icon {
-	font-size: 28rpx;
-}
-.tips-title {
-	font-size: 28rpx;
-	color: #333;
-	font-weight: 600;
-}
-.tips-text {
-	font-size: 24rpx;
-	color: #666;
-	line-height: 1.6;
-	display: block;
-	margin-bottom: 15rpx;
-}
-.reimbursement-info {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 20rpx;
-	margin-bottom: 15rpx;
-}
-.reimbursement-item {
-	flex: 1;
-	background: #fff;
-	border-radius: 12rpx;
-	padding: 15rpx;
-	display: flex;
-	align-items: center;
-	gap: 10rpx;
-}
-.reimb-icon {
-	font-size: 32rpx;
-}
-.reimb-text {
-	font-size: 24rpx;
-	color: #333;
-	font-weight: 600;
-}
-
-/* 提交按钮 */
-.submit-section {
-	padding: 0 30rpx;
-}
-.submit-btn {
+.submit-verify-btn {
 	width: 100%;
 	height: 88rpx;
 	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
@@ -390,11 +534,9 @@ export default {
 	font-size: 32rpx;
 	font-weight: 600;
 	box-shadow: 0 8rpx 20rpx rgba(25, 118, 210, 0.3);
+	margin-top: 20rpx;
 }
-.submit-btn::after {
+.submit-verify-btn::after {
 	border: none;
 }
 </style>
-
-
-

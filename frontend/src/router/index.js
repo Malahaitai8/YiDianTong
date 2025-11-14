@@ -19,6 +19,7 @@ import AdminSchedule from '@/views/admin/Schedule.vue'
 import AdminSourceManagement from '@/views/admin/SourceManagement.vue'
 import AdminQAManagement from '@/views/admin/QAManagement.vue'
 import AdminReports from '@/views/admin/Reports.vue'
+import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
 
 const routes = [
   {
@@ -99,6 +100,12 @@ const routes = [
         name: 'AdminSchedule',
         component: AdminSchedule,
         meta: { title: '排班管理' }
+      },
+      {
+        path: 'schedule-rules',
+        name: 'AdminScheduleRules',
+        component: AdminScheduleRules,
+        meta: { title: '排班规则' }
       },
       {
         path: 'source-management',

@@ -1,9 +1,11 @@
 package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Clinic;
+import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
 
+@Mapper
 public interface ClinicMapper {
     List<Clinic> selectAll();
 

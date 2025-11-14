@@ -36,3 +36,17 @@ export function getPatientProfile() {
         method: 'GET'
     })
 }
+
+/**
+ * 更新当前登录患者的个人信息
+ * @param {Object} data - 患者信息（只能更新手机号等允许的字段）
+ * @param {String} data.phoneNumber - 手机号
+ * @returns {Promise} 返回更新结果
+ */
+export function updatePatientProfile(data) {
+    return request({
+        url: '/patient/profile',
+        method: 'PUT',
+        data
+    })
+}

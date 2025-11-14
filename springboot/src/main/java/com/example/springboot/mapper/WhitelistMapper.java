@@ -1,11 +1,13 @@
 package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Whitelist;
+import org.apache.ibatis.annotations.Mapper;
 import java.util.List;
 
 /**
  * 白名单Mapper接口
  */
+@Mapper
 public interface WhitelistMapper {
     /**
      * 查询所有白名单
