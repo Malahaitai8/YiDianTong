@@ -2,6 +2,7 @@ package com.example.springboot.mapper;
 
 import com.example.springboot.dto.ScheduleRuleDetailDTO;
 import com.example.springboot.entity.ScheduleRule;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.Date;
@@ -10,6 +11,7 @@ import java.util.List;
 /**
  * 排班规则 Mapper 接口
  */
+@Mapper
 public interface ScheduleRuleMapper {
     
     /**
