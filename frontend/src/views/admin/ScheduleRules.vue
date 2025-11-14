@@ -1,27 +1,86 @@
 <template>
   <div class="schedule-rules-page">
-    <div class="page-header">
-      <h1>排班规则管理</h1>
-      <p>制定、启用及应用排班规则模板</p>
+    <div class="header-card">
+      <div class="header-left">
+        <h1 class="header-title">排班规则管理</h1>
+        <p class="header-subtitle">规则模板制定与批量生成排班</p>
+      </div>
+      <div class="header-right">
+        <el-button type="success" @click="openCreate">新建规则</el-button>
+      </div>
     </div>
 
-  <div class="toolbar">
-      <el-input v-model="searchKeyword" placeholder="按规则名/医生筛选" style="width: 220px" clearable />
-      <el-select v-model="filterDepartmentId" placeholder="科室" style="width: 180px" clearable>
+    <el-row :gutter="20" class="stats-row">
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon total">
+              <el-icon><List /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ totalRulesCount }}</div>
+              <div class="stat-label">总规则数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon week">
+              <el-icon><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ activeRulesCount }}</div>
+              <div class="stat-label">启用规则</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon today">
+              <el-icon><CloseBold /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ inactiveRulesCount }}</div>
+              <div class="stat-label">禁用规则</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon expired">
+              <el-icon><Timer /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ expiredRulesCount }}</div>
+              <div class="stat-label">已过期</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <div class="toolbar">
+      <el-select v-model="filterDepartmentId" placeholder="科室" style="width: 100%" clearable>
         <el-option label="全部科室" :value="null" />
         <el-option v-for="d in departmentList" :key="d.id" :label="d.name" :value="d.id" />
       </el-select>
-      <el-select v-model="filterDoctorId" placeholder="医生" style="width: 180px" clearable>
+      <el-select v-model="filterDoctorId" placeholder="医生" style="width: 100%" clearable>
         <el-option label="全部医生" :value="null" />
         <el-option v-for="doc in filteredDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
       </el-select>
-      <el-select v-model="filterStatus" placeholder="状态" style="width: 140px" clearable>
+      <el-select v-model="filterStatus" placeholder="状态" style="width: 100%" clearable>
         <el-option label="全部" value="" />
         <el-option label="启用(ACTIVE)" value="ACTIVE" />
         <el-option label="禁用(INACTIVE)" value="INACTIVE" />
         <el-option label="过期(EXPIRED)" value="EXPIRED" />
       </el-select>
-      <el-select v-model="filterRuleType" placeholder="规则类型" style="width: 160px" clearable>
+      <el-select v-model="filterRuleType" placeholder="规则类型" style="width: 100%" clearable>
         <el-option label="全部" value="" />
         <el-option label="固定周排班" value="FIXED_WEEKLY" />
         <el-option label="轮班制" value="ROTATION" />
@@ -29,8 +88,6 @@
       </el-select>
       <el-button type="primary" @click="doSearch">搜索</el-button>
       <el-button @click="resetFilters">重置</el-button>
-      <el-button type="success" @click="openCreate">新建规则</el-button>
-      <el-button @click="reload">刷新</el-button>
     </div>
 
     <el-table :data="pagedRules" v-loading="loading" border style="width: 100%">
@@ -106,14 +163,14 @@
             <el-option label="自定义(CUSTOM)" value="CUSTOM" />
           </el-select>
         </el-form-item>
+        <el-form-item label="医生">
+          <el-select v-model.number="form.doctorId" placeholder="请选择医生" clearable @change="handleDoctorSelected">
+            <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="科室">
           <el-select v-model.number="form.departmentId" placeholder="请选择科室" clearable @change="handleDepartmentChange">
             <el-option v-for="d in departmentList" :key="d.id" :label="d.name" :value="d.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="医生">
-          <el-select v-model.number="form.doctorId" placeholder="请选择医生" :disabled="!form.departmentId" clearable>
-            <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="门诊">
@@ -224,6 +281,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { List, CircleCheck, CloseBold, Timer } from '@element-plus/icons-vue'
 import {
   listScheduleRules,
   getScheduleRuleById,
@@ -236,7 +294,7 @@ import {
   applyScheduleRule,
   detectScheduleRuleConflicts
 } from '@/api/scheduleRule'
-import { getDoctorList } from '@/api/doctor'
+import { getDoctorList, getDoctorById } from '@/api/doctor'
 import { getDepartmentList } from '@/api/department'
 import { getClinicList } from '@/api/clinic'
 
@@ -290,6 +348,17 @@ const currentRuleId = ref(null)
 
 const conflictVisible = ref(false)
 const conflicts = ref([])
+
+const totalRulesCount = computed(() => Array.isArray(rules.value) ? rules.value.length : 0)
+const activeRulesCount = computed(() => (rules.value||[]).filter(r => r.status === 'ACTIVE').length)
+const inactiveRulesCount = computed(() => (rules.value||[]).filter(r => r.status === 'INACTIVE').length)
+const expiredRulesCount = computed(() => (rules.value||[]).filter(r => (r.status === 'EXPIRED') || isExpiredByDate(r)).length)
+const isExpiredByDate = (r) => {
+  const e = formatDate(r.endDate)
+  if (!e) return false
+  const today = formatDate(new Date())
+  return e < today
+}
 
 const displayRules = computed(() => {
   let list = rules.value
@@ -347,7 +416,7 @@ const filteredDoctors = computed(() => {
 })
 const clinicList = ref([])
 const formDoctors = computed(() => {
-  if (!form.value.departmentId) return []
+  if (!form.value.departmentId) return doctorList.value
   const did = Number(form.value.departmentId)
   return doctorList.value.filter(d => Number(d.clinic?.departmentId || d.departmentId) === did)
 })
@@ -357,6 +426,16 @@ const formClinics = computed(() => {
   return clinicList.value.filter(c => Number(c.departmentId) === did)
 })
 const handleDepartmentChange = () => { form.value.doctorId = null; form.value.clinicId = null }
+const handleDoctorSelected = async (val) => {
+  try {
+    const res = await getDoctorById(val)
+    const d = res?.data || {}
+    const deptId = Number(d?.clinic?.departmentId || d?.departmentId)
+    const clinicId = Number(d?.clinic?.id || d?.clinicId)
+    if (deptId) form.value.departmentId = deptId
+    if (clinicId) form.value.clinicId = clinicId
+  } catch {}
+}
 
 const doSearch = () => { currentPage.value = 1 }
 const resetFilters = () => {
@@ -551,8 +630,25 @@ const getTimeSlotsDisplay = (val) => normalizeTimeSlots(val).map(s=>mapTimeSlot(
 
 <style scoped>
 .schedule-rules-page { display: flex; flex-direction: column; gap: 16px; }
-.page-header h1 { margin: 0; font-size: 22px; }
-.page-header p { margin: 4px 0 0; color: #606266; }
-.toolbar { display: flex; gap: 12px; align-items: center; }
+.header-card { display:flex; align-items:center; justify-content:space-between; padding:24px; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+.header-left { display:flex; flex-direction:column; text-align:left; }
+.header-title { margin:0 0 8px 0; font-size:24px; line-height:1.2; font-weight:600; color:#303133; text-align:left; }
+.header-subtitle { margin:0; font-size:14px; color:#606266; text-align:left; }
+.toolbar { display: grid; grid-template-columns: repeat(4, 1fr) auto auto; gap: 12px; align-items: center; }
+.toolbar :deep(.el-select) { width: 100%; }
+.toolbar :deep(.el-input) { width: 100%; }
+.toolbar :deep(.el-button) { white-space: nowrap; }
 .slot-chip { margin-right: 6px; }
+.stats-row { margin-bottom: 8px; }
+.stat-card { height: 110px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); transition: all .3s ease; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.stat-content { display:flex; align-items:center; height:100%; padding:20px; }
+.stat-icon { width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:16px; font-size:24px; color:#fff; }
+.stat-icon.total { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
+.stat-icon.week { background: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%); }
+.stat-icon.today { background: linear-gradient(135deg,#f093fb 0%,#f5576c 100%); }
+.stat-icon.expired { background: linear-gradient(135deg,#ffd86f 0%,#fc6262 100%); }
+.stat-info { flex:1; }
+.stat-number { font-size:28px; font-weight:600; color:#303133; line-height:1; }
+.stat-label { font-size:14px; color:#909399; margin-top:6px; }
 </style>
