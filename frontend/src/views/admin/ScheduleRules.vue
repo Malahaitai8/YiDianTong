@@ -120,22 +120,10 @@
         <template #default="scope">
           <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
           <el-button size="small" type="primary" @click="openEdit(scope.row)">编辑</el-button>
-          <el-popconfirm title="确认删除该规则？" @confirm="doDelete(scope.row)">
-            <template #reference>
-              <el-button size="small" type="danger">删除</el-button>
-            </template>
-          </el-popconfirm>
+          <el-button size="small" type="danger" @click="openDeleteConfirm(scope.row)">删除</el-button>
           <el-button size="small" type="success" v-if="scope.row.status!=='ACTIVE'" @click="doEnable(scope.row)">启用</el-button>
           <el-button size="small" type="warning" v-if="scope.row.status==='ACTIVE'" @click="doDisable(scope.row)">禁用</el-button>
-          <el-dropdown>
-            <el-button size="small">更多</el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item :disabled="scope.row.status!=='ACTIVE'" @click="openApply(scope.row)">应用生成排班</el-dropdown-item>
-                <el-dropdown-item @click="checkConflicts(scope.row)">检测冲突</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <el-button size="small" type="success" :disabled="scope.row.status!=='ACTIVE'" @click="openApply(scope.row)">应用生成排班</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -158,14 +146,9 @@
         </el-form-item>
         <el-form-item label="类型">
           <el-select v-model="form.ruleType" placeholder="选择类型">
-            <el-option label="固定周排班(FIXED_WEEKLY)" value="FIXED_WEEKLY" />
-            <el-option label="轮班制(ROTATION)" value="ROTATION" />
-            <el-option label="自定义(CUSTOM)" value="CUSTOM" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="医生">
-          <el-select v-model.number="form.doctorId" placeholder="请选择医生" clearable @change="handleDoctorSelected">
-            <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
+            <el-option label="固定周排班" value="FIXED_WEEKLY" />
+            <el-option label="轮班制" value="ROTATION" />
+            <el-option label="自定义" value="CUSTOM" />
           </el-select>
         </el-form-item>
         <el-form-item label="科室">
@@ -176,6 +159,11 @@
         <el-form-item label="门诊">
           <el-select v-model.number="form.clinicId" placeholder="请选择门诊" clearable>
             <el-option v-for="c in formClinics" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="医生">
+          <el-select v-model.number="form.doctorId" placeholder="请选择医生" clearable @change="handleDoctorSelected">
+            <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="周几出诊">
@@ -235,28 +223,137 @@
     </el-drawer>
 
     <!-- 应用规则对话框 -->
-    <el-dialog v-model="applyVisible" title="应用规则生成排班" width="560px">
-      <el-form :model="applyForm" label-width="120px">
-        <el-form-item label="开始日期">
-          <el-date-picker v-model="applyForm.applyStartDate" type="date" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="结束日期">
-          <el-date-picker v-model="applyForm.applyEndDate" type="date" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="覆盖已存在">
-          <el-switch v-model="applyForm.overwriteExisting" />
-        </el-form-item>
-        <el-form-item label="排除日期">
-          <el-date-picker v-model="applyForm.excludeDates" type="dates" value-format="YYYY-MM-DD" placeholder="选择多个日期" />
-        </el-form-item>
-        <el-form-item label="预计生成数">
-          <el-tag type="info">约 {{ estimatedApplyCount }} 条</el-tag>
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="applyVisible" title="应用规则生成排班" width="640px" class="apply-dialog">
+      <div class="apply-intro">即将应用规则：{{ currentRuleData?.ruleName || '-' }}</div>
+      <el-card shadow="never" class="apply-card">
+        <div class="kv">
+          <div class="kv-row">
+            <div class="kv-label">应用日期范围</div>
+            <div class="kv-value">
+              <el-date-picker v-model="applyForm.applyStartDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" />
+              <span style="margin:0 8px;">至</span>
+              <el-date-picker v-model="applyForm.applyEndDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
+              <span style="color:#909399; margin-left:8px;">必填</span>
+            </div>
+          </div>
+          <div class="kv-row">
+            <div class="kv-label">覆盖已有排班</div>
+            <div class="kv-value"><el-checkbox v-model="applyForm.overwriteExisting">覆盖已有排班（谨慎使用）</el-checkbox></div>
+          </div>
+          <div class="kv-row">
+            <div class="kv-label">排除日期（可选）</div>
+            <div class="kv-value">
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                <el-date-picker v-model="applyExcludeInput" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
+                <el-button size="small" @click="addExcludeDate">添加日期</el-button>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <el-tag v-for="d in applyForm.excludeDates" :key="d" closable @close="removeExcludeDate(d)">{{ d }}</el-tag>
+              </div>
+            </div>
+          </div>
+          <div class="kv-row">
+            <div class="kv-label">预计生成排班数</div>
+            <div class="kv-value"><el-tag type="info">约 {{ estimatedApplyCount }} 条</el-tag></div>
+          </div>
+        </div>
+      </el-card>
+      <div class="apply-tips">
+        <div style="margin-bottom:6px;">提示：</div>
+        <div>- 生成的排班将立即生效</div>
+        <div>- 如果选择覆盖，将删除该时间范围内的现有排班</div>
+        <div>- 建议先检测冲突：<el-button size="small" @click="checkConflicts(currentRuleData)">检测冲突</el-button></div>
+      </div>
       <template #footer>
-        <div style="text-align:right">
+        <div class="detail-footer">
           <el-button @click="applyVisible=false">取消</el-button>
-          <el-button type="primary" @click="submitApply">应用</el-button>
+          <el-button type="primary" @click="submitApply">确认生成</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 规则详情对话框 -->
+    <el-dialog v-model="detailVisible" title="规则详情" width="720px" class="detail-dialog">
+      <div class="detail-grid">
+        <div class="detail-section">
+          <div class="section-title">基本信息</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">规则名称</div><div class="kv-value">{{ detailData.ruleName }}</div></div>
+            <div class="kv-row"><div class="kv-label">规则类型</div><div class="kv-value">{{ mapRuleType(detailData.ruleType) }}</div></div>
+            <div class="kv-row"><div class="kv-label">规则状态</div><div class="kv-value"><el-tag :type="statusTagType(detailData.status)">{{ detailData.statusName || detailData.status }}</el-tag></div></div>
+            <div class="kv-row"><div class="kv-label">优先级</div><div class="kv-value">{{ detailData.priority }}</div></div>
+            <div class="kv-row"><div class="kv-label">规则描述</div><div class="kv-value">{{ detailData.description || '-' }}</div></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-title">关联信息</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">医生</div><div class="kv-value">{{ detailData.doctorName || '-' }}{{ detailData.doctorTitle ? `（${detailData.doctorTitle}）` : '' }}</div></div>
+            <div class="kv-row"><div class="kv-label">科室</div><div class="kv-value">{{ detailData.departmentName || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">门诊</div><div class="kv-value">{{ detailData.clinicName || '-' }}</div></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-title">时间配置</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">星期</div><div class="kv-value">{{ detailData.weekDaysDisplay || getWeekDaysDisplay(detailData.weekDays) || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">时段</div><div class="kv-value">{{ detailData.timeSlotsDisplay || getTimeSlotsDisplay(detailData.timeSlots) || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">生效期间</div><div class="kv-value">{{ formatDate(detailData.startDate) || '-' }} 至 {{ formatDate(detailData.endDate) || '未设置' }}</div></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-title">号源配置</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">号别</div><div class="kv-value">{{ detailData.slotTypeName || mapSlotType(detailData.slotType) }}</div></div>
+            <div class="kv-row"><div class="kv-label">总号源数</div><div class="kv-value">{{ detailData.totalSlots }}</div></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-title">高级规则</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">每天最多排班次数</div><div class="kv-value">{{ detailData.maxDailySchedules ?? '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">最多连续出诊天数</div><div class="kv-value">{{ detailData.maxContinuousDays ?? '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">跳过周末</div><div class="kv-value">{{ detailData.skipWeekends ? '是' : '否' }}</div></div>
+            <div class="kv-row"><div class="kv-label">跳过节假日</div><div class="kv-value">{{ detailData.skipHolidays ? '是' : '否' }}</div></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-title">审计信息</div>
+          <div class="kv">
+            <div class="kv-row"><div class="kv-label">创建人</div><div class="kv-value">{{ detailData.createdBy || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">创建时间</div><div class="kv-value">{{ detailData.createdAt || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">更新时间</div><div class="kv-value">{{ detailData.updatedAt || '-' }}</div></div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="detail-footer">
+          <el-button @click="openEdit(detailData)">编辑</el-button>
+          <el-button type="success" :disabled="detailData.status!=='ACTIVE'" @click="openApply(detailData)">应用规则</el-button>
+          <el-button v-if="detailData.status!=='ACTIVE'" type="success" @click="doEnable(detailData)">启用</el-button>
+          <el-button v-else type="warning" @click="doDisable(detailData)">禁用</el-button>
+          <el-popconfirm title="确认删除该规则？" @confirm="doDelete(detailData)">
+            <template #reference>
+              <el-button type="danger">删除</el-button>
+            </template>
+          </el-popconfirm>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 应用结果提示 -->
+    <el-dialog v-model="applyResultVisible" title="排班生成结果" width="520px">
+      <div style="display:flex; flex-direction:column; gap:8px; text-align:left;">
+        <div style="font-size:16px;">✅ 排班生成完成</div>
+        <div>成功生成：{{ applyResultData.successCount || 0 }} 条</div>
+        <div>跳过：{{ applyResultData.skipCount || 0 }} 条（已存在）</div>
+        <div>失败：{{ applyResultData.errorCount || 0 }} 条</div>
+        <div v-if="(applyResultData.errors||[]).length" style="color:#909399;">可在日志查看失败详情</div>
+      </div>
+      <template #footer>
+        <div class="detail-footer">
+          <el-button type="primary" @click="goToAdminSchedule">查看生成的排班</el-button>
+          <el-button @click="applyResultVisible=false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -295,6 +392,7 @@ import {
   detectScheduleRuleConflicts
 } from '@/api/scheduleRule'
 import { getDoctorList, getDoctorById } from '@/api/doctor'
+import router from '@/router'
 import { getDepartmentList } from '@/api/department'
 import { getClinicList } from '@/api/clinic'
 
@@ -344,6 +442,7 @@ const weekOptions = {1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周
 
 const applyVisible = ref(false)
 const applyForm = ref({ applyStartDate: '', applyEndDate: '', overwriteExisting: false, excludeDates: [] })
+const applyExcludeInput = ref('')
 const currentRuleId = ref(null)
 
 const conflictVisible = ref(false)
@@ -366,7 +465,7 @@ const displayRules = computed(() => {
     list = list.filter(r => r.status === filterStatus.value)
   }
   if (filterRuleType.value) {
-    list = list.filter(r => String(r.ruleType).toUpperCase() === String(filterRuleType.value).toUpperCase())
+    list = list.filter(r => normalizeRuleType(r.ruleType) === String(filterRuleType.value).toUpperCase())
   }
   if (filterDepartmentId.value) {
     const did = Number(filterDepartmentId.value)
@@ -567,6 +666,8 @@ const estimatedApplyCount = computed(() => {
   const ts = normalizeTimeSlots(currentRuleData.value.timeSlots)
   return days.length * (ts.length || 1)
 })
+const applyResultVisible = ref(false)
+const applyResultData = ref({ successCount: 0, skipCount: 0, errorCount: 0, errors: [], message: '' })
 const submitApply = async () => {
   try {
     const payload = { ...applyForm.value }
@@ -574,10 +675,21 @@ const submitApply = async () => {
       delete payload.excludeDates
     }
     const res = await applyScheduleRule(currentRuleId.value, payload)
-    const msg = res?.data?.message || '应用完成'
-    ElMessage.success(msg)
+    applyResultData.value = res?.data || {}
     applyVisible.value = false
+    applyResultVisible.value = true
   } catch (e) { ElMessage.error('应用失败') }
+}
+const addExcludeDate = () => {
+  const d = applyExcludeInput.value
+  if (!d) return
+  const list = applyForm.value.excludeDates || []
+  if (!list.includes(d)) list.push(d)
+  applyForm.value.excludeDates = list
+  applyExcludeInput.value = ''
+}
+const removeExcludeDate = (d) => {
+  applyForm.value.excludeDates = (applyForm.value.excludeDates || []).filter(x => x !== d)
 }
 
 const checkConflicts = async (row) => {
@@ -588,25 +700,13 @@ const checkConflicts = async (row) => {
   } catch (e) { ElMessage.error('检测失败') }
 }
 
+const detailVisible = ref(false)
+const detailData = ref({})
 const viewDetail = async (row) => {
   try {
-    const res = await getScheduleRuleDetail(row.id)
-    const d = res?.data || {}
-    const detailText = `规则：${d.ruleName || row.ruleName}
-类型：${d.ruleTypeName || mapRuleType(d.ruleType || row.ruleType)}
-医生：${d.doctorName || row.doctor?.name || '-'}（${d.doctorTitle || ''}）
-科室：${d.departmentName || row.department?.name || '-'}
-门诊：${d.clinicName || '-'}
-周几：${d.weekDaysDisplay || getWeekDaysDisplay(d.weekDays)}
-时段：${d.timeSlotsDisplay || getTimeSlotsDisplay(d.timeSlots)}
-号别：${d.slotTypeName || mapSlotType(d.slotType)}
-号源：${d.totalSlots}
-开始：${d.startDate || formatDate(row.startDate)}
-结束：${d.endDate || formatDate(row.endDate) || '未设置'}
-状态：${d.statusName || d.status || row.status}
-优先级：${d.priority}
-描述：${d.description || ''}`
-    await ElMessageBox.alert(detailText, '规则详情', { confirmButtonText: '知道了' })
+    const res = await getScheduleRuleById(row.id)
+    detailData.value = res?.data || row
+    detailVisible.value = true
   } catch (e) { ElMessage.error('获取详情失败') }
 }
 
@@ -621,7 +721,14 @@ const formatDate = (d) => {
 }
 const mapTimeSlot = (s) => ({ morning: '上午', afternoon: '下午', evening: '晚间' }[String(s).toLowerCase()] || s)
 const mapSlotType = (s) => ({ normal:'普通', expert:'专家', vip:'特需' }[s] || s)
-const mapRuleType = (t) => ({ FIXED_WEEKLY: '固定周排班', ROTATION: '轮班制', CUSTOM: '自定义' }[String(t).toUpperCase()] || t)
+const normalizeRuleType = (t) => {
+  const v = String(t||'').toUpperCase()
+  if (v === 'FIXED_WEEKLY' || v === 'WEEKLY' || v === 'FIXED') return 'FIXED_WEEKLY'
+  if (v === 'ROTATION' || v === 'ROTATING') return 'ROTATION'
+  if (v === 'CUSTOM' || v === 'FLEXIBLE') return 'CUSTOM'
+  return v
+}
+const mapRuleType = (t) => ({ FIXED_WEEKLY: '固定周排班', ROTATION: '轮班制', CUSTOM: '自定义' }[normalizeRuleType(t)] || t)
 const normalizeWeekDays = (val) => Array.isArray(val) ? val : String(val||'').split(',').map(n=>parseInt(n)).filter(Boolean)
 const normalizeTimeSlots = (val) => Array.isArray(val) ? val : String(val||'').split(',').filter(Boolean)
 const getWeekDaysDisplay = (val) => normalizeWeekDays(val).map(n=>weekOptions[n]).join('、')
@@ -651,4 +758,24 @@ const getTimeSlotsDisplay = (val) => normalizeTimeSlots(val).map(s=>mapTimeSlot(
 .stat-info { flex:1; }
 .stat-number { font-size:28px; font-weight:600; color:#303133; line-height:1; }
 .stat-label { font-size:14px; color:#909399; margin-top:6px; }
+.detail-dialog :deep(.el-dialog__body) { padding-top: 6px; }
+.detail-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.detail-section { background: #fff; border: 1px solid #ebeef5; border-radius: 8px; overflow: hidden; }
+.section-title { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #ebeef5; text-align: left; }
+.kv { padding: 12px 16px; }
+.kv-row { display: flex; align-items: flex-start; gap: 12px; margin: 6px 0; }
+.kv-label { width: 120px; color: #606266; text-align: left; }
+.kv-value { flex: 1; color: #303133; text-align: left; }
+.detail-footer { text-align: right; }
+.apply-dialog :deep(.el-dialog__body) { padding-top: 6px; }
+.apply-intro { text-align: left; margin-bottom: 8px; color: #303133; }
+.apply-card { margin-bottom: 8px; }
+.apply-tips { text-align: left; color: #606266; margin-top: 4px; }
 </style>
+const goToAdminSchedule = () => { router.push('/admin/schedule') }
+const openDeleteConfirm = async (row) => {
+  try {
+    await ElMessageBox.confirm('确认删除该规则？', '提示', { type: 'warning', center: true, confirmButtonText: '删除', cancelButtonText: '取消' })
+    await doDelete(row)
+  } catch {}
+}

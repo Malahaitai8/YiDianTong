@@ -21,7 +21,7 @@ export const getScheduleRuleById = (ruleId) => {
 
 export const getScheduleRuleDetail = (ruleId) => {
   return request({
-    url: `/api/admin/schedule-rules/detail/${ruleId}`,
+    url: `/api/admin/schedule-rules/${ruleId}`,
     method: 'get'
   })
 }
