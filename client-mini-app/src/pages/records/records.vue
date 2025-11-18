@@ -13,7 +13,7 @@
 			</view>
 
 			<view v-else>
-				<view class="record-card" v-for="item in list" :key="item.id">
+				<view class="record-card" v-for="item in list" :key="item.id" @click="viewDetail(item)">
 					<view class="row">
 						<text class="label">就诊医生</text>
 						<text class="value">{{ item.doctorName || ('#' + item.doctorId) }}</text>
@@ -30,9 +30,10 @@
 						<text class="label">费用</text>
 						<text class="value price">¥{{ item.actualFee != null ? item.actualFee : (item.fee != null ? item.fee : 0) }}</text>
 					</view>
-					<view class="actions">
-						<button v-if="item.status==='PENDING' || item.status==='CONFIRMED'" class="btn cancel" @click="cancel(item)">取消预约</button>
-						<button class="btn delete" @click="remove(item)">删除</button>
+					<view class="actions" @click.stop>
+						<button class="btn detail" @click.stop="viewDetail(item)">查看详情</button>
+						<button v-if="item.status==='PENDING' || item.status==='CONFIRMED'" class="btn cancel" @click.stop="cancel(item)">退号</button>
+						<button class="btn delete" @click.stop="remove(item)">删除</button>
 					</view>
 				</view>
 			</view>
@@ -87,6 +88,12 @@ export default {
 			} catch (e) {
 				uni.showToast({ title: e.msg || '删除失败', icon: 'none' });
 			}
+		},
+		viewDetail(item) {
+			// 跳转到挂号详情页
+			uni.navigateTo({
+				url: `/pages/appointment-detail/appointment-detail?id=${item.id}&status=${item.status || 'PENDING'}`
+			});
 		}
 	}
 };
@@ -140,6 +147,12 @@ export default {
 	border-radius:16rpx;
 	padding:26rpx 26rpx 16rpx;
 	margin-bottom:20rpx;
+	cursor: pointer;
+	transition: all 0.3s;
+}
+.record-card:active{
+	transform: scale(0.98);
+	opacity: 0.9;
 }
 .row{
 	display:flex;
@@ -169,6 +182,7 @@ export default {
 	padding:0 24rpx;
 	border-radius:32rpx;
 }
+.detail{ background:#e3f2fd; color:#1976d2; }
 .cancel{ background:#fff3e0; color:#f57c00; }
 .delete{ background:#ffebee; color:#d32f2f; }
 </style>

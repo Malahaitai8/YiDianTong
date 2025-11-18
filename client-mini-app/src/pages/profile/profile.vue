@@ -170,7 +170,7 @@ export default {
 			promptLogin();
 				return;
 			}
-			uni.showToast({ title: '就诊记录功能开发中', icon: 'none' });
+			uni.switchTab({ url: '/pages/records/records' });
 		},
 		goToSubstitute() {
 			if (!this.isLoggedIn) {
