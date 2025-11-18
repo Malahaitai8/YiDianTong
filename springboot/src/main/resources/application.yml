@@ -29,3 +29,10 @@ logging:
   level:
     org.springframework.security: DEBUG
     com.example.springboot: DEBUG
+
+
+
+data:
+  redis:
+    host: localhost
+    port: 6379

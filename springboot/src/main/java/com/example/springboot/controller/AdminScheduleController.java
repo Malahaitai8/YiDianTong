@@ -149,5 +149,22 @@ public class AdminScheduleController {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 加号（增加号源数量）
+     * POST /api/admin/schedules/{id}/add-slots
+     */
+    @Operation(summary = "加号", description = "为指定排班增加号源数量")
+    @PostMapping("/{id}/add-slots")
+    public Result addSlots(
+            @Parameter(description = "排班ID", required = true) @PathVariable Long id,
+            @RequestBody @Valid AddSlotsRequest request) {
+        try {
+            Schedule schedule = scheduleService.addSlots(id, request.getSlotsToAdd());
+            return Result.success(schedule);
+        } catch (Exception e) {
+            return Result.error("加号失败: " + e.getMessage());
+        }
+    }
 }
 
