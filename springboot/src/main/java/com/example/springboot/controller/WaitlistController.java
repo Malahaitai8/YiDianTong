@@ -2,24 +2,25 @@ package com.example.springboot.controller;
 
 
 import com.example.springboot.common.Result;
-import com.example.springboot.dto.CreateWaitlistRequest; // <-- [新增] 导入
-import com.example.springboot.entity.Waitlist;
+import com.example.springboot.dto.CreateWaitlistRequest;
+import com.example.springboot.dto.WaitlistInfoDTO; // <-- [新增] 导入
+// [删除] import com.example.springboot.entity.Waitlist; // 不再需要
 import com.example.springboot.service.WaitlistService;
 import jakarta.annotation.Resource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import org.springframework.security.access.prepost.PreAuthorize; // <-- [新增] 导入
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
+// [删除] import org.springframework.web.bind.annotation.PutMapping; // 未使用
+// [删除] import org.springframework.web.bind.annotation.DeleteMapping; // 未使用
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.List;
+import java.util.List; // <-- [新增] 导入
 
 @Tag(name = "候补队列", description = "候补队列相关接口")
 @RestController
@@ -31,34 +32,45 @@ public class WaitlistController {
     private WaitlistService waitlistService;
 
 
-    /** 加入候补队列 */
+    /** [修改] 加入候补队列 */
     @Operation(summary = "加入候补队列", description = "当号源已满时，患者可加入候补队列")
     @PostMapping
-    @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
-    public Result addToQueue(@jakarta.validation.Valid @RequestBody CreateWaitlistRequest request) { // <-- [修改] 签名
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result addToQueue(@jakarta.validation.Valid @RequestBody CreateWaitlistRequest request) {
         Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
 
-        // TODO: 校验该排班是否真的已满 (available_slots <= 0)
+        // [修改] Service 已包含校验逻辑 (号源是否已满, 是否重复)
+        // [修改] Service 方法现在返回 void
+        waitlistService.addToQueue(patientId, request.getScheduleId());
 
-        Waitlist w = waitlistService.addToQueue(patientId, request.getScheduleId());
-        return Result.success(w);
+        return Result.success("加入候补成功"); // [修改] 返回成功信息
     }
 
-    /** 查看我的候补列表 */
-    @Operation(summary = "查看我的候补", description = "查看当前登录患者的候补记录")
+    /** [修改] 查看我的候补列表 */
+    @Operation(summary = "查看我的候补", description = "查看当前登录患者的候补记录 (包含排名)")
     @GetMapping("/me")
-    @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
+    @PreAuthorize("hasRole('PATIENT')")
     public Result myQueue() {
         Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
-        return Result.success(waitlistService.listByPatient(patientId));
+
+        // [修改] service 现在返回 List<WaitlistInfoDTO>
+        List<WaitlistInfoDTO> myQueues = waitlistService.listByPatient(patientId);
+
+        return Result.success(myQueues);
     }
 
-    /** 弹出队首（管理员或系统任务） */
-    @Operation(summary = "弹出队首并创建预约", description = "管理员在有空位时调用，自动创建预约")
+    /** [修改] 弹出队首（管理员或系统任务） */
+    @Operation(summary = "弹出队首(手动)", description = "管理员手动弹出队首，返回弹出的患者ID (不创建预约)")
     @PostMapping("/next/{scheduleId}")
-    @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 权限
+    @PreAuthorize("hasRole('ADMIN')")
     public Result popNext(@PathVariable Long scheduleId) {
-        Waitlist next = waitlistService.popNext(scheduleId);
-        return Result.success(next);
+
+        // [修改] service 现在返回 Long patientId
+        Long patientId = waitlistService.popNext(scheduleId);
+
+        if (patientId == null) {
+            return Result.error("队列为空");
+        }
+        return Result.success(patientId);
     }
 }

@@ -341,4 +341,28 @@ public class ScheduleService {
 
         return dateList;
     }
+
+    /**
+     * 加号（增加号源数量）
+     */
+    @Transactional
+    public Schedule addSlots(Long id, Integer slotsToAdd) {
+        // 1. 查询排班
+        Schedule schedule = scheduleMapper.selectById(id);
+        if (schedule == null) {
+            throw new RuntimeException("排班不存在");
+        }
+
+        // 2. 计算新的号源数量
+        int newTotalSlots = schedule.getTotalSlots() + slotsToAdd;
+        int newAvailableSlots = schedule.getAvailableSlots() + slotsToAdd;
+
+        // 3. 更新号源数量
+        schedule.setTotalSlots(newTotalSlots);
+        schedule.setAvailableSlots(newAvailableSlots);
+        scheduleMapper.updateById(schedule);
+
+        // 4. 返回更新后的排班
+        return scheduleMapper.selectById(id);
+    }
 }
