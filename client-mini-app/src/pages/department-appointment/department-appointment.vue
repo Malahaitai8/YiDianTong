@@ -46,7 +46,7 @@
 					>
 						<view class="slot-top">
 							<text class="slot-time">{{ s.startTime }}-{{ s.endTime }}</text>
-							<text class="slot-remain">余{{ s.availableSlots }}</text>
+							<text class="slot-remain" :class="{ 'no-slots': s.availableSlots === 0 }">余{{ s.availableSlots }}</text>
 						</view>
 						<view class="slot-bottom">
 							<text class="slot-doctor">{{ s.doctorName || '医生' }}</text>
@@ -54,6 +54,10 @@
 								<text class="slot-type">{{ getSlotType(s) }}</text>
 								<text class="slot-price">¥{{ getSlotPrice(s) }}</text>
 							</view>
+						</view>
+						<!-- 当号源为0时显示候补按钮 -->
+						<view class="waitlist-overlay" v-if="s.availableSlots === 0" @click.stop="joinWaitlist(s)">
+							<button class="waitlist-btn">候补排队</button>
 						</view>
 					</view>
 				</view>
@@ -71,8 +75,14 @@
 
 		<!-- 底部操作 -->
 		<view class="bottom-bar">
-			<button class="primary-btn" :disabled="!selectedSlot" @click="goConfirm">
-				{{ selectedSlot ? '立即挂号' : '请选择号源' }}
+			<button class="primary-btn" :disabled="!selectedSlot" @click="goConfirm" v-if="selectedSlot && selectedSlot.availableSlots > 0">
+				立即挂号
+			</button>
+			<button class="waitlist-bottom-btn" :disabled="!selectedSlot" @click="joinWaitlist(selectedSlot)" v-else-if="selectedSlot && selectedSlot.availableSlots === 0">
+				候补排队
+			</button>
+			<button class="primary-btn" disabled v-else>
+				请选择号源
 			</button>
 		</view>
 
@@ -86,6 +96,7 @@
 <script>
 import { getDoctorsByDepartment } from '@/api/department.js';
 import { getDoctorSchedules } from '@/api/doctor.js';
+import { joinWaitlist } from '@/api/waitlist.js';
 
 export default {
 	data() {
@@ -180,7 +191,7 @@ export default {
 		},
 		getSlotsByPeriod(period) {
 			return this.slotsOfSelectedDate
-				.filter(s => s.period === period && s.status === 'available')
+				.filter(s => s.period === period)
 				.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 		},
 		periodIcon(p) {
@@ -195,7 +206,8 @@ export default {
 		},
 		slotCardClass(s) {
 			return {
-				active: this.selectedSlot && this.selectedSlot.id === s.id
+				active: this.selectedSlot && this.selectedSlot.id === s.id,
+				'no-slots': s.availableSlots === 0
 			};
 		},
 		getSlotType(s) {
@@ -225,14 +237,72 @@ export default {
 			return 15;
 		},
 		selectSlot(s) {
-			if (s.status !== 'available') return;
+			// 即使号源为0也可以选择，用于候补
 			this.selectedSlot = s;
+		},
+		// 加入候补队列
+		async joinWaitlist(slot) {
+			if (!slot) {
+				uni.showToast({ title: '请选择号源', icon: 'none' });
+				return;
+			}
+			
+			// 检查是否已登录 - 修复登录检查逻辑
+			const token = this.$store.state.user.token;
+			console.log('Token:', token);
+			
+			if (!token) {
+				uni.showToast({ title: '请先登录', icon: 'none' });
+				// 延迟跳转到登录页面
+				setTimeout(() => {
+					uni.navigateTo({ url: '/pages/login/login' });
+				}, 1000);
+				return;
+			}
+			
+			uni.showModal({
+				title: '候补排队',
+				content: `确定要加入"${slot.doctorName}"医生${this.formatDate(slot.date)}${this.periodName(slot.period)}的候补队列吗？`,
+				confirmText: '确认加入',
+				success: async (res) => {
+					if (res.confirm) {
+						try {
+							await joinWaitlist({ scheduleId: slot.id });
+							uni.showToast({ 
+								title: '已加入候补队列', 
+								icon: 'success',
+								success: () => {
+									// 跳转到候补详情页面
+									uni.navigateTo({
+										url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${slot.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
+									});
+								}
+							});
+						} catch (e) {
+							uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
+						}
+					}
+				}
+			});
+		},
+		// 格式化日期显示
+		formatDate(dateStr) {
+			if (!dateStr) return '';
+			const date = new Date(dateStr);
+			return `${date.getMonth() + 1}月${date.getDate()}日`;
 		},
 		goConfirm() {
 			if (!this.selectedSlot) {
 				uni.showToast({ title: '请选择号源', icon: 'none' });
 				return;
 			}
+			
+			// 检查号源是否充足
+			if (this.selectedSlot.availableSlots === 0) {
+				uni.showToast({ title: '号源已满，请选择候补', icon: 'none' });
+				return;
+			}
+			
 			uni.navigateTo({
 				url: `/pkg-order/order-confirm/order-confirm?doctorId=${this.selectedSlot.doctorId}&scheduleId=${this.selectedSlot.id}`
 			});
@@ -365,10 +435,16 @@ export default {
 	flex-direction: column;
 	gap: 10rpx;
 	transition: all 0.2s;
+	position: relative;
 }
 .slot-card.active {
 	background: #e3f2fd;
 	border-color: #1976d2;
+}
+.slot-card.no-slots {
+	background: #ffebee;
+	border-color: #ffcdd2;
+	opacity: 0.8;
 }
 .slot-top {
 	display: flex;
@@ -382,6 +458,9 @@ export default {
 .slot-remain {
 	font-size: 22rpx;
 	color: #4caf50;
+}
+.slot-remain.no-slots {
+	color: #f44336;
 }
 .slot-bottom {
 	display: flex;
@@ -418,6 +497,29 @@ export default {
 	color: #999;
 }
 
+/* 候补按钮覆盖层 */
+.waitlist-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	border-radius: 14rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.waitlist-btn {
+	background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+	color: #fff;
+	border: none;
+	border-radius: 30rpx;
+	padding: 10rpx 20rpx;
+	font-size: 24rpx;
+	font-weight: 600;
+}
+
 .empty-all {
 	display: flex;
 	flex-direction: column;
@@ -443,7 +545,7 @@ export default {
 	padding: 16rpx 24rpx;
 	box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.06);
 }
-.primary-btn {
+.primary-btn, .waitlist-bottom-btn {
 	height: 80rpx;
 	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
 	color: #fff;
@@ -452,10 +554,13 @@ export default {
 	font-size: 28rpx;
 	font-weight: 600;
 }
-.primary-btn::after {
+.waitlist-bottom-btn {
+	background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+}
+.primary-btn::after, .waitlist-bottom-btn::after {
 	border: none;
 }
-.primary-btn[disabled] {
+.primary-btn[disabled], .waitlist-bottom-btn[disabled] {
 	background: #ccc;
 }
 
@@ -476,5 +581,3 @@ export default {
 	color: #999;
 }
 </style>
-
-

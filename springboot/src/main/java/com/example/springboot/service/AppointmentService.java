@@ -10,10 +10,12 @@ import com.example.springboot.mapper.AppointmentMapper;
 import com.example.springboot.mapper.PatientMapper;
 import com.example.springboot.mapper.ScheduleMapper;
 import com.example.springboot.dto.AvailableSlotDTO;
+import com.example.springboot.dto.AppointmentWithDoctorDTO;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -47,6 +49,7 @@ public class AppointmentService {
     }
 
     /** 新增预约 */
+    @Transactional
     public Appointment create(Appointment appointment) {
         // ========== 规则校验 ==========
         var schedule = scheduleMapper.selectById(appointment.getScheduleId());
@@ -320,6 +323,11 @@ public class AppointmentService {
     /** 根据患者 ID 查询预约列表 */
     public List<Appointment> listByPatient(Long patientId) {
         return appointmentMapper.selectByPatientId(patientId);
+    }
+    
+    /** 根据患者 ID 查询预约列表（包含医生信息） */
+    public List<AppointmentWithDoctorDTO> listByPatientWithDoctorInfo(Long patientId) {
+        return appointmentMapper.selectByPatientIdWithDoctorInfo(patientId);
     }
 
     public Appointment selectById(Long id) {

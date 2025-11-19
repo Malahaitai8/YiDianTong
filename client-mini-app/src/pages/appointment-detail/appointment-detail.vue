@@ -35,7 +35,7 @@
 			</view>
 			<view class="info-row">
 				<text class="info-label">时间段</text>
-				<text class="info-value">{{ appointmentDetail.timeSlot || '上午' }}</text>
+				<text class="info-value">{{ appointmentDetail.timeSlotDisplay || '上午' }}</text>
 			</view>
 		</view>
 
@@ -112,31 +112,31 @@
 </template>
 
 <script>
-// TODO: 引入API
-// import { getAppointmentDetail } from '@/api/appointment.js'
+import { getMyAppointments, cancelAppointment } from '@/api/appointment.js'
 
 export default {
 	name: 'AppointmentDetail',
 	data() {
 		return {
 			appointmentId: null,
-			// 硬编码的挂号详情数据（实际应从API获取）
+			// 挂号详情数据
 			appointmentDetail: {
-				id: 1,
-				appointmentNo: 'APT20251115001',
-				doctorId: 1,
-				doctorName: '张医生',
-				doctorTitle: '主任医师',
-				clinicName: '消化内科',
-				appointmentDate: '2025-11-15',
-				appointmentTime: '08:00-12:00',
-				timeSlot: '上午',
-				status: 'CONFIRMED', // PENDING, CONFIRMED, COMPLETED, CANCELLED
-				originalFee: '50.00',
-				actualFee: '2.50',
-				reimbursementRate: '95%',
-				createdAt: '2025-11-14 10:30:00',
-				reminderTime: '就诊前一天 18:00'
+				id: null,
+				appointmentNo: '',
+				doctorId: null,
+				doctorName: '',
+				doctorTitle: '',
+				clinicName: '',
+				appointmentDate: '',
+				appointmentTime: '',
+				timeSlot: '',
+				timeSlotDisplay: '',
+				status: 'PENDING', // PENDING, CONFIRMED, COMPLETED, CANCELLED
+				originalFee: '0.00',
+				actualFee: '0.00',
+				reimbursementRate: '',
+				createdAt: '',
+				reminderTime: ''
 			}
 		};
 	},
@@ -148,26 +148,50 @@ export default {
 		}
 	},
 	onLoad(options) {
+		console.log('挂号详情页面参数:', options);
+		
 		if (options.id) {
-			this.appointmentId = options.id;
-			// TODO: 调用API获取挂号详情
-			// this.loadAppointmentDetail();
+			this.appointmentId = parseInt(options.id);
+			// 调用API获取挂号详情
+			this.loadAppointmentDetail();
 		}
+		
 		// 如果有传入的数据，可以合并
 		if (options.status) {
 			this.appointmentDetail.status = options.status;
 		}
 	},
 	methods: {
-		// TODO: 加载挂号详情
-		// async loadAppointmentDetail() {
-		// 	try {
-		// 		const data = await getAppointmentDetail(this.appointmentId);
-		// 		this.appointmentDetail = data;
-		// 	} catch (e) {
-		// 		uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
-		// 	}
-		// },
+		// 加载挂号详情
+		async loadAppointmentDetail() {
+			try {
+				// 获取我的所有预约
+				const data = await getMyAppointments();
+				const appointments = Array.isArray(data) ? data : (data.list || []);
+				
+				// 查找当前预约
+				const appointment = appointments.find(item => item.id === this.appointmentId);
+				if (appointment) {
+					this.appointmentDetail = {
+						...this.appointmentDetail,
+						...appointment
+					};
+					
+					// 处理时间段显示
+					const timeSlotMap = {
+						'morning': '上午',
+						'afternoon': '下午',
+						'evening': '晚上'
+					};
+					this.appointmentDetail.timeSlotDisplay = timeSlotMap[appointment.timeSlot] || appointment.timeSlot;
+				} else {
+					uni.showToast({ title: '未找到预约信息', icon: 'none' });
+				}
+			} catch (e) {
+				console.error('加载挂号详情失败:', e);
+				uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
+			}
+		},
 
 		// 获取状态文本
 		getStatusText(status) {
@@ -212,7 +236,7 @@ export default {
 		// 跳转到候补页面
 		goToWaitlist() {
 			uni.navigateTo({
-				url: `/pages/waitlist/waitlist?appointmentId=${this.appointmentId || this.appointmentDetail.id}&doctorId=${this.appointmentDetail.doctorId}&scheduleDate=${this.appointmentDetail.appointmentDate}&timeSlot=${this.appointmentDetail.timeSlot}`
+				url: `/pages/waitlist/waitlist?scheduleId=${this.appointmentDetail.scheduleId}&doctorId=${this.appointmentDetail.doctorId}&scheduleDate=${this.appointmentDetail.appointmentDate}&timeSlot=${this.appointmentDetail.timeSlot}`
 			});
 		},
 
@@ -410,5 +434,3 @@ export default {
 	font-size: 30rpx;
 }
 </style>
-
-

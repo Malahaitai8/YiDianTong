@@ -1,5 +1,8 @@
 <script>
 	export default {
+		globalData: {
+			recordFilter: null
+		},
 		onLaunch: function() {
 			console.log('App Launch')
 		},

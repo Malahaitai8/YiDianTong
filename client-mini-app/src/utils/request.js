@@ -45,36 +45,35 @@ const request = (options) => {
                 }
                 // 假设 401 是 Token 失效
                 else if (data.code === '401' || data.code === 401) {
-                    uni.showToast({ title: '登录已过期', icon: 'none' })
-                    store.dispatch('user/logout') // 触发 Vuex 登出
-                    uni.navigateTo({ url: '/pages/login/login' }) // 跳转登录页
-                    reject(data)
+                    uni.showToast({ title: '登录已过期', icon: 'none' });
+                    store.dispatch('user/logout'); // 触发 Vuex 登出
+                    uni.navigateTo({ url: '/pages/login/login' }); // 跳转登录页
+                    reject(data);
                 }
                 // 其他业务错误
                 else {
-                    uni.showToast({ title: data.msg || '请求失败', icon: 'none' })
-                    reject(data)
+                    uni.showToast({ title: data.msg || '请求失败', icon: 'none' });
+                    reject(data);
                 }
             },
             fail: (err) => {
-                console.error('请求失败:', err)
                 // 更详细的错误提示
-                let errorMsg = '网络错误'
+                let errorMsg = '网络错误';
                 if (err.errMsg) {
                     if (err.errMsg.includes('timeout')) {
-                        errorMsg = '请求超时，请检查网络'
+                        errorMsg = '请求超时，请检查网络';
                     } else if (err.errMsg.includes('fail')) {
-                        errorMsg = '无法连接到服务器，请检查后端服务是否启动'
+                        errorMsg = '无法连接到服务器，请检查后端服务是否启动';
                     } else {
-                        errorMsg = err.errMsg
+                        errorMsg = err.errMsg;
                     }
                 }
                 uni.showToast({ 
                     title: errorMsg, 
                     icon: 'none',
                     duration: 3000
-                })
-                reject(err)
+                });
+                reject(err);
             },
             complete: () => {
                 uni.hideLoading()

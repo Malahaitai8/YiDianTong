@@ -1,7 +1,7 @@
 <template>
 	<view class="waitlist-page">
 		<!-- 医生信息卡片 -->
-		<view class="doctor-card">
+		<view class="doctor-card" v-if="doctorInfo.name">
 			<view class="doctor-header">
 				<view class="doctor-avatar">
 					<text class="avatar-text">{{ doctorInfo.name ? doctorInfo.name.substring(0, 1) : '医' }}</text>
@@ -21,7 +21,7 @@
 				</view>
 				<view class="info-item">
 					<text class="info-label">时间段</text>
-					<text class="info-value">{{ scheduleInfo.timeSlot || '上午' }}</text>
+					<text class="info-value">{{ scheduleInfo.timeSlotDisplay || '上午' }}</text>
 				</view>
 			</view>
 		</view>
@@ -35,7 +35,7 @@
 			<view class="queue-info">
 				<view class="queue-number">
 					<text class="number-label">当前排队位次</text>
-					<text class="number-value">{{ waitlistInfo.queuePosition || 3 }}</text>
+					<text class="number-value">{{ waitlistInfo.rank !== undefined ? (waitlistInfo.rank + 1) : '加载中' }}</text>
 				</view>
 				<view class="queue-tip">
 					<text class="tip-text">号源释放时，系统将按排队顺序自动为您预约</text>
@@ -43,58 +43,20 @@
 			</view>
 		</view>
 
-		<!-- 候补成功率卡片 -->
-		<view class="success-rate-card">
+		<!-- 候补队列信息 -->
+		<view class="queue-size-card">
 			<view class="card-header">
-				<text class="card-icon">📊</text>
-				<text class="card-title">预计候补成功率</text>
+				<text class="card-icon">👥</text>
+				<text class="card-title">队列信息</text>
 			</view>
-			<view class="rate-display">
-				<view class="rate-circle">
-					<text class="rate-value">{{ waitlistInfo.successRate || 85 }}%</text>
-					<text class="rate-label">成功率</text>
+			<view class="queue-details">
+				<view class="detail-item">
+					<text class="detail-label">队列总人数</text>
+					<text class="detail-value">{{ waitlistInfo.queueSize || 0 }}人</text>
 				</view>
-				<view class="rate-details">
-					<view class="detail-item">
-						<text class="detail-label">历史同类候补</text>
-						<text class="detail-value">{{ waitlistInfo.historyCount || 120 }}次</text>
-					</view>
-					<view class="detail-item">
-						<text class="detail-label">成功候补</text>
-						<text class="detail-value success">{{ waitlistInfo.successCount || 102 }}次</text>
-					</view>
-					<view class="detail-item">
-						<text class="detail-label">成功率</text>
-						<text class="detail-value success">{{ waitlistInfo.historySuccessRate || 85 }}%</text>
-					</view>
-				</view>
-			</view>
-		</view>
-
-		<!-- 等待时长卡片 -->
-		<view class="wait-time-card">
-			<view class="card-header">
-				<text class="card-icon">⏱️</text>
-				<text class="card-title">预计等待时长</text>
-			</view>
-			<view class="wait-time-content">
-				<view class="time-display">
-					<text class="time-value">{{ waitlistInfo.avgWaitTime || '2.5' }}</text>
-					<text class="time-unit">小时</text>
-				</view>
-				<view class="time-details">
-					<view class="time-item">
-						<text class="time-label">历史平均等待</text>
-						<text class="time-desc">{{ waitlistInfo.avgWaitTime || '2.5' }}小时</text>
-					</view>
-					<view class="time-item">
-						<text class="time-label">最短等待</text>
-						<text class="time-desc">{{ waitlistInfo.minWaitTime || '0.5' }}小时</text>
-					</view>
-					<view class="time-item">
-						<text class="time-label">最长等待</text>
-						<text class="time-desc">{{ waitlistInfo.maxWaitTime || '8' }}小时</text>
-					</view>
+				<view class="detail-item">
+					<text class="detail-label">您的位置</text>
+					<text class="detail-value">{{ waitlistInfo.rank !== undefined ? (waitlistInfo.rank + 1) : '加载中' }} / {{ waitlistInfo.queueSize || 0 }}</text>
 				</view>
 			</view>
 		</view>
@@ -145,8 +107,8 @@
 </template>
 
 <script>
-// TODO: 引入API
-// import { joinWaitlist, getWaitlistInfo, cancelWaitlist } from '@/api/appointment.js'
+import { getMyWaitlist, cancelWaitlist, joinWaitlist } from '@/api/waitlist.js'
+import { searchAvailable } from '@/api/appointment.js'
 
 export default {
 	name: 'Waitlist',
@@ -154,51 +116,69 @@ export default {
 		return {
 			appointmentId: null,
 			doctorId: null,
+			scheduleId: null,
 			scheduleDate: '',
 			timeSlot: '',
 			loading: false,
 			refreshTimer: null,
-			// 硬编码的医生信息（实际应从API获取）
+			// 医生信息
 			doctorInfo: {
-				id: 1,
-				name: '张医生',
-				title: '主任医师',
-				clinicName: '消化内科'
+				id: null,
+				name: '',
+				title: '',
+				clinicName: ''
 			},
-			// 硬编码的排班信息（实际应从API获取）
+			// 排班信息
 			scheduleInfo: {
-				date: '2025-11-15',
-				timeSlot: '上午'
+				date: '',
+				timeSlot: '',
+				timeSlotDisplay: ''
 			},
-			// 硬编码的候补信息（实际应从API获取，并实时更新）
+			// 候补信息
 			waitlistInfo: {
-				queuePosition: 3, // 当前排队位次
-				totalQueue: 15, // 总排队人数
-				successRate: 85, // 预计成功率（%）
-				historyCount: 120, // 历史同类候补次数
-				successCount: 102, // 历史成功次数
-				historySuccessRate: 85, // 历史成功率（%）
-				avgWaitTime: 2.5, // 平均等待时长（小时）
-				minWaitTime: 0.5, // 最短等待时长（小时）
-				maxWaitTime: 8, // 最长等待时长（小时）
-				joinedAt: '2025-11-14 14:30:00' // 加入候补时间
+				rank: undefined,
+				queueSize: 0
 			}
 		};
 	},
 	onLoad(options) {
-		if (options.appointmentId) {
-			this.appointmentId = options.appointmentId;
+		console.log('候补页面参数:', options);
+		
+		// 检查是否已登录
+		const token = this.$store.state.user.token;
+		if (!token) {
+			uni.showToast({ title: '请先登录', icon: 'none' });
+			// 延迟跳转到登录页面
+			setTimeout(() => {
+				uni.navigateTo({ url: '/pages/login/login' });
+			}, 1000);
+			return;
 		}
+		
+		if (options.scheduleId) {
+			this.scheduleId = parseInt(options.scheduleId);
+		}
+		
 		if (options.doctorId) {
-			this.doctorId = options.doctorId;
+			this.doctorId = parseInt(options.doctorId);
 		}
+		
 		if (options.scheduleDate) {
 			this.scheduleDate = options.scheduleDate;
 			this.scheduleInfo.date = options.scheduleDate;
 		}
+		
 		if (options.timeSlot) {
 			this.timeSlot = options.timeSlot;
 			this.scheduleInfo.timeSlot = options.timeSlot;
+			
+			// 设置时间段显示文本
+			const timeSlotMap = {
+				'morning': '上午',
+				'afternoon': '下午',
+				'evening': '晚上'
+			};
+			this.scheduleInfo.timeSlotDisplay = timeSlotMap[options.timeSlot] || options.timeSlot;
 		}
 		
 		// 加载候补信息
@@ -214,24 +194,51 @@ export default {
 		}
 	},
 	methods: {
-		// TODO: 加载候补信息
+		// 加载候补信息
 		async loadWaitlistInfo() {
 			this.loading = true;
 			try {
-				// TODO: 调用API获取候补信息
-				// const data = await getWaitlistInfo(this.appointmentId || this.doctorId, {
-				// 	scheduleDate: this.scheduleDate,
-				// 	timeSlot: this.timeSlot
-				// });
-				// this.waitlistInfo = data;
+				// 获取我的候补列表
+				const waitlistData = await getMyWaitlist();
+				console.log('候补列表数据:', waitlistData);
 				
-				// 模拟API调用延迟
-				await new Promise(resolve => setTimeout(resolve, 500));
+				// 查找当前排班的候补信息
+				if (Array.isArray(waitlistData) && this.scheduleId) {
+					const currentWaitlist = waitlistData.find(item => item.scheduleId === this.scheduleId);
+					if (currentWaitlist) {
+						this.waitlistInfo.rank = currentWaitlist.rank;
+						this.waitlistInfo.queueSize = currentWaitlist.queueSize;
+					}
+				}
 				
-				// 模拟数据变化（实际应从API获取）
-				// 这里可以模拟排队位次变化
-				// this.waitlistInfo.queuePosition = Math.max(1, this.waitlistInfo.queuePosition - Math.floor(Math.random() * 2));
+				// 如果有医生ID，获取医生信息
+				if (this.doctorId) {
+					// 这里应该调用获取医生详情的API，暂时使用模拟数据
+					// 在实际应用中，应该调用API获取医生详情
+					this.doctorInfo.id = this.doctorId;
+					this.doctorInfo.name = '张医生';
+					this.doctorInfo.title = '主任医师';
+					this.doctorInfo.clinicName = '消化内科';
+				}
+				
+				// 如果没有医生信息但有排班ID，尝试通过搜索获取排班信息
+				if (!this.doctorInfo.name && this.scheduleId && this.scheduleDate) {
+					const searchData = await searchAvailable({
+						startDate: this.scheduleDate,
+						endDate: this.scheduleDate
+					});
+					
+					if (Array.isArray(searchData) && searchData.length > 0) {
+						const schedule = searchData.find(item => item.scheduleId === this.scheduleId);
+						if (schedule) {
+							this.doctorInfo.name = schedule.doctorName;
+							this.doctorInfo.title = ''; // 需要从API获取
+							this.doctorInfo.clinicName = schedule.departmentName;
+						}
+					}
+				}
 			} catch (e) {
+				console.error('加载候补信息失败:', e);
 				uni.showToast({
 					title: e.msg || '加载失败',
 					icon: 'none'
@@ -278,23 +285,30 @@ export default {
 
 		// 提交取消候补
 		async cancelWaitlist() {
+			if (!this.scheduleId) {
+				uni.showToast({
+					title: '缺少排班信息',
+					icon: 'none'
+				});
+				return;
+			}
+			
 			this.loading = true;
 			try {
-				// TODO: 调用取消候补API
-				// await cancelWaitlist(this.appointmentId || this.waitlistInfo.id);
-				
-				// 模拟API调用
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				// 调用取消候补API
+				await cancelWaitlist(this.scheduleId);
 				
 				uni.showToast({
 					title: '已取消候补',
 					icon: 'success'
 				});
 				
+				// 返回上一页
 				setTimeout(() => {
 					uni.navigateBack();
 				}, 1500);
 			} catch (e) {
+				console.error('取消候补失败:', e);
 				uni.showToast({
 					title: e.msg || '取消失败',
 					icon: 'none'
@@ -460,8 +474,8 @@ export default {
 	line-height: 1.6;
 }
 
-/* 成功率卡片 */
-.success-rate-card {
+/* 队列信息卡片 */
+.queue-size-card {
 	background: #fff;
 	margin: 0 30rpx 20rpx;
 	border-radius: 16rpx;
@@ -487,39 +501,7 @@ export default {
 	color: #333;
 }
 
-.rate-display {
-	display: flex;
-	align-items: center;
-	gap: 40rpx;
-}
-
-.rate-circle {
-	width: 160rpx;
-	height: 160rpx;
-	border-radius: 50%;
-	background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	color: #fff;
-	flex-shrink: 0;
-}
-
-.rate-value {
-	font-size: 48rpx;
-	font-weight: 700;
-	line-height: 1;
-	margin-bottom: 8rpx;
-}
-
-.rate-label {
-	font-size: 24rpx;
-	opacity: 0.9;
-}
-
-.rate-details {
-	flex: 1;
+.queue-details {
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
@@ -540,67 +522,6 @@ export default {
 	font-size: 28rpx;
 	color: #333;
 	font-weight: 600;
-}
-
-.detail-value.success {
-	color: #4caf50;
-}
-
-/* 等待时长卡片 */
-.wait-time-card {
-	background: #fff;
-	margin: 0 30rpx 20rpx;
-	border-radius: 16rpx;
-	padding: 30rpx;
-}
-
-.wait-time-content {
-	display: flex;
-	align-items: center;
-	gap: 40rpx;
-}
-
-.time-display {
-	display: flex;
-	align-items: baseline;
-	flex-shrink: 0;
-}
-
-.time-value {
-	font-size: 64rpx;
-	font-weight: 700;
-	color: #ff9800;
-	line-height: 1;
-}
-
-.time-unit {
-	font-size: 28rpx;
-	color: #ff9800;
-	margin-left: 8rpx;
-}
-
-.time-details {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-}
-
-.time-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.time-label {
-	font-size: 26rpx;
-	color: #666;
-}
-
-.time-desc {
-	font-size: 28rpx;
-	color: #333;
-	font-weight: 500;
 }
 
 /* 更新提示 */
@@ -739,5 +660,3 @@ export default {
 	font-size: 28rpx;
 }
 </style>
-
-
