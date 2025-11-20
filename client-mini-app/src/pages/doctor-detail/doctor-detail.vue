@@ -98,6 +98,10 @@
 						>
 							<text class="slot-time">{{ slot.startTime }}-{{ slot.endTime }}</text>
 							<text class="slot-status">{{ getSlotStatusText(slot) }}</text>
+							<!-- 当号源为0时显示候补按钮 -->
+							<view class="waitlist-overlay" v-if="slot.availableSlots === 0" @click.stop="joinWaitlist(slot)">
+								<button class="waitlist-btn">候补排队</button>
+							</view>
 						</view>
 					</view>
 				</view>
@@ -122,8 +126,14 @@
 					<text class="price-actual">¥{{ actualPrice }}</text>
 				</view>
 			</view>
-			<button class="appointment-btn" :disabled="!selectedSlot" @click="handleAppointment">
-				{{ selectedSlot ? '立即挂号' : '请选择时间' }}
+			<button class="appointment-btn" :disabled="!selectedSlot" @click="handleAppointment" v-if="selectedSlot && selectedSlot.availableSlots > 0">
+				立即挂号
+			</button>
+			<button class="waitlist-bottom-btn" :disabled="!selectedSlot" @click="joinWaitlist(selectedSlot)" v-else-if="selectedSlot && selectedSlot.availableSlots === 0">
+				候补排队
+			</button>
+			<button class="appointment-btn" disabled v-else>
+				请选择时间
 			</button>
 		</view>
 
@@ -136,6 +146,7 @@
 
 <script>
 import { getDoctorById, getDoctorSchedules } from '@/api/doctor.js';
+import { joinWaitlist } from '@/api/waitlist.js';
 import { promptLogin } from '@/utils/auth.js';
 
 export default {
@@ -221,7 +232,12 @@ export default {
 				const startDate = this.dateList[0].date;
 				const endDate = this.dateList[this.dateList.length - 1].date;
 				const data = await getDoctorSchedules(this.doctorId, startDate, endDate);
-				this.schedules = data;
+				// 转换数据以匹配前端期望的 'date' 和 'period' 字段
+				this.schedules = data.schedules.map(s => ({
+					...s,
+					date: s.scheduleDate, // 后端返回 scheduleDate，前端使用 date
+					period: s.timeSlot.toLowerCase() // 后端返回 timeSlot，前端使用 period
+				}));
 				this.updateDateScheduleStatus();
 			} catch (error) {
 				console.error('加载排班信息失败:', error);
@@ -280,20 +296,8 @@ export default {
 		
 		// 选择时间段
 		selectSlot(slot) {
-			if (slot.status === 'available') {
-				this.selectedSlot = slot;
-			} else if (slot.status === 'full') {
-				uni.showModal({
-					title: '提示',
-					content: '该时间段号源已满，是否加入候补队列？',
-					confirmText: '加入候补',
-					success: (res) => {
-						if (res.confirm) {
-							this.joinSubstitute(slot);
-						}
-					}
-				});
-			}
+			// 即使号源为0也可以选择，用于候补
+			this.selectedSlot = slot;
 		},
 		
 		// 获取时间段样式类
@@ -302,7 +306,7 @@ export default {
 			if (this.selectedSlot && this.selectedSlot.id === slot.id) {
 				classes.push('active');
 			}
-			if (slot.status === 'full') {
+			if (slot.availableSlots === 0) {
 				classes.push('full');
 			}
 			if (slot.status === 'unavailable') {
@@ -313,9 +317,9 @@ export default {
 		
 		// 获取时间段状态文本
 		getSlotStatusText(slot) {
-			if (slot.status === 'available') {
+			if (slot.availableSlots > 0) {
 				return `余${slot.availableSlots}`;
-			} else if (slot.status === 'full') {
+			} else if (slot.availableSlots === 0) {
 				return '约满';
 			} else {
 				return '停诊';
@@ -346,13 +350,22 @@ export default {
 		// 处理挂号
 		handleAppointment() {
 			if (!this.$store.state.user.token) {
-			promptLogin();
+				promptLogin();
 				return;
 			}
 
 			if (!this.selectedSlot) {
 				uni.showToast({
 					title: '请选择就诊时间',
+					icon: 'none'
+				});
+				return;
+			}
+			
+			// 检查号源是否充足
+			if (this.selectedSlot.availableSlots === 0) {
+				uni.showToast({
+					title: '号源已满，请选择候补',
 					icon: 'none'
 				});
 				return;
@@ -364,18 +377,64 @@ export default {
 			});
 		},
 		
-		// 加入候补
-		joinSubstitute(slot) {
-			if (!this.$store.state.user.token) {
-			promptLogin();
+		// 加入候补队列
+		async joinWaitlist(slot) {
+			if (!slot) {
+				uni.showToast({ title: '请选择号源', icon: 'none' });
 				return;
 			}
-
-			// TODO: 调用候补API
-			uni.showToast({
-				title: '候补功能开发中',
-				icon: 'none'
+			
+			// 检查是否已登录 - 修复登录检查逻辑
+			const token = this.$store.state.user.token;
+			console.log('Token:', token);
+			
+			if (!token) {
+				uni.showToast({ title: '请先登录', icon: 'none' });
+				// 延迟跳转到登录页面
+				setTimeout(() => {
+					uni.navigateTo({ url: '/pages/login/login' });
+				}, 1000);
+				return;
+			}
+			
+			uni.showModal({
+				title: '候补排队',
+				content: `确定要加入"${this.doctorInfo.name}"医生${this.formatDate(slot.date)}${this.getPeriodName(slot.period)}的候补队列吗？`,
+				confirmText: '确认加入',
+				success: async (res) => {
+					if (res.confirm) {
+						try {
+							await joinWaitlist({ scheduleId: slot.id });
+							uni.showToast({ 
+								title: '已加入候补队列', 
+								icon: 'success',
+								success: () => {
+									// 跳转到候补详情页面
+									uni.navigateTo({
+										url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${this.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
+									});
+								}
+							});
+						} catch (e) {
+							uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
+						}
+					}
+				}
 			});
+		},
+		
+		// 获取时间段名称
+		getPeriodName(period) {
+			if (period === 'morning') return '上午';
+			if (period === 'afternoon') return '下午';
+			return period;
+		},
+		
+		// 格式化日期显示
+		formatDate(dateStr) {
+			if (!dateStr) return '';
+			const date = new Date(dateStr);
+			return `${date.getMonth() + 1}月${date.getDate()}日`;
 		}
 	}
 };
@@ -636,14 +695,15 @@ export default {
 	gap: 8rpx;
 	border: 2rpx solid transparent;
 	transition: all 0.3s;
+	position: relative;
 }
 .slot-item.active {
 	background: #e3f2fd;
 	border-color: #1976d2;
 }
 .slot-item.full {
-	background: #fafafa;
-	opacity: 0.6;
+	background: #ffebee;
+	opacity: 0.8;
 }
 .slot-item.unavailable {
 	background: #fafafa;
@@ -660,6 +720,29 @@ export default {
 .slot-item.full .slot-status,
 .slot-item.unavailable .slot-status {
 	color: #999;
+}
+
+/* 候补按钮覆盖层 */
+.waitlist-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	border-radius: 12rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.waitlist-btn {
+	background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+	color: #fff;
+	border: none;
+	border-radius: 30rpx;
+	padding: 10rpx 20rpx;
+	font-size: 24rpx;
+	font-weight: 600;
 }
 
 /* 无排班 */
@@ -719,7 +802,7 @@ export default {
 	color: #ff5722;
 	font-weight: bold;
 }
-.appointment-btn {
+.appointment-btn, .waitlist-bottom-btn {
 	width: 240rpx;
 	height: 80rpx;
 	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
@@ -730,10 +813,13 @@ export default {
 	font-weight: 600;
 	box-shadow: 0 8rpx 20rpx rgba(25, 118, 210, 0.3);
 }
-.appointment-btn::after {
+.waitlist-bottom-btn {
+	background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+}
+.appointment-btn::after, .waitlist-bottom-btn::after {
 	border: none;
 }
-.appointment-btn[disabled] {
+.appointment-btn[disabled], .waitlist-bottom-btn[disabled] {
 	background: #ccc;
 	box-shadow: none;
 }
@@ -755,5 +841,3 @@ export default {
 	font-size: 28rpx;
 	color: #999;
 }
-</style>
-

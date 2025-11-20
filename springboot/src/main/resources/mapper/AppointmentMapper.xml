@@ -8,6 +8,22 @@
         select * from appointment
     </select>
 
+    <!-- 根据患者查询预约列表（包含医生信息） -->
+    <select id="selectByPatientIdWithDoctorInfo" resultType="com.example.springboot.dto.AppointmentWithDoctorDTO" parameterType="long">
+        SELECT 
+            a.*, 
+            d.name AS doctorName,
+            d.title AS doctorTitle,
+            s.schedule_date AS scheduleDate,
+            s.time_slot AS timeSlot,
+            s.slot_type AS slotType
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.patient_id = #{patientId}
+        ORDER BY a.appointment_time DESC
+    </select>
+
     <!-- 根据患者查询预约列表 -->
     <select id="selectByPatientId" resultType="com.example.springboot.entity.Appointment" parameterType="long">
         select * from appointment where patient_id = #{patientId}

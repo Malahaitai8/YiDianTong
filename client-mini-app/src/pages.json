@@ -85,6 +85,24 @@
 			"style": {
 				"navigationBarTitleText": "科室预约"
 			}
+		},
+		{
+			"path": "pages/appointment-detail/appointment-detail",
+			"style": {
+				"navigationBarTitleText": "挂号详情"
+			}
+		},
+		{
+			"path": "pages/cancel-appointment/cancel-appointment",
+			"style": {
+				"navigationBarTitleText": "退号"
+			}
+		},
+		{
+			"path": "pages/waitlist/waitlist",
+			"style": {
+				"navigationBarTitleText": "候补排队"
+			}
 		}
 	],
 	"tabBar": {

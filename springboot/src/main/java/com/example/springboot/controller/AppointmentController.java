@@ -3,8 +3,10 @@ package com.example.springboot.controller;
 
 import com.example.springboot.common.Result;
 import com.example.springboot.entity.Appointment;
+import com.example.springboot.entity.Patient;
 import com.example.springboot.entity.Schedule; // <-- [新增] 导入
 import com.example.springboot.mapper.ScheduleMapper; // <-- [新增] 导入
+import com.example.springboot.mapper.PatientMapper;
 import com.example.springboot.mapper.DoctorMapper;
 import com.example.springboot.entity.Doctor;
 import com.example.springboot.service.AppointmentService;
@@ -35,6 +37,9 @@ public class AppointmentController {
 
     @Resource
     private ScheduleMapper scheduleMapper; // <-- [新增] 注入
+
+    @Resource
+    private PatientMapper patientMapper;
 
     @Resource
     private DoctorMapper doctorMapper;
@@ -94,8 +99,14 @@ public class AppointmentController {
     public Result create(@jakarta.validation.Valid @RequestBody CreateAppointmentRequest request) { // <-- [修改] 签名
 
         // 1. 获取用户信息
-        Long patientId = SecurityUtils.getCurrentUserId();
-        // (TODO: 缺少获取 Patient 详细信息以计算报销比例)
+        Long userId = SecurityUtils.getCurrentUserId();
+        
+        // 查询 patient 表获取真正的 patientId
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("患者信息不存在，请先完善个人信息");
+        }
+        Long patientId = patient.getId();
 
         // 2. 查询排班信息 (获取 DoctorId 和 Fee)
         Schedule schedule = scheduleMapper.selectById(request.getScheduleId());
@@ -160,8 +171,15 @@ public class AppointmentController {
     @GetMapping("/me")
     @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
     public Result myAppointments() {
-        Long patientId = SecurityUtils.getCurrentUserId();
-        return Result.success(appointmentService.listByPatient(patientId));
+        // 获取 userId 并查询真正的 patientId
+        Long userId = SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("患者信息不存在");
+        }
+        Long patientId = patient.getId();
+        
+        return Result.success(appointmentService.listByPatientWithDoctorInfo(patientId));
     }
 
     @Operation(summary = "搜索可预约时段", description = "按条件搜索可预约的时间段")

@@ -24,17 +24,17 @@
 		<!-- 数据统计卡片 -->
 		<view class="stats-card">
 			<view class="stat-item" @click="goToMyAppointments">
-				<text class="stat-number">0</text>
+				<text class="stat-number">{{ appointmentCount }}</text>
 				<text class="stat-label">预约</text>
 			</view>
 			<view class="stat-divider"></view>
 			<view class="stat-item" @click="goToRecords">
-				<text class="stat-number">0</text>
+				<text class="stat-number">{{ visitCount }}</text>
 				<text class="stat-label">就诊</text>
 			</view>
 			<view class="stat-divider"></view>
 			<view class="stat-item" @click="goToSubstitute">
-				<text class="stat-number">0</text>
+				<text class="stat-number">{{ substituteCount }}</text>
 				<text class="stat-label">候补</text>
 			</view>
 		</view>
@@ -81,11 +81,15 @@
 import { promptLogin } from '@/utils/auth.js';
 import { getVerifyStatus } from '@/api/auth.js';
 import { getPatientProfile } from '@/api/patient.js';
+import { getMyAppointments } from '@/api/appointment.js';
+import { getMyWaitlist } from '@/api/waitlist.js';
 
 export default {
 	data() {
 		return {
 			isVerified: false,
+			appointmentCount: 0,
+			visitCount: 0,
 			substituteCount: 0,
 			patientInfo: {} // 患者信息（包含认证状态）
 		};
@@ -119,9 +123,10 @@ export default {
 		}
 	},
 	onShow() {
-		// 页面显示时刷新认证状态
+		// 页面显示时刷新认证状态和统计数据
 		if (this.isLoggedIn) {
 			this.loadVerifyStatus();
+			this.loadStats();
 		}
 	},
 	methods: {
@@ -151,6 +156,32 @@ export default {
 				}
 			}
 		},
+		// 加载统计数据
+		async loadStats() {
+			try {
+				// 获取预约数据
+				const appointmentData = await getMyAppointments();
+				const appointments = Array.isArray(appointmentData) ? appointmentData : ((appointmentData && appointmentData.list) ? appointmentData.list : []);
+				
+				// 计算预约数量（待就诊和已确认）
+				this.appointmentCount = appointments.filter(item => 
+					item.status === 'PENDING' || item.status === 'CONFIRMED'
+				).length;
+				
+				// 计算就诊数量（已完成）
+				this.visitCount = appointments.filter(item => 
+					item.status === 'COMPLETED'
+				).length;
+				
+				// 获取候补数据
+				const waitlistData = await getMyWaitlist();
+				const waitlists = Array.isArray(waitlistData) ? waitlistData : ((waitlistData && waitlistData.list) ? waitlistData.list : []);
+				this.substituteCount = waitlists.length;
+			} catch (error) {
+				console.error('获取统计数据失败:', error);
+				uni.showToast({ title: '获取统计数据失败', icon: 'none' });
+			}
+		},
 		goToPersonalInfo() {
 			if (!this.isLoggedIn) {
 				promptLogin();
@@ -160,23 +191,30 @@ export default {
 		},
 		goToMyAppointments() {
 			if (!this.isLoggedIn) {
-			promptLogin();
+				promptLogin();
 				return;
 			}
-			uni.showToast({ title: '我的预约功能开发中', icon: 'none' });
+			// 通过全局状态传递参数
+			getApp().globalData.recordFilter = 'appointment';
+			// 跳转到记录页面
+			uni.switchTab({ url: '/pages/records/records' });
 		},
 		goToRecords() {
 			if (!this.isLoggedIn) {
-			promptLogin();
+				promptLogin();
 				return;
 			}
-			uni.showToast({ title: '就诊记录功能开发中', icon: 'none' });
+			// 通过全局状态传递参数
+			getApp().globalData.recordFilter = 'visit';
+			// 跳转到记录页面
+			uni.switchTab({ url: '/pages/records/records' });
 		},
 		goToSubstitute() {
 			if (!this.isLoggedIn) {
-			promptLogin();
+				promptLogin();
 				return;
 			}
+			// 跳转到我的候补页面
 			uni.navigateTo({ url: '/pkg-user/my-substitute/my-substitute' });
 		},
 		goToRules() {
@@ -192,6 +230,10 @@ export default {
 				success: (res) => {
 					if (res.confirm) {
 						this.$store.dispatch('user/logout');
+						// 重置统计数据
+						this.appointmentCount = 0;
+						this.visitCount = 0;
+						this.substituteCount = 0;
 						uni.showToast({ title: '已退出', icon: 'success' });
 						setTimeout(() => {
 							uni.reLaunch({ url: '/pages/index/index' });
