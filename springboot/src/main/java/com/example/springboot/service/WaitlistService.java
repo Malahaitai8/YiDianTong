@@ -97,24 +97,48 @@ public class WaitlistService {
         }
 
         // 2. 遍历，查询每个队列中该 patientId 的排名
-        return scheduleIdObjects.stream().map(obj -> {
-                    Long scheduleId = Long.parseLong(String.valueOf(obj));
-                    String queueKey = WAITLIST_KEY_PREFIX + scheduleId;
+        return scheduleIdObjects.stream()
+                .map(obj -> {
+                    // [修复] 使用更健壮的类型转换方式，防止因意外的 Redis 数据类型导致后台线程挂起
+                    if (!(obj instanceof Number) && !(obj instanceof String)) {
+                        return null; // 如果类型不正确，则跳过
+                    }
+                    try {
+                        Long scheduleId = Long.valueOf(String.valueOf(obj));
+                        String queueKey = WAITLIST_KEY_PREFIX + scheduleId;
 
-                    // 获取我的排名 (rank 是从 0 开始的)
-                    Long rank = redisTemplate.opsForZSet().rank(queueKey, patientId);
+                        // 获取我的排名 (rank 是从 0 开始的)
+                        Long rank = redisTemplate.opsForZSet().rank(queueKey, patientId);
 
-                    // 获取总排队人数
-                    Long queueSize = redisTemplate.opsForZSet().size(queueKey);
+                        // 获取总排队人数
+                        Long queueSize = redisTemplate.opsForZSet().size(queueKey);
 
-                    // 如果排名为null (可能刚被弹出，但反向索引还未清除)，则跳过
-                    if (rank == null) {
+                        // 如果排名为null (可能刚被弹出，但反向索引还未清除)，则跳过
+                        if (rank == null) {
+                            return null;
+                        }
+
+                        return new WaitlistInfoDTO(scheduleId, rank, queueSize);
+                    } catch (NumberFormatException e) {
+                        // 如果字符串无法转换为Long，则记录错误并跳过
+                        System.err.println("Invalid scheduleId format in Redis set: " + obj);
                         return null;
                     }
-
-                    return new WaitlistInfoDTO(scheduleId, rank, queueSize);
-                }).filter(dto -> dto != null) // 过滤掉已处理的
+                })
+                .filter(dto -> dto != null) // 过滤掉转换失败或已处理的记录
                 .collect(Collectors.toList());
+    }
+
+    /** [新增] 从候补队列中移除 */
+    public void removeFromQueue(Long patientId, Long scheduleId) {
+        String queueKey = WAITLIST_KEY_PREFIX + scheduleId;
+        String patientKey = PATIENT_KEY_PREFIX + patientId;
+
+        // 1. 从 ZSET 中移除患者
+        redisTemplate.opsForZSet().remove(queueKey, patientId);
+
+        // 2. 从患者的反向索引 SET 中移除 scheduleId
+        redisTemplate.opsForSet().remove(patientKey, String.valueOf(scheduleId));
     }
 
 }

@@ -214,8 +214,10 @@ export default {
 				promptLogin();
 				return;
 			}
-			// 跳转到我的候补页面
-			uni.navigateTo({ url: '/pkg-user/my-substitute/my-substitute' });
+			// 通过全局状态传递参数
+			getApp().globalData.recordFilter = 'waitlist';
+			// 跳转到记录页面
+			uni.switchTab({ url: '/pages/records/records' });
 		},
 		goToRules() {
 			uni.showToast({ title: '规则说明功能开发中', icon: 'none' });

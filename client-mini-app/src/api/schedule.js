@@ -12,15 +12,14 @@ export function getScheduleById(id) {
 	})
 }
 
-
 /**
- * 获取排班详情（管理员接口）
- * GET /api/admin/schedules/{id}
- * @param {number} id
+ * 根据ID查询排班详细信息（包含医生、科室等信息）
+ * @param {Number} id - 排班ID
+ * @returns {Promise} 返回排班详细信息，包含医生姓名、科室名称等
  */
-export function getScheduleDetail(id) {
+export function getScheduleDetailsById(id) {
 	return request({
-		url: `/api/admin/schedules/${id}`,
+		url: `/schedule/details/${id}`,
 		method: 'GET'
 	})
 }

@@ -109,6 +109,7 @@
 <script>
 import { getMyWaitlist, cancelWaitlist, joinWaitlist } from '@/api/waitlist.js'
 import { searchAvailable } from '@/api/appointment.js'
+import { getScheduleDetailsById } from '@/api/schedule.js'
 
 export default {
 	name: 'Waitlist',
@@ -210,31 +211,36 @@ export default {
 						this.waitlistInfo.queueSize = currentWaitlist.queueSize;
 					}
 				}
-				
-				// 如果有医生ID，获取医生信息
-				if (this.doctorId) {
-					// 这里应该调用获取医生详情的API，暂时使用模拟数据
-					// 在实际应用中，应该调用API获取医生详情
-					this.doctorInfo.id = this.doctorId;
-					this.doctorInfo.name = '张医生';
-					this.doctorInfo.title = '主任医师';
-					this.doctorInfo.clinicName = '消化内科';
-				}
-				
-				// 如果没有医生信息但有排班ID，尝试通过搜索获取排班信息
-				if (!this.doctorInfo.name && this.scheduleId && this.scheduleDate) {
-					const searchData = await searchAvailable({
-						startDate: this.scheduleDate,
-						endDate: this.scheduleDate
-					});
-					
-					if (Array.isArray(searchData) && searchData.length > 0) {
-						const schedule = searchData.find(item => item.scheduleId === this.scheduleId);
-						if (schedule) {
-							this.doctorInfo.name = schedule.doctorName;
-							this.doctorInfo.title = ''; // 需要从API获取
-							this.doctorInfo.clinicName = schedule.departmentName;
+
+				// 通过排班ID获取详细信息（包含医生、科室等）
+				if (this.scheduleId) {
+					try {
+						const scheduleDetails = await getScheduleDetailsById(this.scheduleId);
+						console.log('排班详细信息:', scheduleDetails);
+
+						if (scheduleDetails) {
+							// 设置医生信息
+							this.doctorInfo.id = scheduleDetails.doctorId;
+							this.doctorInfo.name = scheduleDetails.doctorName || '未知医生';
+							this.doctorInfo.title = ''; // 排班信息中没有职称，需要时可以额外查询
+							this.doctorInfo.clinicName = scheduleDetails.departmentName || '未知科室';
+
+							// 设置排班信息
+							this.scheduleInfo.date = this.formatDate(scheduleDetails.scheduleDate);
+							this.scheduleInfo.timeSlot = scheduleDetails.timeSlot;
+
+							// 设置时间段显示文本
+							const timeSlotMap = {
+								'morning': '上午',
+								'afternoon': '下午',
+								'evening': '晚上'
+							};
+							const lowerCaseTimeSlot = scheduleDetails.timeSlot ? scheduleDetails.timeSlot.toLowerCase() : '';
+							this.scheduleInfo.timeSlotDisplay = timeSlotMap[lowerCaseTimeSlot] || scheduleDetails.timeSlot;
 						}
+					} catch (e) {
+						console.error('获取排班详细信息失败:', e);
+						// 如果获取失败，保留原有的参数信息
 					}
 				}
 			} catch (e) {
@@ -292,17 +298,17 @@ export default {
 				});
 				return;
 			}
-			
+
 			this.loading = true;
 			try {
 				// 调用取消候补API
 				await cancelWaitlist(this.scheduleId);
-				
+
 				uni.showToast({
 					title: '已取消候补',
 					icon: 'success'
 				});
-				
+
 				// 返回上一页
 				setTimeout(() => {
 					uni.navigateBack();
@@ -316,6 +322,16 @@ export default {
 			} finally {
 				this.loading = false;
 			}
+		},
+
+		// 格式化日期
+		formatDate(dateStr) {
+			if (!dateStr) return '';
+			const date = new Date(dateStr);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
 		}
 	}
 };

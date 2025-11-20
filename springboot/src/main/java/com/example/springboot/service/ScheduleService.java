@@ -238,6 +238,17 @@ public class ScheduleService {
     }
 
     /**
+     * 根据ID查询排班详细信息（包含医生、科室等信息）
+     */
+    public ScheduleWithDetailsDTO getScheduleByIdWithDetails(Long id) {
+        ScheduleWithDetailsDTO schedule = scheduleMapper.selectByIdWithDetails(id);
+        if (schedule == null) {
+            throw new RuntimeException("排班不存在");
+        }
+        return schedule;
+    }
+
+    /**
      * 条件查询排班（分页）
      */
     public Map<String, Object> querySchedules(ScheduleQueryRequest request) {

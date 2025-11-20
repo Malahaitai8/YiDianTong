@@ -66,66 +66,29 @@ export function getDoctorSchedules(doctorId, startDate, endDate) {
             endDate
         }
     }).then(data => {
-        // 兼容不同返回包裹结构
-        // data 为 Result.success 返回的 data 字段，这里是一个对象，包含 schedules 数组
-        const rawList = Array.isArray(data)
-            ? data
-            : (data && (data.schedules || data.list || data.records || data.rows || data.items || data.data)) || [];
+        // 后端返回的数据结构是 { schedules: [], total: x }
+        const rawList = (data && data.schedules) || [];
 
-        // 前端过滤：只返回指定医生的排班
-        if (!rawList || !Array.isArray(rawList)) return [];
-        // 先做宽容映射，兼容后端不同字段命名
-        const mapped = rawList.map((raw) => {
-            // id 相关
-            const rawDoctorId = raw.doctorId ?? raw.doctorID ?? raw.doctor_id ?? raw.doctorid ?? (raw.doctor && (raw.doctor.id ?? raw.doctor.doctorId)) ?? doctorId;
-            // 日期相关
-            const rawDate = raw.scheduleDate ?? raw.date ?? raw.schedule_date ?? raw.scheduleDay ?? raw.day ?? raw.dateStr;
-            // 时段相关
-            const rawTimeSlot = raw.timeSlot ?? raw.period ?? raw.slot ?? raw.time_slot ?? raw.periodCn ?? raw.timePeriod;
-            // 号源相关
-            const totalSlots = raw.totalSlots ?? raw.total_slots ?? raw.total ?? raw.totalNum ?? raw.totalCount ?? 0;
-            const availableSlots = raw.availableSlots ?? raw.available_slots ?? raw.remaining ?? raw.left ?? raw.rest ?? raw.remainNumber ?? raw.remain ?? 0;
-            const startTime = raw.startTime ?? raw.start_time ?? raw.beginTime ?? getDefaultStartTime(rawTimeSlot);
-            const endTime = raw.endTime ?? raw.end_time ?? raw.finishTime ?? getDefaultEndTime(rawTimeSlot);
-            const normalizedDate = formatToYMD(rawDate);
-            const period = normalizePeriod(rawTimeSlot);
-            // 若后端已提供状态，做一次兜底映射
-            let status = raw.status;
-            if (!status) {
-                status = getScheduleStatus({ availableSlots });
-            } else {
-                const s = String(status).toLowerCase();
-                if (['available', '可约', '有号', '正常', 'open', 'opening'].includes(s)) status = 'available';
-                else if (['full', '约满', '无号', '满', 'soldout'].includes(s)) status = 'full';
-                else status = 'unavailable';
-            }
-            return {
-                id: raw.id,
-                doctorId: rawDoctorId,
-                date: normalizedDate,
-                period,
-                startTime,
-                endTime,
-                status,
-                totalSlots,
-                availableSlots
-            };
-        }).filter(item => !!item.date);
-
-        let filtered = mapped.filter(schedule => Number(schedule.doctorId ?? doctorId) === Number(doctorId));
-        
-        // 如果指定了日期范围，进一步过滤
-        if (startDate || endDate) {
-            filtered = filtered.filter(schedule => {
-                if (!schedule.date) return false;
-                const scheduleDate = new Date(schedule.date).getTime();
-                if (startDate && scheduleDate < new Date(startDate).getTime()) return false;
-                if (endDate && scheduleDate > new Date(endDate).getTime()) return false;
-                return true;
-            });
+        if (!Array.isArray(rawList)) {
+            console.error("Schedules data is not an array:", rawList);
+            return [];
         }
 
-        return filtered;
+        // 将后端返回的字段映射到前端需要的字段
+        return rawList.map(schedule => {
+            const availableSlots = schedule.availableSlots || 0;
+            return {
+                id: schedule.id,
+                doctorId: doctorId, // 后端返回的列表中没有doctorId，直接使用传入的
+                date: formatToYMD(schedule.scheduleDate), // scheduleDate -> date
+                period: normalizePeriod(schedule.timeSlot), // timeSlot -> period
+                startTime: getDefaultStartTime(schedule.timeSlot),
+                endTime: getDefaultEndTime(schedule.timeSlot),
+                status: getScheduleStatus({ availableSlots }),
+                totalSlots: schedule.totalSlots || 0,
+                availableSlots: availableSlots
+            };
+        });
     });
 }
 

@@ -206,15 +206,14 @@ export default {
 			this.dateList = dates;
 			this.selectedDate = dates[0].date;
 		},
-		
+
 		// 加载医生信息
 		async loadDoctorInfo() {
 			this.loading = true;
 			try {
 				const data = await getDoctorById(this.doctorId);
 				this.doctorInfo = data;
-				// 加载排班信息
-				await this.loadSchedules();
+				await this.loadSchedules(); // 加载完医生信息后加载排班
 			} catch (error) {
 				console.error('加载医生信息失败:', error);
 				uni.showToast({
@@ -225,26 +224,21 @@ export default {
 				this.loading = false;
 			}
 		},
-		
+
 		// 加载排班信息
 		async loadSchedules() {
 			try {
 				const startDate = this.dateList[0].date;
 				const endDate = this.dateList[this.dateList.length - 1].date;
 				const data = await getDoctorSchedules(this.doctorId, startDate, endDate);
-				// 转换数据以匹配前端期望的 'date' 和 'period' 字段
-				this.schedules = data.schedules.map(s => ({
-					...s,
-					date: s.scheduleDate, // 后端返回 scheduleDate，前端使用 date
-					period: s.timeSlot.toLowerCase() // 后端返回 timeSlot，前端使用 period
-				}));
+				this.schedules = data;
 				this.updateDateScheduleStatus();
 			} catch (error) {
 				console.error('加载排班信息失败:', error);
 			}
 		},
-		
-		// 更新日期坐诊标记
+
+		// 更新日期栏的坐诊状态
 		updateDateScheduleStatus() {
 			const dateMap = new Map();
 			this.schedules.forEach(schedule => {
@@ -261,46 +255,43 @@ export default {
 				hasSchedule: dateMap.get(item.date) || false
 			}));
 
+			// 如果当前选中日期无排班，则自动切换到第一个有排班的日期
 			const currentSelected = this.dateList.find(item => item.date === this.selectedDate);
 			if (!currentSelected || !currentSelected.hasSchedule) {
 				const firstAvailable = this.dateList.find(item => item.hasSchedule);
 				if (firstAvailable) {
 					this.selectedDate = firstAvailable.date;
 				}
-				this.selectedSlot = null;
+				this.selectedSlot = null; // 重置时间段选择
 			}
 		},
-		
+
 		// 选择日期
 		selectDate(item) {
 			if (!item.hasSchedule) {
-				uni.showToast({
-					title: '该日期医生未坐诊',
-					icon: 'none'
-				});
+				uni.showToast({ title: '该日期医生未坐诊', icon: 'none' });
 				return;
 			}
 			if (this.selectedDate === item.date) {
-				return;
+				return; // 如果点击的是当前已选中的日期，则不执行任何操作
 			}
 			this.selectedDate = item.date;
-			this.selectedSlot = null;
+			this.selectedSlot = null; // 切换日期时清空已选时间段
 		},
-		
-		// 获取指定时段的号源
+
+		// 根据时段（上午/下午）获取号源
 		getSlotsByPeriod(period) {
 			return this.schedules.filter(schedule => {
 				return schedule.date === this.selectedDate && schedule.period === period;
 			});
 		},
-		
+
 		// 选择时间段
 		selectSlot(slot) {
-			// 即使号源为0也可以选择，用于候补
 			this.selectedSlot = slot;
 		},
-		
-		// 获取时间段样式类
+
+		// 获取时间段的样式
 		getSlotClass(slot) {
 			const classes = [];
 			if (this.selectedSlot && this.selectedSlot.id === slot.id) {
@@ -314,7 +305,7 @@ export default {
 			}
 			return classes.join(' ');
 		},
-		
+
 		// 获取时间段状态文本
 		getSlotStatusText(slot) {
 			if (slot.availableSlots > 0) {
@@ -325,15 +316,15 @@ export default {
 				return '停诊';
 			}
 		},
-		
-		// 获取职称样式类
+
+		// 获取职称样式
 		getTitleClass(title) {
 			if (title === '主任医师') return 'senior';
 			if (title === '副主任医师') return 'associate';
 			return '';
 		},
-		
-		// 获取挂号费（根据职称）
+
+		// 获取挂号费
 		getRegistrationFee() {
 			if (!this.doctorInfo.title) return 0;
 			if (this.doctorInfo.title === '主任医师') return 50;
@@ -341,62 +332,46 @@ export default {
 			if (this.doctorInfo.title === '主治医师') return 20;
 			return 15;
 		},
-		
-		// 计算满意度（暂时返回95，后续可从后端获取）
+
+		// 计算满意度（临时）
 		calculateSatisfaction() {
-			return this.doctorInfo.satisfactionRate || 95;
+			return this.doctorInfo.satisfactionRate || 95; // 默认95%
 		},
-		
+
 		// 处理挂号
 		handleAppointment() {
 			if (!this.$store.state.user.token) {
 				promptLogin();
 				return;
 			}
-
 			if (!this.selectedSlot) {
-				uni.showToast({
-					title: '请选择就诊时间',
-					icon: 'none'
-				});
+				uni.showToast({ title: '请选择就诊时间', icon: 'none' });
 				return;
 			}
-			
-			// 检查号源是否充足
 			if (this.selectedSlot.availableSlots === 0) {
-				uni.showToast({
-					title: '号源已满，请选择候补',
-					icon: 'none'
-				});
+				uni.showToast({ title: '号源已满，请选择候补', icon: 'none' });
 				return;
 			}
-
-			// 跳转到挂号确认页面
 			uni.navigateTo({
 				url: `/pkg-order/order-confirm/order-confirm?doctorId=${this.doctorId}&scheduleId=${this.selectedSlot.id}`
 			});
 		},
-		
-		// 加入候补队列
+
+		// 加入候补
 		async joinWaitlist(slot) {
 			if (!slot) {
 				uni.showToast({ title: '请选择号源', icon: 'none' });
 				return;
 			}
-			
-			// 检查是否已登录 - 修复登录检查逻辑
 			const token = this.$store.state.user.token;
 			console.log('Token:', token);
-			
 			if (!token) {
 				uni.showToast({ title: '请先登录', icon: 'none' });
-				// 延迟跳转到登录页面
 				setTimeout(() => {
 					uni.navigateTo({ url: '/pages/login/login' });
 				}, 1000);
 				return;
 			}
-			
 			uni.showModal({
 				title: '候补排队',
 				content: `确定要加入"${this.doctorInfo.name}"医生${this.formatDate(slot.date)}${this.getPeriodName(slot.period)}的候补队列吗？`,
@@ -405,11 +380,10 @@ export default {
 					if (res.confirm) {
 						try {
 							await joinWaitlist({ scheduleId: slot.id });
-							uni.showToast({ 
-								title: '已加入候补队列', 
+							uni.showToast({
+								title: '已加入候补队列',
 								icon: 'success',
 								success: () => {
-									// 跳转到候补详情页面
 									uni.navigateTo({
 										url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${this.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
 									});
@@ -422,36 +396,35 @@ export default {
 				}
 			});
 		},
-		
-		// 获取时间段名称
+
+		// 获取时段名称
 		getPeriodName(period) {
 			if (period === 'morning') return '上午';
 			if (period === 'afternoon') return '下午';
 			return period;
 		},
-		
-		// 格式化日期显示
+
+		// 格式化日期
 		formatDate(dateStr) {
 			if (!dateStr) return '';
 			const date = new Date(dateStr);
 			return `${date.getMonth() + 1}月${date.getDate()}日`;
-		}
-	}
-};
-</script>
+		}}};</script>
 
 <style scoped>
 .doctor-detail-page {
 	min-height: 100vh;
-	background: #f5f7fa;
-	padding-bottom: 160rpx;
+	background-color: #f7f8fa; /* 使用更柔和的背景色 */
+	padding: 20rpx 0 180rpx; /* 增加上下和底部安全距离 */
 }
 
 /* 医生信息卡片 */
 .doctor-info-card {
-	background: #fff;
+	background: #ffffff;
+	margin: 0 30rpx 20rpx; /* 左右留边距 */
+	border-radius: 20rpx; /* 增加圆角 */
 	padding: 40rpx 30rpx;
-	margin-bottom: 20rpx;
+	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.05); /* 添加柔和阴影 */
 }
 .doctor-header {
 	display: flex;
@@ -464,18 +437,18 @@ export default {
 .doctor-avatar-large {
 	width: 120rpx;
 	height: 120rpx;
-	background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
+	background: linear-gradient(135deg, #5c9eff 0%, #3a7afe 100%); /* 更新渐变色 */
 	border-radius: 60rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	box-shadow: 0 8rpx 20rpx rgba(30, 136, 229, 0.3);
+	box-shadow: 0 8rpx 20rpx rgba(58, 122, 254, 0.35); /* 匹配新颜色的阴影 */
 }
 .avatar-text {
 	font-size: 50rpx;
 	color: #fff;
-	font-weight: bold;
+	font-weight: 700;
 }
 .doctor-basic {
 	flex: 1;
@@ -489,16 +462,17 @@ export default {
 	gap: 15rpx;
 }
 .doctor-name {
-	font-size: 36rpx;
-	color: #333;
+	font-size: 40rpx; /* 加大字号 */
+	color: #1f2329; /* 加深颜色 */
 	font-weight: 600;
 }
 .doctor-title {
 	font-size: 22rpx;
-	color: #1976d2;
-	background: #e3f2fd;
+	color: #3a7afe;
+	background: #eef3ff;
 	padding: 6rpx 16rpx;
 	border-radius: 12rpx;
+	font-weight: 500; /* 增加一点字重 */
 }
 .doctor-title.senior {
 	color: #d32f2f;
@@ -509,13 +483,16 @@ export default {
 	background: #fff3e0;
 }
 .doctor-department {
-	font-size: 26rpx;
-	color: #666;
+	font-size: 28rpx; /* 统一字号 */
+	color: #6c757d; /* 使用更柔和的灰色 */
 }
 
 /* 擅长领域 */
 .doctor-specialty {
 	margin-bottom: 30rpx;
+	padding: 25rpx;
+	background-color: #f7f8fa; /* 浅灰色背景 */
+	border-radius: 15rpx;
 }
 .specialty-header {
 	display: flex;
@@ -543,6 +520,7 @@ export default {
 	display: flex;
 	justify-content: space-around;
 	padding: 20rpx 0;
+	margin-top: 10rpx; /* 与上方内容增加间距 */
 }
 .stat-item {
 	display: flex;
@@ -551,9 +529,9 @@ export default {
 	gap: 10rpx;
 }
 .stat-value {
-	font-size: 36rpx;
-	color: #1976d2;
-	font-weight: bold;
+	font-size: 38rpx; /* 加大字号 */
+	color: #1f2329; /* 加深颜色 */
+	font-weight: 700;
 }
 .stat-label {
 	font-size: 24rpx;
@@ -562,31 +540,36 @@ export default {
 .stat-divider {
 	width: 1rpx;
 	background: #e0e0e0;
+	align-self: stretch; /* 让分割线撑满高度 */
 }
 
 /* 医保提示 */
 .insurance-tip {
-	background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+	background: #eef3ff;
 	margin: 0 30rpx 20rpx;
 	padding: 20rpx 30rpx;
 	border-radius: 15rpx;
 	display: flex;
 	align-items: center;
 	gap: 15rpx;
+	border: 1rpx solid #dbeaff;
 }
 .tip-icon {
 	font-size: 32rpx;
 }
 .tip-text {
 	font-size: 26rpx;
-	color: #f57c00;
-	font-weight: 600;
+	color: #3a7afe;
+	font-weight: 500;
 }
 
 /* 排班信息 */
 .schedule-section {
-	background: #fff;
+	background: #ffffff;
+	margin: 0 30rpx;
+	border-radius: 20rpx;
 	padding: 30rpx;
+	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.05);
 }
 .section-header {
 	margin-bottom: 25rpx;
@@ -610,7 +593,8 @@ export default {
 .date-item {
 	width: 140rpx;
 	padding: 20rpx 0;
-	background: #f5f7fa;
+	background: #f7f8fa;
+	border: 1rpx solid #e5e6e7;
 	border-radius: 15rpx;
 	display: inline-flex;
 	flex-direction: column;
@@ -620,32 +604,33 @@ export default {
 	transition: all 0.3s;
 }
 .date-item.active {
-	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+	background: linear-gradient(135deg, #5c9eff 0%, #3a7afe 100%);
+	border-color: transparent;
 }
 .date-item.disabled {
-	background: #eeeeee;
-	opacity: 0.7;
+	background: #f2f3f5;
+	opacity: 0.6;
 }
 .date-week {
 	font-size: 24rpx;
-	color: #666;
+	color: #6c757d;
 }
 .date-item.active .date-week {
 	color: rgba(255, 255, 255, 0.9);
 }
 .date-item.disabled .date-week {
-	color: #999;
+	color: #b0b3b8;
 }
 .date-day {
 	font-size: 28rpx;
-	color: #333;
+	color: #1f2329;
 	font-weight: 600;
 }
 .date-item.active .date-day {
 	color: #fff;
 }
 .date-item.disabled .date-day {
-	color: #999;
+	color: #b0b3b8;
 }
 .date-status {
 	font-size: 20rpx;
@@ -655,7 +640,7 @@ export default {
 	color: rgba(255, 255, 255, 0.9);
 }
 .date-status.disabled {
-	color: #999;
+	color: #b0b3b8;
 }
 
 /* 时间段 */
@@ -675,8 +660,8 @@ export default {
 	font-size: 28rpx;
 }
 .period-name {
-	font-size: 26rpx;
-	color: #666;
+	font-size: 28rpx; /* 加大字号 */
+	color: #1f2329;
 	font-weight: 600;
 }
 .slot-list {
@@ -686,27 +671,27 @@ export default {
 }
 .slot-item {
 	height: 100rpx;
-	background: #f5f7fa;
+	background: #f7f8fa;
+	border: 1rpx solid #e5e6e7;
 	border-radius: 12rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	gap: 8rpx;
-	border: 2rpx solid transparent;
 	transition: all 0.3s;
 	position: relative;
 }
 .slot-item.active {
-	background: #e3f2fd;
-	border-color: #1976d2;
+	background: #eef3ff;
+	border-color: #3a7afe;
 }
 .slot-item.full {
-	background: #ffebee;
+	background: #f2f3f5;
 	opacity: 0.8;
 }
 .slot-item.unavailable {
-	background: #fafafa;
+	background: #f2f3f5;
 	opacity: 0.4;
 }
 .slot-time {
@@ -719,7 +704,7 @@ export default {
 }
 .slot-item.full .slot-status,
 .slot-item.unavailable .slot-status {
-	color: #999;
+	color: #b0b3b8;
 }
 
 /* 候补按钮覆盖层 */
@@ -729,7 +714,7 @@ export default {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.6);
+	background: rgba(255, 255, 255, 0.5); /* 使用半透明白色遮罩 */
 	border-radius: 12rpx;
 	display: flex;
 	align-items: center;
@@ -743,6 +728,9 @@ export default {
 	padding: 10rpx 20rpx;
 	font-size: 24rpx;
 	font-weight: 600;
+	/* 移除uni-app按钮默认样式 */
+	line-height: 1.5;
+	margin: 0;
 }
 
 /* 无排班 */
@@ -769,9 +757,10 @@ export default {
 	bottom: 0;
 	left: 0;
 	right: 0;
-	background: #fff;
-	padding: 20rpx 30rpx;
-	box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
+	background: #ffffff;
+	padding: 20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom)); /* 适配iPhone X等机型 */
+	border-top: 1rpx solid #f0f0f0;
+	box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.05);
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
@@ -798,30 +787,35 @@ export default {
 	text-decoration: line-through;
 }
 .price-actual {
-	font-size: 36rpx;
+	font-size: 38rpx; /* 加大字号 */
 	color: #ff5722;
-	font-weight: bold;
+	font-weight: 700;
 }
-.appointment-btn, .waitlist-bottom-btn {
-	width: 240rpx;
-	height: 80rpx;
-	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+.appointment-btn,
+.waitlist-bottom-btn {
+	width: 280rpx; /* 增加宽度 */
+	height: 88rpx; /* 增加高度 */
+	background: linear-gradient(135deg, #5c9eff 0%, #3a7afe 100%);
 	color: #fff;
 	border: none;
-	border-radius: 40rpx;
-	font-size: 28rpx;
+	border-radius: 44rpx;
+	font-size: 30rpx;
 	font-weight: 600;
-	box-shadow: 0 8rpx 20rpx rgba(25, 118, 210, 0.3);
+	box-shadow: 0 8rpx 20rpx rgba(58, 122, 254, 0.35);
 }
 .waitlist-bottom-btn {
 	background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+	box-shadow: 0 8rpx 20rpx rgba(255, 152, 0, 0.35);
 }
-.appointment-btn::after, .waitlist-bottom-btn::after {
+.appointment-btn::after,
+.waitlist-bottom-btn::after {
 	border: none;
 }
-.appointment-btn[disabled], .waitlist-bottom-btn[disabled] {
+.appointment-btn[disabled],
+.waitlist-bottom-btn[disabled] {
 	background: #ccc;
 	box-shadow: none;
+	opacity: 0.8;
 }
 
 /* 加载遮罩 */
@@ -841,3 +835,4 @@ export default {
 	font-size: 28rpx;
 	color: #999;
 }
+</style>

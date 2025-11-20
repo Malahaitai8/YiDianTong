@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 // [删除] import org.springframework.web.bind.annotation.PutMapping; // 未使用
-// [删除] import org.springframework.web.bind.annotation.DeleteMapping; // 未使用
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List; // <-- [新增] 导入
@@ -72,5 +72,15 @@ public class WaitlistController {
             return Result.error("队列为空");
         }
         return Result.success(patientId);
+    }
+
+    /** [新增] 退出候补队列 */
+    @Operation(summary = "退出候补队列", description = "患者主动退出候补队列")
+    @DeleteMapping("/{scheduleId}")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result cancel(@PathVariable Long scheduleId) {
+        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        waitlistService.removeFromQueue(patientId, scheduleId);
+        return Result.success("退出成功");
     }
 }
