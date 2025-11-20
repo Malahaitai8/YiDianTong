@@ -10,8 +10,8 @@
 
     <!-- 根据患者查询预约列表（包含医生信息） -->
     <select id="selectByPatientIdWithDoctorInfo" resultType="com.example.springboot.dto.AppointmentWithDoctorDTO" parameterType="long">
-        SELECT 
-            a.*, 
+        SELECT
+            a.*,
             d.name AS doctorName,
             d.title AS doctorTitle,
             s.schedule_date AS scheduleDate,
@@ -61,7 +61,7 @@
 
     <!-- 根据主键更新预约信息 -->
     <update id="updateById" parameterType="com.example.springboot.entity.Appointment">
-        update appointment 
+        update appointment
         set patient_id = #{patientId},
             doctor_id = #{doctorId},
             schedule_id = #{scheduleId},
@@ -88,6 +88,50 @@
         where patient_id = #{patientId}
           and schedule_id = #{scheduleId}
           and status != 'CANCELLED'
+    </select>
+
+
+    <!-- 医生端：查询当日预约患者清单（含患者与排班信息） -->
+    <select id="selectTodayPatientsByDoctor" resultType="com.example.springboot.dto.DoctorPatientDTO">
+        SELECT
+            a.id AS appointmentId,
+            p.id AS patientId,
+            p.name AS patientName,
+            p.phone_number AS phoneNumber,
+            p.id_card_number AS idCardNumber,
+            p.specific_role AS specificRole,
+            a.appointment_time AS appointmentTime,
+            a.status AS status,
+            CASE a.status
+                WHEN 'PENDING' THEN '待就诊'
+                WHEN 'CONFIRMED' THEN '已确认'
+                WHEN 'COMPLETED' THEN '已完成'
+                WHEN 'CANCELLED' THEN '已取消'
+                ELSE a.status
+            END AS statusName,
+            a.fee AS fee,
+            a.actual_fee AS actualFee,
+            a.source_type AS sourceType,
+            a.created_at AS createdAt,
+            s.id AS scheduleId,
+            s.schedule_date AS scheduleDate,
+            s.time_slot AS timeSlot,
+            CASE s.time_slot
+                WHEN 'morning' THEN '上午'
+                WHEN 'afternoon' THEN '下午'
+                WHEN 'evening' THEN '晚上'
+                ELSE s.time_slot
+            END AS timeSlotName
+        FROM appointment a
+        JOIN patient p ON a.patient_id = p.id
+        JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.doctor_id = #{doctorId}
+          AND s.schedule_date = DATE(#{date})
+          AND a.status != 'CANCELLED'
+        <if test="timeSlot != null and timeSlot != ''">
+          AND s.time_slot = #{timeSlot}
+        </if>
+        ORDER BY a.appointment_time ASC
     </select>
 
 </mapper>
