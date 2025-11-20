@@ -48,10 +48,10 @@ public class DoctorController {
 
     @Resource
     private DoctorMapper doctorMapper;
-    
+
     @Resource
     private ApplicationRequestService applicationRequestService;
-    
+
     @Resource
     private UserMapper userMapper;
 
@@ -183,15 +183,15 @@ public class DoctorController {
     @GetMapping("/my-schedules")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMySchedules(
-            @Parameter(description = "开始日期（格式：yyyy-MM-dd）") 
+            @Parameter(description = "开始日期（格式：yyyy-MM-dd）")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
-            
-            @Parameter(description = "结束日期（格式：yyyy-MM-dd）") 
+
+            @Parameter(description = "结束日期（格式：yyyy-MM-dd）")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
-            
-            @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING）") 
+
+            @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING）")
             @RequestParam(required = false) String timeSlot) {
-        
+
         try {
             // 获取当前医生ID
             Long userId = SecurityUtils.getCurrentUserId();
@@ -199,12 +199,12 @@ public class DoctorController {
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             // 查询排班
             Map<String, Object> result = doctorService.getMySchedules(
                 doctor.getId(), startDate, endDate, timeSlot
             );
-            
+
             return Result.success(result);
         } catch (Exception e) {
             return Result.error("查询失败: " + e.getMessage());
@@ -226,18 +226,18 @@ public class DoctorController {
     @GetMapping("/my-patients")
     @PreAuthorize("hasRole('DOCTOR')")
     public Result getMyPatients(
-            @Parameter(description = "日期（格式：yyyy-MM-dd），不传则查询所有") 
+            @Parameter(description = "日期（格式：yyyy-MM-dd），不传则查询所有")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date,
-            
-            @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING）") 
+
+            @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING）")
             @RequestParam(required = false) String timeSlot,
-            
-            @Parameter(description = "预约状态（PENDING/CONFIRMED/COMPLETED/CANCELLED）") 
+
+            @Parameter(description = "预约状态（PENDING/CONFIRMED/COMPLETED/CANCELLED）")
             @RequestParam(required = false) String status,
-            
-            @Parameter(description = "患者姓名（模糊搜索）") 
+
+            @Parameter(description = "患者姓名（模糊搜索）")
             @RequestParam(required = false) String patientName) {
-        
+
         try {
             // 获取当前医生ID
             Long userId = SecurityUtils.getCurrentUserId();
@@ -245,17 +245,47 @@ public class DoctorController {
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             // 查询患者列表
             Map<String, Object> result = doctorService.getMyPatients(
                 doctor.getId(), date, timeSlot, status, patientName
             );
-            
+
             return Result.success(result);
         } catch (Exception e) {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 医生端：当日预约患者信息
+     * GET /doctor/today-patients
+     */
+    @Operation(summary = "当日预约患者列表", description = "医生查看自己当日的预约患者，可选按时间段筛选")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功",
+                content = @Content(mediaType = "application/json",
+                        schema = @Schema(implementation = Result.class))),
+        @ApiResponse(responseCode = "401", description = "未认证"),
+        @ApiResponse(responseCode = "403", description = "无权限")
+    })
+    @GetMapping("/today-patients")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public Result getTodayPatients(
+            @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING 或 上午/下午/晚上）")
+            @RequestParam(required = false) String timeSlot) {
+        try {
+            Long userId = SecurityUtils.getCurrentUserId();
+            Doctor doctor = doctorMapper.selectByUserId(userId);
+            if (doctor == null) {
+                return Result.error("当前用户不是医生");
+            }
+            return Result.success(doctorService.getTodayPatients(doctor.getId(), timeSlot));
+        } catch (Exception e) {
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
+
 
     /**
      * 医生个人Dashboard
@@ -279,10 +309,10 @@ public class DoctorController {
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             // 获取Dashboard数据
             Map<String, Object> dashboard = doctorService.getDoctorDashboard(doctor.getId());
-            
+
             return Result.success(dashboard);
         } catch (Exception e) {
             return Result.error("查询失败: " + e.getMessage());
@@ -297,7 +327,7 @@ public class DoctorController {
      * - 支持按日期范围与时间段筛选
      * - 返回字段与医生端“我的排班”一致，便于前端复用
      */
-    @Operation(summary = "医生坐诊时间（患者端）", 
+    @Operation(summary = "医生坐诊时间（患者端）",
                description = "患者在医生详情页查看该医生的坐诊安排；支持按日期范围与时间段筛选。\n"
                            + "注意：\n"
                            + "1) 未传 startDate/endDate 时，默认从“今天”起的未来 30 天；\n"
@@ -313,15 +343,15 @@ public class DoctorController {
         @ApiResponse(responseCode = "404", description = "医生不存在")
     })
     @GetMapping("/{id}/schedules")
-    @PreAuthorize("permitAll()") // 前端医生详情页需要匿名可访问
+    @PreAuthorize("isAuthenticated()") // 需登录后可查看（仅GET查看权限）
     public Result getDoctorSchedulesForPatient(
             @Parameter(description = "医生ID", required = true, example = "123") @PathVariable Long id,
             @Parameter(description = "开始日期（格式：yyyy-MM-dd），默认今天", example = "2025-11-01")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "结束日期（格式：yyyy-MM-dd），默认 startDate 起未来30天", example = "2025-11-30")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
-            @Parameter(description = "时间段；兼容 MORNING/AFTERNOON/EVENING 与 上午/下午/晚上", 
-                       schema = @Schema(allowableValues = {"MORNING","AFTERNOON","EVENING","上午","下午","晚上"}), 
+            @Parameter(description = "时间段；兼容 MORNING/AFTERNOON/EVENING 与 上午/下午/晚上",
+                       schema = @Schema(allowableValues = {"MORNING","AFTERNOON","EVENING","上午","下午","晚上"}),
                        example = "MORNING")
             @RequestParam(required = false) String timeSlot) {
         try {
@@ -337,14 +367,14 @@ public class DoctorController {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
-    
+
     // ==================== 个人信息修改申请 ====================
-    
+
     /**
      * 医生提交个人信息修改申请
      * POST /doctor/apply-info-update
      */
-    @Operation(summary = "提交个人信息修改申请", 
+    @Operation(summary = "提交个人信息修改申请",
                description = "医生提交修改个人信息的申请，需要管理员审核通过后才会生效")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "提交成功",
@@ -373,13 +403,13 @@ public class DoctorController {
             if (user == null) {
                 return Result.error("用户不存在");
             }
-            
+
             // 获取当前医生
             Doctor doctor = doctorMapper.selectByUserId(user.getId());
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             // 构建申请DTO
             CreateApplicationRequestDTO dto = new CreateApplicationRequestDTO();
             dto.setRequestType("INFO_UPDATE");
@@ -387,24 +417,24 @@ public class DoctorController {
             dto.setFieldName(request.getFieldName());
             dto.setNewValue(request.getNewValue());
             dto.setReason(request.getReason());
-            
+
             // 创建申请
             ApplicationRequestDetailDTO application = applicationRequestService.createRequest(
                     dto, user.getId(), user.getRole());
-            
+
             return Result.success(application);
         } catch (Exception e) {
             return Result.error("提交失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 前端兼容：提交医生信息变更（支持多字段一次提交）
      * 前端调用路径：POST /api/doctor/change-request
      * 注意：本控制器类级路径为 /doctor，因此此处方法路径定义为 /change-request，
      * 若服务全局 context-path 为 /api，则完整路径为 /api/doctor/change-request。
      */
-    @Operation(summary = "提交医生信息变更（前端兼容）", 
+    @Operation(summary = "提交医生信息变更（前端兼容）",
                description = "接受前端的 name/title/specialization/bio/clinicId/reason，批量创建信息更新申请")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "提交成功",
@@ -432,19 +462,19 @@ public class DoctorController {
             if (user == null) {
                 return Result.error("用户不存在");
             }
-            
+
             // 获取当前医生
             Doctor doctor = doctorMapper.selectByUserId(user.getId());
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             // 处理理由，允许为空则给默认
             String reason = trimToNull(request.getReason());
             if (reason == null) {
                 reason = "医生端提交信息更新";
             }
-            
+
             // 收集前端可提交字段并做映射
             java.util.LinkedHashMap<String, String> fields = new java.util.LinkedHashMap<>();
             if (request.getName() != null) {
@@ -461,28 +491,28 @@ public class DoctorController {
                 fields.put("bio", request.getBio().trim());
             }
             // clinicId 为前端字段，这里忽略不创建申请
-            
+
             if (fields.isEmpty()) {
                 return Result.error("未检测到可提交的变更字段");
             }
-            
+
             java.util.List<ApplicationRequestDetailDTO> created = new java.util.ArrayList<>();
             for (java.util.Map.Entry<String, String> entry : fields.entrySet()) {
                 String fieldName = entry.getKey();
                 String newValue = entry.getValue();
-                
+
                 CreateApplicationRequestDTO dto = new CreateApplicationRequestDTO();
                 dto.setRequestType("INFO_UPDATE");
                 dto.setDoctorId(doctor.getId());
                 dto.setFieldName(fieldName);
                 dto.setNewValue(newValue);
                 dto.setReason(reason);
-                
+
                 ApplicationRequestDetailDTO detail = applicationRequestService.createRequest(
                         dto, user.getId(), user.getRole());
                 created.add(detail);
             }
-            
+
             java.util.HashMap<String, Object> resp = new java.util.HashMap<>();
             resp.put("createdCount", created.size());
             resp.put("items", created);
@@ -491,7 +521,7 @@ public class DoctorController {
             return Result.error("提交失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 医生查看自己的信息修改申请
      * GET /doctor/my-info-applications
@@ -514,22 +544,22 @@ public class DoctorController {
             if (user == null) {
                 return Result.error("用户不存在");
             }
-            
+
             // 查询该用户提交的所有申请
-            List<ApplicationRequestDetailDTO> applications = 
+            List<ApplicationRequestDetailDTO> applications =
                     applicationRequestService.getRequestsByApplicant(user.getId());
-            
+
             // 只返回信息修改类的申请
             List<ApplicationRequestDetailDTO> infoApplications = applications.stream()
                     .filter(app -> "INFO_UPDATE".equals(app.getRequestType()))
                     .toList();
-            
+
             return Result.success(infoApplications);
         } catch (Exception e) {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 医生查看个人信息
      * GET /doctor/my-info
@@ -552,70 +582,70 @@ public class DoctorController {
             if (doctor == null) {
                 return Result.error("当前用户不是医生");
             }
-            
+
             return Result.success(doctor);
         } catch (Exception e) {
             return Result.error("查询失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 内部类：医生信息修改申请请求体
      */
     public static class DoctorInfoUpdateRequest {
         @Schema(description = "要修改的字段名（name/title/specialty/bio）", example = "title", requiredMode = Schema.RequiredMode.REQUIRED)
         private String fieldName;
-        
+
         @Schema(description = "新值", example = "主任医师", requiredMode = Schema.RequiredMode.REQUIRED)
         private String newValue;
-        
+
         @Schema(description = "修改理由", example = "职称升级", requiredMode = Schema.RequiredMode.REQUIRED)
         private String reason;
-        
+
         public String getFieldName() {
             return fieldName;
         }
-        
+
         public void setFieldName(String fieldName) {
             this.fieldName = fieldName;
         }
-        
+
         public String getNewValue() {
             return newValue;
         }
-        
+
         public void setNewValue(String newValue) {
             this.newValue = newValue;
         }
-        
+
         public String getReason() {
             return reason;
         }
-        
+
         public void setReason(String reason) {
             this.reason = reason;
         }
     }
-    
+
     /**
      * 前端兼容请求体
      */
     public static class FrontendDoctorChangeRequest {
         @Schema(description = "新的姓名", example = "张三")
         private String name;
-        
+
         @Schema(description = "新的职称", example = "副主任医师")
         private String title;
-        
+
         @Schema(description = "新的专业方向（前端字段名 specialization）", example = "心内科")
         private String specialization;
-        
+
         @Schema(description = "新的个人简介", example = "从业10年以上，擅长心血管疾病诊治")
         private String bio;
-        
+
         @Schema(description = "所属门诊ID（忽略）", example = "123")
         private String clinicId;
-        
+
         @Schema(description = "修改理由（可选）", example = "完善信息")
         private String reason;
 
@@ -658,11 +688,11 @@ public class DoctorController {
         public void setClinicId(String clinicId) {
             this.clinicId = clinicId;
         }
-        
+
         public String getReason() {
             return reason;
         }
-        
+
         public void setReason(String reason) {
             this.reason = reason;
         }

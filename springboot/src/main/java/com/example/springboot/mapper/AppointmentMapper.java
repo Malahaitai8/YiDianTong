@@ -2,7 +2,9 @@ package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.dto.AppointmentWithDoctorDTO;
+import com.example.springboot.dto.DoctorPatientDTO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -41,4 +43,9 @@ public interface AppointmentMapper {
 
     /** 判断是否已对同一排班预约（不含已取消） */
     int existsByPatientAndSchedule(Long patientId, Long scheduleId);
+
+    /** 医生端：查询当日预约患者清单（含患者与排班信息） */
+    List<DoctorPatientDTO> selectTodayPatientsByDoctor(@Param("doctorId") Long doctorId,
+                                                       @Param("date") java.util.Date date,
+                                                       @Param("timeSlot") String timeSlot);
 }
