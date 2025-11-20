@@ -2,6 +2,7 @@ package com.example.springboot.controller;
 
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.ScheduleDTO;
+import com.example.springboot.dto.ScheduleWithDetailsDTO;
 import com.example.springboot.entity.Schedule;
 import com.example.springboot.service.ScheduleService;
 import jakarta.annotation.Resource;
@@ -35,6 +36,13 @@ public class ScheduleController {
     @GetMapping("/selectById/{id}")
     public Result getScheduleById(@PathVariable Long id) {
         Schedule schedule = scheduleService.getScheduleById(id);
+        return Result.success(schedule);
+    }
+
+    @Operation(summary = "根据ID查询排班详细信息（含医生科室）", description = "返回指定ID的排班详细信息，包含医生姓名、科室名称等")
+    @GetMapping("/details/{id}")
+    public Result getScheduleDetailsById(@PathVariable Long id) {
+        ScheduleWithDetailsDTO schedule = scheduleService.getScheduleByIdWithDetails(id);
         return Result.success(schedule);
     }
 }

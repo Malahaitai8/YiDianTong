@@ -5,9 +5,10 @@
       <template #header>
         <div class="card-header">
           <span>个人信息</span>
-          <el-button type="primary" size="small" @click="refreshProfile">
-            刷新信息
-          </el-button>
+          <div class="header-actions">
+            <el-button type="primary" size="small" @click="refreshProfile">刷新信息</el-button>
+            <el-button type="warning" size="small" @click="openApplyDialog">修改信息</el-button>
+          </div>
         </div>
       </template>
 
@@ -56,8 +57,8 @@
             </el-col>
             <el-col :span="12">
               <div class="info-item">
-                <label class="info-label">用户ID：</label>
-                <span class="info-value">{{ doctorInfo.userId || '未知' }}</span>
+                <label class="info-label">医生ID：</label>
+                <span class="info-value">{{ doctorInfo.id || '未知' }}</span>
               </div>
             </el-col>
           </el-row>
@@ -85,33 +86,62 @@
       </div>
     </el-card>
 
-    <!-- 统计信息卡片 -->
-    <el-card class="stats-card" shadow="never">
-      <template #header>
-        <span>工作统计</span>
+    <el-dialog v-model="applyDialogVisible" title="提交信息修改申请" width="600px">
+      <el-form ref="applyFormRef" :model="applyForm" :rules="applyRules" label-width="120px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="字段" prop="fieldName">
+              <el-select v-model="applyForm.fieldName" placeholder="请选择要修改的字段" style="width: 100%">
+                <el-option label="姓名" value="name" />
+                <el-option label="职称" value="title" />
+                <el-option label="擅长领域" value="specialty" />
+                <el-option label="个人简介" value="bio" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="新值" prop="newValue">
+              <el-input v-model="applyForm.newValue" placeholder="请输入新的值" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="申请原因" prop="reason">
+              <el-input v-model="applyForm.reason" type="textarea" :rows="3" placeholder="可选，填写申请原因" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeApplyDialog">取消</el-button>
+        <el-button type="primary" :loading="applySubmitting" @click="submitApply">提交申请</el-button>
       </template>
-      
-      <el-row :gutter="20">
-        <el-col :span="8">
-          <div class="stat-item">
-            <div class="stat-number">{{ workStats.totalPatients }}</div>
-            <div class="stat-label">累计患者</div>
-          </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="stat-item">
-            <div class="stat-number">{{ workStats.monthlyPatients }}</div>
-            <div class="stat-label">本月患者</div>
-          </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="stat-item">
-            <div class="stat-number">{{ workStats.todayPatients }}</div>
-            <div class="stat-label">今日患者</div>
-          </div>
-        </el-col>
-      </el-row>
+    </el-dialog>
+
+    <!-- 我的申请记录 -->
+    <el-card class="applications-card" shadow="never">
+      <template #header>
+        <span>我的信息修改申请</span>
+      </template>
+      <el-table :data="applications" style="width: 100%">
+        <el-table-column prop="fieldName" label="字段" width="120" />
+        <el-table-column prop="oldValue" label="原值" min-width="150" />
+        <el-table-column prop="newValue" label="新值" min-width="150" />
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="reason" label="原因" min-width="200" />
+        <el-table-column prop="createdAt" label="提交时间" width="180" />
+      </el-table>
+      <div v-if="applications.length === 0" class="empty-state">
+        <el-empty description="暂无申请记录" />
+      </div>
     </el-card>
+
+    
   </div>
 </template>
 
@@ -120,44 +150,21 @@ import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { getMyInfo, applyDoctorInfoUpdate, getMyInfoApplications } from '@/api/doctor'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const doctorInfo = ref(null)
 
-// 工作统计数据（模拟数据，实际应该从API获取）
-const workStats = reactive({
-  totalPatients: 0,
-  monthlyPatients: 0,
-  todayPatients: 0
-})
-
 // 获取医生详细信息
 const loadDoctorProfile = async () => {
   try {
     loading.value = true
-    
-    // 获取当前登录用户的userId
-    const currentUserId = userStore.user?.userId
-    if (!currentUserId) {
-      ElMessage.error('无法获取用户信息，请重新登录')
-      return
-    }
-
-    // 调用获取所有医生信息的API
-    const response = await request.get('/doctor/selectAll')
-    
-    // request实例已经处理了响应结构，直接使用response.data
-    const allDoctors = response.data
-    
-    // 在前端过滤出当前用户的医生信息
-    const currentDoctor = allDoctors.find(doctor => doctor.userId === currentUserId)
-    
-    if (currentDoctor) {
-      // 获取科室信息：doctor -> clinic -> department
-      await loadDepartmentInfo(currentDoctor)
-      doctorInfo.value = currentDoctor
-      ElMessage.success('医生信息加载成功')
+    const res = await getMyInfo()
+    const info = res?.data || null
+    if (info) {
+      await loadDepartmentInfo(info)
+      doctorInfo.value = info
     } else {
       ElMessage.warning('未找到对应的医生信息，请联系管理员')
       doctorInfo.value = null
@@ -205,26 +212,86 @@ const loadDepartmentInfo = async (doctor) => {
 // 刷新个人信息
 const refreshProfile = () => {
   loadDoctorProfile()
+  loadMyApplications()
 }
 
-// 加载工作统计（模拟数据）
-const loadWorkStats = () => {
-  // 这里应该调用实际的API获取统计数据
-  workStats.totalPatients = 156
-  workStats.monthlyPatients = 28
-  workStats.todayPatients = 5
-}
 
 onMounted(() => {
   loadDoctorProfile()
-  loadWorkStats()
+  loadMyApplications()
 })
+
+// 申请表单
+const applyFormRef = ref()
+const applySubmitting = ref(false)
+const applyForm = reactive({ fieldName: '', newValue: '', reason: '' })
+const applyRules = {
+  fieldName: [{ required: true, message: '请选择字段', trigger: 'change' }],
+  newValue: [{ required: true, message: '请输入新值', trigger: 'blur' }]
+}
+const resetApplyForm = () => {
+  applyForm.fieldName = ''
+  applyForm.newValue = ''
+  applyForm.reason = ''
+}
+const submitApply = async () => {
+  if (!applyFormRef.value) return
+  try {
+    const valid = await applyFormRef.value.validate()
+    if (!valid) return
+    applySubmitting.value = true
+    await applyDoctorInfoUpdate({
+      fieldName: applyForm.fieldName,
+      newValue: applyForm.newValue,
+      reason: applyForm.reason || undefined
+    })
+    ElMessage.success('申请已提交，请等待管理员审核')
+    resetApplyForm()
+    await loadMyApplications()
+    closeApplyDialog()
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.msg || '提交申请失败')
+  } finally {
+    applySubmitting.value = false
+  }
+}
+
+// 我的申请列表
+const applications = ref([])
+const loadMyApplications = async () => {
+  try {
+    const res = await getMyInfoApplications()
+    const list = Array.isArray(res?.data) ? res.data : []
+    applications.value = list
+  } catch (e) {
+    applications.value = []
+  }
+}
+
+const statusText = (s) => {
+  const m = { PENDING: '待审核', APPROVED: '已批准', REJECTED: '已拒绝', CANCELLED: '已取消' }
+  return m[s] || s
+}
+const statusTagType = (s) => {
+  const m = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'danger', CANCELLED: 'info' }
+  return m[s] || 'info'
+}
+
+const applyDialogVisible = ref(false)
+const openApplyDialog = () => {
+  resetApplyForm()
+  applyDialogVisible.value = true
+}
+const closeApplyDialog = () => {
+  applyDialogVisible.value = false
+}
 </script>
 
 <style scoped>
 .doctor-profile {
   padding: 0;
 }
+.applications-card { margin-bottom: 20px; }
 
 .profile-card {
   margin-bottom: 20px;
@@ -234,6 +301,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .loading-container {
@@ -334,27 +407,7 @@ onMounted(() => {
   text-align: center;
 }
 
-.stats-card {
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 20px 0;
-}
-
-.stat-number {
-  font-size: 32px;
-  font-weight: 600;
-  color: #409EFF;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-}
+ 
 
 /* 响应式设计 */
 @media (max-width: 768px) {

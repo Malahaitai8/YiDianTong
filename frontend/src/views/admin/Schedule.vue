@@ -155,10 +155,6 @@
               <el-icon><Plus /></el-icon>
               新增排班
             </el-button>
-            <el-button type="success" @click="showBatchCreateDialog" style="width: 100%">
-              <el-icon><DocumentAdd /></el-icon>
-              批量排班
-            </el-button>
             <el-button 
               type="warning" 
               @click="exportSchedules" 
@@ -200,6 +196,16 @@
               </div>
             </div>
           </template>
+          <div class="calendar-legend">
+            <div class="legend-group">
+              <div class="legend-chip expert"><span class="chip-left"></span><span class="chip-text">专家</span></div>
+              <div class="legend-chip vip"><span class="chip-left"></span><span class="chip-text">特需</span></div>
+            </div>
+            <div class="legend-group right">
+              <div class="legend-item"><span class="legend-dot morning"></span><span class="legend-text">上午</span></div>
+              <div class="legend-item"><span class="legend-dot afternoon"></span><span class="legend-text">下午</span></div>
+            </div>
+          </div>
 
           <!-- 周视图 -->
           <div v-if="calendarMode === 'week'" class="calendar-grid-view">
@@ -233,12 +239,15 @@
                       @click.stop="handleScheduleClick(schedule)"
                     >
                           <div class="badge-top">
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                             <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
                             <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
                             <span v-else class="badge-label badge-normal">普通</span>
-                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                           </div>
-                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                          <div class="slots-actions">
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                          </div>
                     </div>
                         <div 
                           v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
@@ -258,12 +267,15 @@
                       @click.stop="handleScheduleClick(schedule)"
                     >
                           <div class="badge-top">
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                             <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
                             <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
                             <span v-else class="badge-label badge-normal">普通</span>
-                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                           </div>
-                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                          <div class="slots-actions">
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                          </div>
                     </div>
                         <div 
                           v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
@@ -318,12 +330,15 @@
                           @click.stop="handleScheduleClick(schedule)"
                         >
                           <div class="badge-top">
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                             <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
                             <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
                             <span v-else class="badge-label badge-normal">普通</span>
-                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                           </div>
-                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                          <div class="slots-actions">
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                          </div>
                     </div>
                         <div 
                           v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
@@ -343,12 +358,15 @@
                           @click.stop="handleScheduleClick(schedule)"
                         >
                           <div class="badge-top">
+                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                             <span v-if="schedule.slotType === 'expert'" class="badge-label badge-expert">专家</span>
                             <span v-else-if="schedule.slotType === 'vip'" class="badge-label badge-vip">特需</span>
                             <span v-else class="badge-label badge-normal">普通</span>
-                            <span class="doctor-name">{{ schedule.doctorName || '未知医生' }}</span>
                           </div>
-                          <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                          <div class="slots-actions">
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                          </div>
                 </div>
                         <div 
                           v-if="getGroupedSchedulesForDate(date.dateStr)[timeSlot].length > 5"
@@ -397,6 +415,7 @@
             <div class="schedule-item-info">
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
               <span>剩余：{{ schedule.availableSlots || 0 }}</span>
+              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
             </div>
           </div>
         </div>
@@ -476,8 +495,11 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="210" fixed="right">
               <template #default="scope">
+                <el-button type="success" size="small" @click="openAddSlotsDialog(scope.row)">
+                  加号
+                </el-button>
                 <el-button type="primary" size="small" @click="handleEdit(scope.row)">
                   编辑
                 </el-button>
@@ -551,6 +573,7 @@
             v-model="formData.totalSlots" 
             :min="isEdit ? Math.max(1, editBookedCount) : 1" 
             :max="100" 
+            :disabled="isEdit"
             style="width: 100%" 
           />
         </el-form-item>
@@ -573,6 +596,47 @@
           @click="handleDelete(formData)"
         >删除</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 加号对话框 -->
+    <el-dialog
+      v-model="addSlotsDialog.visible"
+      title="加号"
+      width="500px"
+      @close="resetAddSlotsForm"
+    >
+      <el-form :model="addSlotsForm" :rules="addSlotsRules" ref="addSlotsFormRef" label-width="120px">
+        <el-form-item label="排班信息">
+          <div style="color:#606266;">
+            日期：{{ formatDate(addSlotsDialog.schedule?.scheduleDate) }}
+            ，时间段：{{ getTimeSlotText(addSlotsDialog.schedule?.timeSlot) }}
+            ，号别：{{ getSlotTypeText(addSlotsDialog.schedule?.slotType) }}
+          </div>
+        </el-form-item>
+        <el-form-item label="增加号源" prop="slotsToAdd">
+          <el-input-number v-model="addSlotsForm.slotsToAdd" :min="1" :max="50" />
+        </el-form-item>
+        <el-form-item label="加号原因" prop="reason">
+          <el-input v-model="addSlotsForm.reason" placeholder="可选，填写加号原因" />
+        </el-form-item>
+        <div class="add-slots-tip-card">
+          <div class="tip-header">
+            <el-icon><WarningFilled /></el-icon>
+            <span class="tip-title">注意事项</span>
+          </div>
+          <ol class="tip-list">
+            <li>此操作不可逆</li>
+            <li>单次最多增加 50 个号源</li>
+            <li>建议填写加号原因便于后续追溯</li>
+          </ol>
+        </div>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="addSlotsDialog.visible = false">取消</el-button>
+          <el-button type="primary" :loading="addSlotsDialog.loading" @click="submitAddSlots">提交</el-button>
+        </span>
       </template>
     </el-dialog>
 
@@ -658,7 +722,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
-  ArrowLeft, ArrowRight, Download 
+  ArrowLeft, ArrowRight, Download, WarningFilled 
 } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
 import { 
@@ -668,7 +732,8 @@ import {
   deleteSchedule, 
   batchCreateSchedule,
   batchDeleteSchedule,
-  getSchedulesByDoctorId 
+  getSchedulesByDoctorId,
+  addScheduleSlots
 } from '@/api/schedule'
 import { getDoctorList } from '@/api/doctor'
 import { getDepartmentList } from '@/api/department'
@@ -691,6 +756,7 @@ const dialogVisible = ref(false)
 const batchDialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
+const addSlotsFormRef = ref(null)
 const batchFormRef = ref(null)
 
 // 视图状态
@@ -724,6 +790,30 @@ const formData = reactive({
   totalSlots: 20,
   availableSlots: 20
 })
+
+const addSlotsDialog = reactive({
+  visible: false,
+  loading: false,
+  schedule: null
+})
+
+const addSlotsForm = reactive({
+  slotsToAdd: 1,
+  reason: ''
+})
+
+const addSlotsAlertDesc = '此操作不可逆\n单次最多增加 50 个号源\n建议填写加号原因便于后续追溯'
+
+const addSlotsRules = {
+  slotsToAdd: [
+    { required: true, message: '请输入要增加的号源数量', trigger: 'change' },
+    { validator: (_rule, value, callback) => {
+        if (typeof value !== 'number' || value < 1) return callback(new Error('增加的号源数量至少为1'))
+        if (value > 50) return callback(new Error('单次增加的号源数量不能超过50'))
+        callback()
+      }, trigger: 'change' }
+  ]
+}
 
 // 记录编辑模式下的已预约数量（保持不变）
 const editBookedCount = ref(0)
@@ -1109,6 +1199,54 @@ const loadClinicList = async () => {
   } catch (error) {
     ElMessage.error('获取门诊列表失败')
     console.error('获取门诊列表失败:', error)
+  }
+}
+
+const openAddSlotsDialog = (row) => {
+  addSlotsDialog.schedule = row
+  addSlotsForm.slotsToAdd = 1
+  addSlotsForm.reason = ''
+  addSlotsDialog.visible = true
+}
+
+const resetAddSlotsForm = () => {
+  if (addSlotsFormRef.value) {
+    addSlotsFormRef.value.clearValidate()
+  }
+  addSlotsForm.slotsToAdd = 1
+  addSlotsForm.reason = ''
+}
+
+const submitAddSlots = async () => {
+  try {
+    if (addSlotsFormRef.value) {
+      const valid = await addSlotsFormRef.value.validate()
+      if (!valid) return
+    }
+    const n = Number(addSlotsForm.slotsToAdd)
+    if (!Number.isInteger(n) || n < 1 || n > 50) {
+      ElMessage.error('增加的号源数量必须在 1-50 之间')
+      return
+    }
+    await ElMessageBox.confirm('此操作不可逆，确认增加号源吗？', '提示', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    addSlotsDialog.loading = true
+    const id = addSlotsDialog.schedule?.id
+    await addScheduleSlots(id, {
+      slotsToAdd: addSlotsForm.slotsToAdd,
+      reason: addSlotsForm.reason || undefined
+    })
+    ElMessage.success('加号成功')
+    addSlotsDialog.visible = false
+    await loadScheduleList()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.msg || '加号失败')
+    console.error('加号失败:', error)
+  } finally {
+    addSlotsDialog.loading = false
   }
 }
 
@@ -1924,6 +2062,24 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+}
+.legend-group { display:flex; align-items:center; gap:12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; color: #606266; font-size: 12px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.morning { background: #409eff; }
+.legend-dot.afternoon { background: #67c23a; }
+.legend-text { line-height: 1; }
+.legend-chip { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; background:#ffffff; border:1px solid #ebeef5; }
+.legend-chip .chip-left { width:6px; height:18px; border-radius:3px; }
+.legend-chip.expert .chip-left { background:#e6a23c; }
+.legend-chip.vip .chip-left { background:#f56c6c; }
+.legend-chip .chip-text { font-size:12px; color:#606266; }
+
   .filter-content {
     flex: 1;
     padding: 0 20px 20px 20px;
@@ -2338,7 +2494,7 @@ onMounted(async () => {
 }
 
 .schedule-badge {
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
@@ -2352,12 +2508,15 @@ onMounted(async () => {
   flex-direction: column;
   gap: 2px;
   line-height: 1.3;
-  margin-bottom: 4px;
+  margin: 0 auto 4px auto;
+  width: calc(100% - 12px);
   border-left: 3px solid transparent;
+  text-align: left;
 }
 
 .schedule-badge .doctor-name {
-  font-weight: 500;
+  font-weight: 600;
+  color: #ffffff;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2365,6 +2524,63 @@ onMounted(async () => {
 .schedule-badge .slots-info {
   font-size: 11px;
   opacity: 0.9;
+}
+
+.slots-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* 徽章悬停时显示加号按钮 */
+.schedule-badge .add-slots-btn { display: none; }
+.schedule-badge:hover .add-slots-btn { display: inline-flex; }
+
+/* 缩小加号按钮尺寸以减少视觉占用 */
+.add-slots-btn {
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+/* 让 Alert 描述支持换行 */
+::v-deep(.el-alert__description) {
+  white-space: pre-line;
+}
+
+/* 加号弹窗提示卡片样式 */
+.add-slots-tip-card {
+  background: #fff7e6;
+  border: 1px solid #faad14;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #a76a1d;
+}
+.add-slots-tip-card .tip-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-weight: 600;
+  color: #d48806;
+  margin-bottom: 8px;
+}
+.add-slots-tip-card .tip-header .el-icon {
+  margin-right: 6px;
+}
+.add-slots-tip-card .tip-title {
+  font-size: 14px;
+}
+.add-slots-tip-card .tip-list {
+  margin: 0;
+  padding-left: 20px;
+  text-align: left;
+  font-size: 12px;
+}
+.add-slots-tip-card .tip-list li {
+  line-height: 1.8;
 }
 
 .schedule-badge:hover {
@@ -2390,18 +2606,20 @@ onMounted(async () => {
 
 .badge-top {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .badge-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   padding: 0 6px;
   border-radius: 10px;
-  line-height: 18px;
+  line-height: 16px;
   background: rgba(255, 255, 255, 0.9);
 }
+.badge-top .doctor-name { margin-top: 2px; }
 .badge-expert {
   color: #a76a1d;
   border: 1px solid #e6a23c;

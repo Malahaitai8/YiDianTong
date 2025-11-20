@@ -241,37 +241,26 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <!-- 患者列表 -->
-        <div class="patients-section">
-          <h4>预约患者列表</h4>
+        <!-- 患者列表 - 仅当天的排班显示今日预约 -->
+        <div v-if="isTodaySchedule" class="patients-section">
+          <div class="patients-header">
+            <h4>今日预约</h4>
+          </div>
           <el-table
             :data="selectedSchedule.patients || []"
             style="width: 100%"
             max-height="300"
           >
-            <el-table-column prop="name" label="患者姓名" width="120" />
-            <el-table-column prop="phone" label="联系电话" width="120" />
-            <el-table-column prop="appointmentTime" label="预约时间" width="100" />
-            <el-table-column prop="status" label="状态" width="80">
+            <el-table-column prop="name" label="患者姓名" min-width="150" />
+            <el-table-column prop="phone" label="联系电话" min-width="150" />
+            <el-table-column prop="status" label="状态" min-width="120" align="center">
               <template #default="scope">
                 <el-tag
                   :type="getPatientStatusType(scope.row.status)"
                   size="small"
                 >
-                  {{ scope.row.status }}
+                  {{ getAppointmentStatusText(scope.row.status) }}
                 </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="120">
-              <template #default="scope">
-                <el-button
-                  v-if="scope.row.status === '待就诊'"
-                  type="primary"
-                  size="small"
-                  @click="startConsultation(scope.row)"
-                >
-                  开始就诊
-                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -287,10 +276,10 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
-import { formatDate } from '@/utils'
+import { formatDate, getTodayString } from '@/utils'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
-import { getMySchedules, getMyInfo } from '@/api/doctor'
+import { getMySchedules, getMyInfo, getTodayPatients } from '@/api/doctor'
 
 // 视图模式
 const viewMode = ref('week') // 'day' 或 'week'
@@ -299,6 +288,10 @@ const selectedDate = ref(new Date())
 const selectedMonth = ref(new Date())
 const scheduleDialogVisible = ref(false)
 const selectedSchedule = ref(null)
+const dialogTimeSlotFilter = ref('')
+const dialogMorningCount = ref(0)
+const dialogAfternoonCount = ref(0)
+const dialogEveningCount = ref(0)
 // 顶部筛选栏模型
 const filterStartDate = ref(null) // Date
 const filterEndDate = ref(null)   // Date
@@ -320,6 +313,15 @@ const clinicName = computed(() => {
   const info = myDoctorInfo.value
   // 兼容不同字段结构：优先 clinic.name，其次 clinicName
   return (info?.clinic?.name) || (info?.clinicName) || '未设置门诊'
+})
+
+// 判断选中的排班是否是今天的
+const isTodaySchedule = computed(() => {
+  if (!selectedSchedule.value) return false
+  const scheduleDate = typeof selectedSchedule.value.scheduleDate === 'string' 
+    ? selectedSchedule.value.scheduleDate 
+    : formatDate(new Date(selectedSchedule.value.scheduleDate))
+  return scheduleDate === getTodayString()
 })
 
 // 所有时间段
@@ -538,6 +540,7 @@ const handleDaySlotClick = (date, timeSlot) => {
     selectedSchedule.value = schedule
     scheduleDialogVisible.value = true
     // 加载患者列表
+    dialogTimeSlotFilter.value = normalizeSlot(schedule.timeSlot)
     loadPatientsForSchedule(schedule.id)
   }
 }
@@ -545,70 +548,78 @@ const handleDaySlotClick = (date, timeSlot) => {
 // 加载指定排班的患者列表
 const loadPatientsForSchedule = async (scheduleId) => {
   try {
-    // 注意：这里需要一个新的API接口来获取指定排班的患者列表
-    // 建议的API: GET /appointment/schedule/{scheduleId}
-    // 返回该排班下的所有预约患者信息
+    // 使用时间段过滤器（点击排班卡片时会自动设置为对应时间段，用户也可以手动切换）
+    const timeSlotFilter = dialogTimeSlotFilter.value || undefined
     
-    // 暂时使用模拟数据
-    const mockPatients = [
-      { 
-        id: 1, 
-        name: '张三', 
-        phone: '138****1234', 
-        appointmentTime: '08:30', 
-        status: '已完成',
-        patientId: 101
-      },
-      { 
-        id: 2, 
-        name: '李四', 
-        phone: '139****5678', 
-        appointmentTime: '09:00', 
-        status: '待就诊',
-        patientId: 102
-      },
-      { 
-        id: 3, 
-        name: '王五', 
-        phone: '137****9012', 
-        appointmentTime: '09:30', 
-        status: '待就诊',
-        patientId: 103
-      }
-    ]
+    // 如果是当天的排班，使用 today-patients 接口
+    const params = { timeSlot: timeSlotFilter }
+    const resp = await getTodayPatients(params)
+    const rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
+    dialogMorningCount.value = Number(resp?.data?.morningCount || 0)
+    dialogAfternoonCount.value = Number(resp?.data?.afternoonCount || 0)
+    dialogEveningCount.value = Number(resp?.data?.eveningCount || 0)
+    
+    // 根据选中的排班和时间段过滤器进行过滤
+    const filtered = rawList.filter(item => {
+      // 优先使用 scheduleId 匹配
+      if (item.scheduleId) return item.scheduleId === scheduleId
+      
+      // 按日期与时间段匹配
+      const dateMatch = !!selectedSchedule.value?.scheduleDate && (item.scheduleDate === selectedSchedule.value.scheduleDate)
+      // 如果设置了时间段过滤器，则必须匹配时间段；否则显示所有时间段
+      const slotMatch = timeSlotFilter 
+        ? (normalizeSlot(item.timeSlot) === normalizeSlot(timeSlotFilter))
+        : true
+      return dateMatch && slotMatch
+    })
     
     if (selectedSchedule.value) {
-      selectedSchedule.value.patients = mockPatients
+      selectedSchedule.value.patients = filtered.map(item => {
+        // 确保状态始终转换为中文
+        const statusValue = item.status || ''
+        const chineseStatus = getAppointmentStatusText(statusValue)
+        
+        return {
+          id: item.appointmentId,
+          name: item.patientName,
+          phone: item.phoneNumber,
+          appointmentTime: item.appointmentTime ? String(item.appointmentTime).split(' ')[1] : '',
+          status: chineseStatus, // 存储转换后的中文状态
+          originalStatus: statusValue, // 保留原始状态用于其他逻辑
+          patientId: item.patientId
+        }
+      })
     }
-    
-    // TODO: 实际的API调用应该是这样的：
-    // const response = await request.get(`/appointment/schedule/${scheduleId}`)
-    // if (response.data) {
-    //   selectedSchedule.value.patients = response.data.map(appointment => ({
-    //     id: appointment.id,
-    //     name: appointment.patientName,
-    //     phone: appointment.patientPhone,
-    //     appointmentTime: formatTime(appointment.appointmentTime),
-    //     status: getAppointmentStatusText(appointment.status),
-    //     patientId: appointment.patientId
-    //   }))
-    // }
-    
   } catch (error) {
     console.error('加载患者列表失败:', error)
     ElMessage.error('加载患者列表失败')
   }
 }
 
-// 获取预约状态文本
+// 获取预约状态文本（将英文状态转换为中文）
 const getAppointmentStatusText = (status) => {
+  if (!status) return ''
+  
+  // 如果已经是中文，直接返回
+  const chineseStatuses = ['待就诊', '已完成', '已取消', '未到诊', '就诊中', '已确认']
+  if (chineseStatuses.includes(status)) {
+    return status
+  }
+  
+  // 将英文状态转换为中文
   const statusMap = {
     'PENDING': '待就诊',
     'COMPLETED': '已完成',
     'CANCELLED': '已取消',
-    'NO_SHOW': '未到诊'
+    'NO_SHOW': '未到诊',
+    'CONFIRMED': '已确认',
+    'IN_PROGRESS': '就诊中',
+    'SCHEDULED': '待就诊'
   }
-  return statusMap[status] || status
+  
+  // 转换为大写进行匹配（不区分大小写）
+  const upperStatus = String(status).toUpperCase()
+  return statusMap[upperStatus] || status
 }
 
 // 格式化时间
@@ -669,12 +680,26 @@ const getScheduleStatusType = (status) => {
 }
 
 const getPatientStatusType = (status) => {
-  const statusMap = {
+  if (!status) return 'info'
+  
+  // 支持中文状态
+  const chineseStatusMap = {
     '待就诊': 'warning',
     '已完成': 'success',
-    '已取消': 'danger'
+    '已取消': 'danger',
+    '未到诊': 'info',
+    '就诊中': 'primary',
+    '已确认': 'success'
   }
-  return statusMap[status] || 'info'
+  
+  // 如果已经是中文，直接返回
+  if (chineseStatusMap[status]) {
+    return chineseStatusMap[status]
+  }
+  
+  // 如果是英文状态，先转换为中文再判断
+  const chineseStatus = getAppointmentStatusText(status)
+  return chineseStatusMap[chineseStatus] || 'info'
 }
 
 // 视图切换处理方法
@@ -798,6 +823,8 @@ const handleMonthCellClick = (fullDate) => {
   if (preferred) {
     selectedSchedule.value = preferred
     scheduleDialogVisible.value = true
+    // 设置时间段过滤器为当前排班的时间段
+    dialogTimeSlotFilter.value = normalizeSlot(preferred.timeSlot)
     loadPatientsForSchedule(preferred.id)
   }
 }
@@ -836,14 +863,12 @@ const handleCellClick = (fullDate, timeSlot) => {
   if (schedule) {
     selectedSchedule.value = schedule
     scheduleDialogVisible.value = true
+    // 设置时间段过滤器为当前排班的时间段
+    dialogTimeSlotFilter.value = normalizeSlot(schedule.timeSlot)
     loadPatientsForSchedule(schedule.id)
   }
 }
 
-const startConsultation = (patient) => {
-  ElMessage.success(`开始为患者 ${patient.name} 就诊`)
-  // TODO: 实现开始就诊逻辑
-}
 
 onMounted(() => {
   loadMyInfo()
@@ -1113,6 +1138,10 @@ onMounted(() => {
 
 .patients-section {
   margin-top: 20px;
+}
+
+.patients-header {
+  margin-bottom: 10px;
 }
 
 .patients-section h4 {

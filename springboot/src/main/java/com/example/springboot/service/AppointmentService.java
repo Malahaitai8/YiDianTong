@@ -191,7 +191,7 @@ public class AppointmentService {
                 newAppointment.setPatientId(nextPatientId);
 
                 newAppointment.setScheduleId(scheduleId);
-                newAppointment.setStatus("PENDING");
+                newAppointment.setStatus("scheduled");
                 newAppointment.setSourceType("WAITLIST");
 
                 // [修复] 必须设置预约时间，否则取消时会出错
@@ -257,7 +257,7 @@ public class AppointmentService {
     }
 
     /**
-     * 取消预约（更新状态为CANCELLED）
+     * 取消预约（更新状态为cancelled）
      * 权限检查：管理员可以取消任何预约，患者只能取消自己的预约
      */
     public int cancelById(Long id) {
@@ -303,7 +303,7 @@ public class AppointmentService {
             }
         }
 
-        int result = appointmentMapper.updateStatus(id, "CANCELLED");
+        int result = appointmentMapper.updateStatus(id, "cancelled");
 
         // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
         if (result > 0) {

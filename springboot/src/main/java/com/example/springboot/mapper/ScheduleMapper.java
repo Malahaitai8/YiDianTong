@@ -20,6 +20,12 @@ public interface ScheduleMapper {
     Schedule selectById(Long id);
 
     /**
+     * 根据ID查询排班详细信息（包含医生、科室等信息）
+     * (实现在 ScheduleMapper.xml 中)
+     */
+    ScheduleWithDetailsDTO selectByIdWithDetails(@Param("id") Long id);
+
+    /**
      * 扣减号源 (乐观锁)
      * @return 影响行数，0表示扣减失败（号源不足）
      */

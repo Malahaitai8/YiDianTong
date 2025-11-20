@@ -65,3 +65,11 @@ export const deleteClinic = (id) => {
     method: 'delete'
   })
 }
+
+export const batchCreateClinics = (data) => {
+  return request({
+    url: '/clinic/batch',
+    method: 'post',
+    data
+  })
+}

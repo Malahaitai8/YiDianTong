@@ -39,15 +39,15 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response) => {
     const { data } = response
-    
-    // 如果响应成功
-    if (data.code === '200') {
-      return data
+    // 多后端兼容：code 可能为字符串或数字，也可能没有 code 字段
+    const hasCode = Object.prototype.hasOwnProperty.call(data || {}, 'code')
+    if (hasCode) {
+      if (data.code === '200' || data.code === 200) return data
+      ElMessage.error(data.msg || '请求失败')
+      return Promise.reject(new Error(data.msg || '请求失败'))
     }
-    
-    // 如果响应失败，显示错误信息
-    ElMessage.error(data.msg || '请求失败')
-    return Promise.reject(new Error(data.msg || '请求失败'))
+    // 无 code 字段时直接返回数据，交由业务自行判断
+    return data
   },
   (error) => {
     console.error('响应错误:', error)

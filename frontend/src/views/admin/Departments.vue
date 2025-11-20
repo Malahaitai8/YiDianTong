@@ -200,10 +200,16 @@
       <div class="clinic-section" style="margin-top: 20px;">
         <div class="section-header">
           <h3>科室门诊</h3>
-          <el-button type="primary" size="small" @click="openAddClinicDialog">
-            <el-icon><Plus /></el-icon>
-            添加门诊
-          </el-button>
+          <div class="section-actions">
+            <el-button type="primary" size="small" @click="openAddClinicDialog">
+              <el-icon><Plus /></el-icon>
+              添加门诊
+            </el-button>
+            <el-button type="success" size="small" @click="openBatchAddClinicDialog">
+              <el-icon><Plus /></el-icon>
+              批量添加门诊
+            </el-button>
+          </div>
         </div>
         
         <el-table
@@ -241,6 +247,114 @@
           <el-button @click="viewDialog.visible = false">关闭</el-button>
           <el-button type="primary" @click="editDepartment(selectedDepartment)">
             编辑科室
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="batchClinicDialog.visible"
+      title="批量添加门诊"
+      width="800px"
+      @close="resetBatchClinicForm"
+    >
+      <div class="batch-form-container">
+        <div class="quantity-section">
+          <el-card shadow="never" class="quantity-card">
+            <div class="quantity-header">
+              <span class="quantity-title">快速设置</span>
+            </div>
+            <div class="quantity-content">
+              <el-row :gutter="20" align="middle">
+                <el-col :span="6">
+                  <div class="quantity-input-wrapper">
+                    <span class="quantity-label">添加数量：</span>
+                    <el-input-number
+                      v-model="batchClinicQuantity"
+                      :min="1"
+                      :max="20"
+                      size="small"
+                      placeholder="输入数量"
+                      class="quantity-input"
+                    />
+                  </div>
+                </el-col>
+                <el-col :span="6">
+                  <el-button 
+                    type="success" 
+                    size="small" 
+                    @click="setBatchClinicQuantity"
+                    :disabled="!batchClinicQuantity || batchClinicQuantity < 1"
+                  >
+                    <el-icon><Setting /></el-icon>
+                    生成表单
+                  </el-button>
+                </el-col>
+              </el-row>
+            </div>
+          </el-card>
+        </div>
+
+        <div class="batch-items">
+          <el-card shadow="never" class="items-card">
+            <div class="items-header">
+              <div class="items-actions">
+                <el-button type="primary" size="small" @click="addClinicItem">
+                  <el-icon><Plus /></el-icon>
+                  添加一行
+                </el-button>
+              </div>
+            </div>
+            <div class="items-content">
+              <el-form label-width="100px">
+                <div v-for="(item, index) in batchClinicForm.clinics" :key="index" class="batch-item-row">
+                  <el-row :gutter="10" align="middle">
+                    <el-col :span="8">
+                      <el-form-item label="门诊名称">
+                        <el-input 
+                          v-model="item.name" 
+                          placeholder="请输入门诊名称"
+                          @blur="validateClinicName(item, index)"
+                        />
+                      </el-form-item>
+                    </el-col>
+                <el-col :span="16">
+                  <el-form-item label="门诊描述">
+                    <div class="desc-with-delete">
+                      <el-input 
+                        v-model="item.description" 
+                        placeholder="请输入门诊描述"
+                      />
+                      <el-button 
+                        type="danger" 
+                        size="small" 
+                        @click="removeClinicItem(index)"
+                        :disabled="batchClinicForm.clinics.length <= 1"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </el-form-item>
+                </el-col>
+                  </el-row>
+                </div>
+              </el-form>
+            </div>
+          </el-card>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="batchClinicDialog.visible = false">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="saveBatchClinics" 
+            :loading="batchClinicDialog.loading"
+            :disabled="!isValidBatchClinicForm"
+          >
+            <el-icon><Check /></el-icon>
+            提交
           </el-button>
         </span>
       </template>
@@ -591,7 +705,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
     getClinicsByDepartmentId,
     createClinic,
     updateClinic,
-    deleteClinic
+    deleteClinic,
+    batchCreateClinics
   } from '@/api/clinic'
   import * as XLSX from 'xlsx'
 
@@ -644,6 +759,11 @@ const clinicDialog = reactive({
   loading: false
 })
 
+const batchClinicDialog = reactive({
+  visible: false,
+  loading: false
+})
+
 // 批量添加对话框
 const batchDialog = reactive({
   visible: false,
@@ -669,6 +789,14 @@ const clinicForm = reactive({
   description: '',
   departmentId: null
 })
+
+const batchClinicForm = reactive({
+  clinics: [
+    { name: '', description: '' }
+  ]
+})
+
+const batchClinicQuantity = ref(1)
 
 // 批量添加表单
 const batchForm = reactive({
@@ -701,6 +829,10 @@ const clinicRules = {
     { min: 2, max: 50, message: '门诊名称长度在 2 到 50 个字符', trigger: 'blur' }
   ]
 }
+
+const isValidBatchClinicForm = computed(() => {
+  return batchClinicForm.clinics.some(item => item.name && item.name.trim().length >= 2)
+})
 
 const batchDepartmentRules = {
   name: [
@@ -1074,6 +1206,11 @@ const openAddClinicDialog = () => {
   clinicDialog.visible = true
 }
 
+const openBatchAddClinicDialog = () => {
+  batchClinicDialog.visible = true
+  resetBatchClinicForm()
+}
+
 // 编辑门诊
 const editClinic = (clinic) => {
   clinicForm.id = clinic.id
@@ -1153,6 +1290,80 @@ const resetClinicForm = () => {
   clinicForm.name = ''
   clinicForm.description = ''
   clinicForm.departmentId = null
+}
+
+const resetBatchClinicForm = () => {
+  batchClinicForm.clinics = [
+    { name: '', description: '' }
+  ]
+  batchClinicQuantity.value = 1
+}
+
+const setBatchClinicQuantity = () => {
+  if (!batchClinicQuantity.value || batchClinicQuantity.value < 1) {
+    ElMessage.warning('请输入有效的数量')
+    return
+  }
+  const newClinics = []
+  for (let i = 0; i < batchClinicQuantity.value; i++) {
+    newClinics.push({ name: '', description: '' })
+  }
+  batchClinicForm.clinics = newClinics
+  ElMessage.success(`已生成 ${batchClinicQuantity.value} 个门诊表单`)
+}
+
+const addClinicItem = () => {
+  batchClinicForm.clinics.push({ name: '', description: '' })
+}
+
+const removeClinicItem = (index) => {
+  if (batchClinicForm.clinics.length > 1) {
+    batchClinicForm.clinics.splice(index, 1)
+  }
+}
+
+const validateClinicName = (item, index) => {
+  if (!item.name || !item.name.trim()) return
+  const duplicateInBatch = batchClinicForm.clinics.some((c, i) => i !== index && c.name.trim() === item.name.trim())
+  if (duplicateInBatch) {
+    ElMessage.warning(`门诊名称"${item.name}"在当前批次中重复`)
+    return
+  }
+  const duplicateInExisting = departmentClinics.value.some(c => c.name === item.name.trim())
+  if (duplicateInExisting) {
+    ElMessage.warning(`门诊名称"${item.name}"已存在`)
+  }
+}
+
+const saveBatchClinics = async () => {
+  try {
+    const validClinics = batchClinicForm.clinics.filter(c => c.name && c.name.trim().length >= 2)
+    if (validClinics.length === 0) {
+      ElMessage.error('请至少填写一个有效的门诊信息')
+      return
+    }
+    const names = validClinics.map(c => c.name.trim())
+    const uniqueNames = [...new Set(names)]
+    if (names.length !== uniqueNames.length) {
+      ElMessage.error('批次中存在重复的门诊名称')
+      return
+    }
+    batchClinicDialog.loading = true
+    const payload = {
+      departmentId: selectedDepartment.value.id,
+      clinics: validClinics.map(c => ({ name: c.name.trim(), description: c.description || '' }))
+    }
+    await batchCreateClinics(payload)
+    ElMessage.success(`成功添加 ${validClinics.length} 个门诊`)
+    batchClinicDialog.visible = false
+    await loadDepartmentClinics(selectedDepartment.value.id)
+    await calculateStats()
+  } catch (error) {
+    console.error('批量添加门诊失败:', error)
+    ElMessage.error('批量添加失败，请检查网络连接或联系管理员')
+  } finally {
+    batchClinicDialog.loading = false
+  }
 }
 
 // 批量删除科室
@@ -1592,6 +1803,12 @@ const saveImportDepartments = async () => {
   font-weight: 600;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .empty-state {
   text-align: center;
   padding: 40px 0;
@@ -1828,6 +2045,35 @@ const saveImportDepartments = async () => {
   gap: 15px;
 }
 
+.items-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 0 10px;
+}
+
+.items-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.delete-cell {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.desc-with-delete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.desc-with-delete .el-input {
+  flex: 1;
+}
+
 .data-count {
   color: #909399;
   font-size: 14px;
@@ -1857,3 +2103,6 @@ const saveImportDepartments = async () => {
   margin-top: 15px;
 }
 </style>
+.items-content {
+  padding: 0 10px;
+}

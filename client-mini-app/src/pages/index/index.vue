@@ -109,14 +109,14 @@ export default {
 	},
 	computed: {
 		isLoggedIn() {
-			const stateUser = this.$store.state.user || {};
-			const hasToken = !!stateUser.token;
-			const hasUserId = !!(stateUser.userInfo && stateUser.userInfo.userId);
-			return hasToken && hasUserId;
+			// 使用可选链操作符 ?. 来安全地访问深层嵌套的属性
+			const token = this.$store.state.user?.token;
+			const userId = this.$store.state.user?.userInfo?.userId;
+			return !!token && !!userId;
 		},
 		userName() {
-			const userInfo = this.$store.state.user.userInfo;
-			return userInfo.username || '游客';
+			// 使用可选链操作符 ?. 来安全地访问深层嵌套的属性，避免因 userInfo 不存在而报错
+			return this.$store.state.user?.userInfo?.username || '游客';
 		},
 		greeting() {
 			const hour = new Date().getHours();

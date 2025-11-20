@@ -20,6 +20,8 @@ import AdminSourceManagement from '@/views/admin/SourceManagement.vue'
 import AdminQAManagement from '@/views/admin/QAManagement.vue'
 import AdminReports from '@/views/admin/Reports.vue'
 import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
+import AdminPatients from '@/views/admin/Patients.vue'
+import AdminAppointments from '@/views/admin/Appointments.vue'
 
 const routes = [
   {
@@ -58,7 +60,7 @@ const routes = [
         path: 'patients',
         name: 'DoctorPatients',
         component: DoctorPatients,
-        meta: { title: '患者管理' }
+        meta: { title: '患者查看' }
       },
       {
         path: 'profile',
@@ -88,6 +90,18 @@ const routes = [
         name: 'AdminDoctors',
         component: AdminDoctors,
         meta: { title: '医生管理' }
+      },
+      {
+        path: 'patients',
+        name: 'AdminPatients',
+        component: AdminPatients,
+        meta: { title: '患者管理' }
+      },
+      {
+        path: 'appointments',
+        name: 'AdminAppointments',
+        component: AdminAppointments,
+        meta: { title: '预约管理' }
       },
       {
         path: 'departments',

@@ -145,3 +145,28 @@ export const getMyPatients = (params) => {
     params
   })
 }
+
+// 医生端：提交个人信息修改申请
+export const applyDoctorInfoUpdate = (data) => {
+  return request({
+    url: '/doctor/apply-info-update',
+    method: 'post',
+    data
+  })
+}
+
+// 医生端：查看我的信息修改申请列表
+export const getMyInfoApplications = () => {
+  return request({
+    url: '/doctor/my-info-applications',
+    method: 'get'
+  })
+}
+
+export const getTodayPatients = (params) => {
+  return request({
+    url: '/doctor/today-patients',
+    method: 'get',
+    params
+  })
+}

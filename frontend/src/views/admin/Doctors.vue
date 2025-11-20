@@ -6,7 +6,7 @@
         <el-col :span="6">
           <el-input
             v-model="searchForm.keyword"
-            placeholder="搜索医生姓名"
+            placeholder="搜索医生姓名或ID"
             clearable
             @input="handleSearch"
           >
@@ -504,9 +504,14 @@ const filteredDoctors = computed(() => {
   let result = doctors.value
 
   if (searchForm.keyword) {
-    result = result.filter(doctor =>
-      doctor.name.includes(searchForm.keyword)
-    )
+    const k = String(searchForm.keyword).trim()
+    const isNumeric = /^\d+$/.test(k)
+    result = result.filter(doctor => {
+      if (isNumeric) {
+        return doctor.id === Number(k) || (doctor.name && doctor.name.includes(k))
+      }
+      return doctor.name && doctor.name.includes(k)
+    })
   }
 
   if (searchForm.department) {

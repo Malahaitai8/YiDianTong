@@ -32,6 +32,17 @@ export const getScheduleById = (id) => {
 }
 
 /**
+ * 根据ID查询排班详细信息（包含科室、门诊等信息）
+ * @param {number} id - 排班ID
+ */
+export const getScheduleDetailsById = (id) => {
+  return request({
+    url: `/schedule/details/${id}`,
+    method: 'get'
+  })
+}
+
+/**
  * 创建单个排班
  * @param {Object} data - 排班数据
  * @param {number} data.doctorId - 医生ID
@@ -113,5 +124,18 @@ export const getSchedulesByDoctorId = (doctorId) => {
   return request({
     url: `/api/admin/schedules/doctor/${doctorId}`,
     method: 'get'
+  })
+}
+
+/**
+ * 管理员加号：为指定排班增加号源数量
+ * @param {number} id - 排班ID
+ * @param {{slotsToAdd:number, reason?:string}} data - 加号请求体
+ */
+export const addScheduleSlots = (id, data) => {
+  return request({
+    url: `/api/admin/schedules/${id}/add-slots`,
+    method: 'post',
+    data
   })
 }

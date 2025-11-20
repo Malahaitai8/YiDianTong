@@ -12,6 +12,28 @@
         select * from schedule where id = #{id}
     </select>
 
+    <!-- 根据ID查询排班详细信息（包含医生、科室等信息） -->
+    <select id="selectByIdWithDetails" resultType="com.example.springboot.dto.ScheduleWithDetailsDTO">
+        SELECT
+            s.id,
+            s.doctor_id as doctorId,
+            d.name as doctorName,
+            dept.id as departmentId,
+            dept.name as departmentName,
+            c.id as clinicId,
+            c.name as clinicName,
+            s.schedule_date as scheduleDate,
+            s.time_slot as timeSlot,
+            s.slot_type as slotType,
+            s.total_slots as totalSlots,
+            s.available_slots as availableSlots
+        FROM schedule s
+        LEFT JOIN doctor d ON s.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE s.id = #{id}
+    </select>
+
     <!-- 搜索可预约时段 -->
     <select id="searchAvailableSlots" resultType="com.example.springboot.dto.AvailableSlotDTO">
         SELECT 

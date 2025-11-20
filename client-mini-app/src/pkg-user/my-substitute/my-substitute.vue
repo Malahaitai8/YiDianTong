@@ -72,7 +72,7 @@
 
 <script>
 import { getMyWaitlist, cancelWaitlist } from '@/api/waitlist.js'
-import { getScheduleDetail } from '@/api/schedule.js' // 导入获取排班详情的API
+import { getScheduleDetailsById } from '@/api/schedule.js'
 
 export default {
 	name: 'MySubstitute',
@@ -82,7 +82,7 @@ export default {
 			currentFilter: 'all', // 默认显示全部候补记录
 			loading: false
 		};
-		},
+	},
 	computed: {
 		// 根据筛选条件过滤列表
 		filteredList() {
@@ -118,49 +118,61 @@ export default {
 			}, 1000);
 			return;
 		}
-
+		
 		this.loadData();
 	},
 	methods: {
 		async loadData() {
 			this.loading = true;
 			try {
+				// 获取候补记录
 				const waitlistData = await getMyWaitlist();
-				if (!Array.isArray(waitlistData)) {
+				console.log('候补列表数据:', waitlistData);
+
+				// 处理候补记录数据，并获取每个排班的详细信息
+				if (Array.isArray(waitlistData) && waitlistData.length > 0) {
+					// 并行获取所有排班的详细信息
+					const detailsPromises = waitlistData.map(item =>
+						getScheduleDetailsById(item.scheduleId)
+							.then(details => ({
+								...item,
+								status: 'WAITING', // 候补状态
+								doctorName: details.doctorName || '未知医生',
+								scheduleDate: this.formatDate(details.scheduleDate) || '未知日期',
+								timeSlot: details.timeSlot,
+								timeSlotDisplay: this.getTimeSlotDisplay(details.timeSlot) || '未知时间',
+								departmentName: details.departmentName || '未知科室'
+							}))
+							.catch(err => {
+								console.error(`获取排班 ${item.scheduleId} 详情失败:`, err);
+								// 如果获取失败，返回一个特殊状态，以便UI可以识别
+								return {
+									...item,
+									status: 'ERROR',
+									doctorName: '加载失败',
+									scheduleDate: '请刷新重试',
+									timeSlotDisplay: '',
+									departmentName: ''
+								};
+							})
+					);
+
+					const resolvedWaitlists = await Promise.all(detailsPromises);
+
+					// 检查是否有任何候补记录加载失败
+					if (resolvedWaitlists.some(item => item.status === 'ERROR')) {
+						uni.showToast({
+							title: '部分候补详情加载失败，请稍后重试',
+							icon: 'none'
+						});
+					}
+
+					this.waitlists = resolvedWaitlists;
+				} else {
 					this.waitlists = [];
-					return;
 				}
 
-				const enrichedWaitlists = await Promise.all(
-					waitlistData.map(async item => {
-						try {
-							const schedule = await getScheduleDetail(item.scheduleId);
-							const timeSlotMap = {
-								morning: '上午',
-								afternoon: '下午',
-								evening: '晚上'
-							};
-							return {
-								...item,
-								status: 'WAITING', // 假设所有返回的都是候补中
-								doctorName: schedule.doctorName || '未知医生',
-								scheduleDate: schedule.scheduleDate || '未知日期',
-								timeSlotDisplay: timeSlotMap[schedule.timeSlot.toLowerCase()] || '未知时间'
-							};
-						} catch (e) {
-							console.error(`获取排班 ${item.scheduleId} 详情失败:`, e);
-							return {
-								...item,
-								status: 'WAITING',
-								doctorName: '信息加载失败',
-								scheduleDate: '未知日期',
-								timeSlotDisplay: ''
-							};
-						}
-					})
-				);
-
-				this.waitlists = enrichedWaitlists;
+				console.log('处理后的候补列表:', this.waitlists);
 			} catch (e) {
 				console.error('加载候补数据失败:', e);
 				uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
@@ -211,6 +223,26 @@ export default {
 			uni.navigateTo({
 				url: `/pages/waitlist/waitlist?scheduleId=${item.scheduleId}`
 			});
+		},
+		// 格式化日期
+		formatDate(dateStr) {
+			if (!dateStr) return '';
+			const date = new Date(dateStr);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		},
+		// 获取时间段显示文本
+		getTimeSlotDisplay(timeSlot) {
+			if (!timeSlot) return '';
+			const lowerCaseTimeSlot = timeSlot.toLowerCase();
+			const timeSlotMap = {
+				'morning': '上午',
+				'afternoon': '下午',
+				'evening': '晚上'
+			};
+			return timeSlotMap[lowerCaseTimeSlot] || timeSlot || '';
 		}
 	}
 };

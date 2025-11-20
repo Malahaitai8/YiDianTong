@@ -62,8 +62,8 @@ const userStore = useUserStore()
 const menuItems = ref([
   { path: '/doctor', name: '工作台' },
   { path: '/doctor/profile', name: '个人信息' },
-  { path: '/doctor/schedule', name: '排班管理' },
-  { path: '/doctor/patients', name: '患者管理' }
+  { path: '/doctor/schedule', name: '我的排班' },
+  { path: '/doctor/patients', name: '患者查看' }
 ])
 
 const handleCommand = async (command) => {
