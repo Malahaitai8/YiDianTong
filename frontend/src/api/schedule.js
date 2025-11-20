@@ -115,3 +115,16 @@ export const getSchedulesByDoctorId = (doctorId) => {
     method: 'get'
   })
 }
+
+/**
+ * 管理员加号：为指定排班增加号源数量
+ * @param {number} id - 排班ID
+ * @param {{slotsToAdd:number, reason?:string}} data - 加号请求体
+ */
+export const addScheduleSlots = (id, data) => {
+  return request({
+    url: `/api/admin/schedules/${id}/add-slots`,
+    method: 'post',
+    data
+  })
+}

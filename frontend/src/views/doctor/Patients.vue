@@ -5,30 +5,50 @@
         <div class="card-header">
           <span>患者管理</span>
           <div class="header-actions">
-            <el-input
-              v-model="searchForm.keyword"
-              placeholder="搜索患者姓名或电话"
-              style="width: 250px; margin-right: 10px"
-              clearable
-              @input="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-select
-              v-model="searchForm.status"
-              placeholder="状态筛选"
-              style="width: 120px"
-              clearable
-              @change="handleSearch"
-            >
-              <el-option label="全部" value="" />
-              <el-option label="待就诊" value="待就诊" />
-              <el-option label="就诊中" value="就诊中" />
-              <el-option label="已完成" value="已完成" />
-              <el-option label="已取消" value="已取消" />
-            </el-select>
+            <el-radio-group v-model="viewMode" size="small" @change="reload">
+              <el-radio-button label="today">今日预约</el-radio-button>
+              <el-radio-button label="all">全部预约</el-radio-button>
+            </el-radio-group>
+            <template v-if="viewMode === 'today'">
+              <el-select v-model="timeSlotFilter" placeholder="时间段" size="small" style="width: 120px; margin-left: 10px" @change="reload">
+                <el-option label="全部" value="" />
+                <el-option label="上午" value="MORNING" />
+                <el-option label="下午" value="AFTERNOON" />
+                <el-option label="晚上" value="EVENING" />
+              </el-select>
+              <div class="today-stats">
+                <el-tag type="warning" effect="light">上午：{{ morningCount }}</el-tag>
+                <el-tag type="success" effect="light">下午：{{ afternoonCount }}</el-tag>
+                <el-tag type="info" effect="light">晚上：{{ eveningCount }}</el-tag>
+                <el-tag type="primary" effect="light">合计：{{ pagination.total }}</el-tag>
+              </div>
+            </template>
+            <template v-else>
+              <el-input
+                v-model="searchForm.keyword"
+                placeholder="搜索患者姓名或电话"
+                style="width: 250px; margin-left: 10px"
+                clearable
+                @input="handleSearch"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-select
+                v-model="searchForm.status"
+                placeholder="状态筛选"
+                style="width: 120px; margin-left: 10px"
+                clearable
+                @change="handleSearch"
+              >
+                <el-option label="全部" value="" />
+                <el-option label="待就诊" value="待就诊" />
+                <el-option label="就诊中" value="就诊中" />
+                <el-option label="已完成" value="已完成" />
+                <el-option label="已取消" value="已取消" />
+              </el-select>
+            </template>
           </div>
         </div>
       </template>
@@ -223,7 +243,13 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMyPatients } from '@/api/doctor'
+import { getMyPatients, getTodayPatients } from '@/api/doctor'
+
+const viewMode = ref('today')
+const timeSlotFilter = ref('')
+const morningCount = ref(0)
+const afternoonCount = ref(0)
+const eveningCount = ref(0)
 
 const loading = ref(false)
 const patientDialogVisible = ref(false)
@@ -266,7 +292,7 @@ const consultationRules = {
 // 实际患者数据
 const patientList = ref([])
 
-// 加载我的患者列表
+// 加载全部患者列表
 const loadPatients = async () => {
   try {
     loading.value = true
@@ -317,6 +343,48 @@ const loadPatients = async () => {
     ElMessage.error('加载患者列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+const mapTimeSlotToCN = (t) => {
+  const m = { MORNING: '上午', AFTERNOON: '下午', EVENING: '晚上', morning: '上午', afternoon: '下午', evening: '晚上' }
+  return m[t] || ''
+}
+
+const loadToday = async () => {
+  try {
+    loading.value = true
+    const params = { timeSlot: timeSlotFilter.value || undefined }
+    const resp = await getTodayPatients(params)
+    const rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
+    morningCount.value = Number(resp?.data?.morningCount || 0)
+    afternoonCount.value = Number(resp?.data?.afternoonCount || 0)
+    eveningCount.value = Number(resp?.data?.eveningCount || 0)
+    pagination.total = Number(resp?.data?.total || rawList.length || 0)
+    patientList.value = rawList.map(item => ({
+      id: item.patientId,
+      name: item.patientName,
+      phone: item.phoneNumber,
+      appointmentDate: item.scheduleDate,
+      appointmentTime: mapTimeSlotToCN(item.timeSlot),
+      department: item.timeSlotName,
+      status: item.statusName || item.status,
+      symptoms: ''
+    }))
+  } catch (error) {
+    console.error('加载今日预约失败:', error)
+    ElMessage.error('加载今日预约失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const reload = () => {
+  pagination.currentPage = 1
+  if (viewMode.value === 'today') {
+    loadToday()
+  } else {
+    loadPatients()
   }
 }
 
@@ -410,7 +478,7 @@ const submitConsultation = async () => {
 }
 
 onMounted(() => {
-  loadPatients()
+  reload()
 })
 </script>
 
@@ -428,7 +496,10 @@ onMounted(() => {
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
+
+.today-stats { display: flex; align-items: center; gap: 6px; }
 
 .pagination-container {
   margin-top: 20px;

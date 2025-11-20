@@ -59,3 +59,12 @@ export const createUserAndDoctor = (data) => {
     data
   })
 }
+
+// 患者注册（管理员也可用于代创建患者账号）
+export const registerPatient = (data) => {
+  return request({
+    url: '/auth/register',
+    method: 'post',
+    data
+  })
+}

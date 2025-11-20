@@ -102,7 +102,7 @@
           <el-tag>{{ mapRuleType(scope.row.ruleType) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="医生/科室" min-width="220">
+      <el-table-column label="医生/科室" min-width="160">
         <template #default="scope">
           <div>
             <span>{{ scope.row.doctorName || scope.row.doctor?.name || scope.row.departmentName || scope.row.department?.name || '-' }}</span>
@@ -120,7 +120,11 @@
         <template #default="scope">
           <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
           <el-button size="small" type="primary" @click="openEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="openDeleteConfirm(scope.row)">删除</el-button>
+          <el-popconfirm title="确认删除该规则？" width="260" popper-class="popconfirm-wide" @confirm="doDelete(scope.row)">
+            <template #reference>
+              <el-button size="small" type="danger">删除</el-button>
+            </template>
+          </el-popconfirm>
           <el-button size="small" type="success" v-if="scope.row.status!=='ACTIVE'" @click="doEnable(scope.row)">启用</el-button>
           <el-button size="small" type="warning" v-if="scope.row.status==='ACTIVE'" @click="doDisable(scope.row)">禁用</el-button>
           <el-button size="small" type="success" :disabled="scope.row.status!=='ACTIVE'" @click="openApply(scope.row)">应用生成排班</el-button>
@@ -139,133 +143,286 @@
     </div>
 
     <!-- 规则表单：新建/编辑 -->
-    <el-drawer v-model="formVisible" :title="formMode==='create'?'新建规则':'编辑规则'" size="50%" destroy-on-close>
-      <el-form ref="formRef" :model="form" :rules="formRules" label-width="120px">
-        <el-form-item label="规则名称">
-          <el-input v-model="form.ruleName" />
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="form.ruleType" placeholder="选择类型">
-            <el-option label="固定周排班" value="FIXED_WEEKLY" />
-            <el-option label="轮班制" value="ROTATION" />
-            <el-option label="自定义" value="CUSTOM" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="科室">
-          <el-select v-model.number="form.departmentId" placeholder="请选择科室" clearable @change="handleDepartmentChange">
-            <el-option v-for="d in departmentList" :key="d.id" :label="d.name" :value="d.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="门诊">
-          <el-select v-model.number="form.clinicId" placeholder="请选择门诊" clearable>
-            <el-option v-for="c in formClinics" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="医生">
-          <el-select v-model.number="form.doctorId" placeholder="请选择医生" clearable @change="handleDoctorSelected">
-            <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="周几出诊">
-          <el-checkbox-group v-model="weekDays">
-            <el-checkbox v-for="(label,n) in weekOptions" :key="n" :label="Number(n)">{{ label }}</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="时段">
-          <el-checkbox-group v-model="timeSlots">
-            <el-checkbox label="morning">上午</el-checkbox>
-            <el-checkbox label="afternoon">下午</el-checkbox>
-            <el-checkbox label="evening">晚间</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="号别">
-          <el-radio-group v-model="form.slotType">
-            <el-radio label="normal">普通号</el-radio>
-            <el-radio label="expert">专家号</el-radio>
-            <el-radio label="vip">特需号</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="每次号源">
-          <el-input-number v-model.number="form.totalSlots" :min="1" />
-        </el-form-item>
-        <el-form-item label="最多日排班数">
-          <el-input-number v-model.number="form.maxDailySchedules" :min="1" />
-        </el-form-item>
-        <el-form-item label="最多连续天数">
-          <el-input-number v-model.number="form.maxContinuousDays" :min="1" />
-        </el-form-item>
-        <el-form-item label="跳过周末">
-          <el-switch v-model="form.skipWeekends" />
-        </el-form-item>
-        <el-form-item label="跳过节假日">
-          <el-switch v-model="form.skipHolidays" />
-        </el-form-item>
-        <el-form-item label="开始日期">
-          <el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="结束日期">
-          <el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="优先级">
-          <el-input-number v-model.number="form.priority" :min="0" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input type="textarea" v-model="form.description" />
-        </el-form-item>
+    <el-drawer v-model="formVisible" :title="formMode==='create'?'创建排班规则':'编辑排班规则'" size="50%" destroy-on-close class="rule-form-drawer">
+      <el-form ref="formRef" :model="form" :rules="formRules" label-width="140px">
+        <div class="form-section">
+          <div class="section-title">基本信息 <span class="required-legend">* 为必填项</span></div>
+          <div class="kv">
+            <div class="kv-row">
+              <div class="kv-label">规则名称<span class="required-mark">*</span></div>
+              <div class="kv-value">
+                <el-input 
+                  v-model="form.ruleName" 
+                  placeholder="请输入规则名称" 
+                  maxlength="30"
+                  show-word-limit
+                  @input="validateRuleName"
+                />
+                <div v-if="ruleNameError" class="error-message">{{ ruleNameError }}</div>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">规则类型<span class="required-mark">*</span></div>
+              <div class="kv-value">
+                <el-select v-model="form.ruleType" placeholder="请选择规则类型" style="width:100%">
+                  <el-option label="固定周排班" value="FIXED_WEEKLY" />
+                  <el-option label="轮班制" value="ROTATION" />
+                  <el-option label="自定义" value="CUSTOM" />
+                </el-select>
+                <div class="rule-type-tips">
+                  <div>- 固定周排班：每周固定某几天</div>
+                  <div>- 轮班制：医生按顺序轮流</div>
+                  <div>- 自定义：灵活定义</div>
+                </div>
+                <div v-if="ruleTypeError" class="error-message">{{ ruleTypeError }}</div>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">规则描述</div>
+              <div class="kv-value">
+                <el-input 
+                  v-model="form.description" 
+                  placeholder="可填写规则说明" 
+                  type="textarea"
+                  maxlength="200"
+                  show-word-limit
+                  :rows="3"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title">关联信息</div>
+          <div class="kv">
+            <div class="kv-row">
+              <div class="kv-label">科室</div>
+              <div class="kv-value">
+                <el-select v-model.number="form.departmentId" placeholder="请选择科室（可选）" clearable @change="handleDepartmentChange" style="width:100%">
+                  <el-option v-for="d in departmentList" :key="d.id" :label="d.name" :value="d.id" />
+                </el-select>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">门诊</div>
+              <div class="kv-value">
+                <el-select v-model.number="form.clinicId" placeholder="请选择门诊（可选）" clearable style="width:100%">
+                  <el-option v-for="c in formClinics" :key="c.id" :label="c.name" :value="c.id" />
+                </el-select>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">医生</div>
+              <div class="kv-value">
+                <el-select 
+                  v-model.number="form.doctorId" 
+                  placeholder="请选择医生（需先选科室）" 
+                  :disabled="!form.departmentId" 
+                  clearable 
+                  @change="handleDoctorSelected" 
+                  style="width:100%"
+                >
+                  <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
+                </el-select>
+                <div v-if="!form.departmentId && form.doctorId" class="error-message">请先选择科室</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title">时间配置</div>
+          <div class="kv">
+            <div class="kv-row">
+              <div class="kv-label">星期<span class="required-mark">*</span></div>
+              <div class="kv-value">
+                <el-checkbox-group v-model="weekDays" @change="validateWeekDays">
+                  <div class="weekday-rows">
+                    <div class="weekday-row">
+                      <el-checkbox v-for="n in [1,2,3,4,5]" :key="n" :label="n" class="weekday-checkbox">
+                        {{ weekOptions[n] }}
+                      </el-checkbox>
+                    </div>
+                    <div class="weekday-row">
+                      <el-checkbox v-for="n in [6,7]" :key="n" :label="n" class="weekday-checkbox">
+                        {{ weekOptions[n] }}
+                      </el-checkbox>
+                    </div>
+                  </div>
+                </el-checkbox-group>
+                <div v-if="weekDaysError" class="error-message">{{ weekDaysError }}</div>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">时段</div>
+              <div class="kv-value">
+                <el-checkbox-group v-model="timeSlots">
+                  <el-checkbox label="morning">上午</el-checkbox>
+                  <el-checkbox label="afternoon">下午</el-checkbox>
+                  <el-checkbox label="evening">晚间</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">生效日期</div>
+              <div class="kv-value">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" :disabled-date="disableBeforeToday" />
+                  <span>至</span>
+                  <el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" :disabled-date="disableEndBeforeStart" />
+                </div>
+                <div class="hint-text">日期范围至少包含一周，以确保排班规则完整生效</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title">号源配置</div>
+          <div class="kv">
+            <div class="kv-row">
+              <div class="kv-label">号别类型</div>
+              <div class="kv-value">
+                <el-radio-group v-model="form.slotType">
+                  <el-radio label="normal">普通号</el-radio>
+                  <el-radio label="expert">专家号</el-radio>
+                  <el-radio label="vip">特需号</el-radio>
+                </el-radio-group>
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label">总号源数<span class="required-mark">*</span></div>
+              <div class="kv-value">
+                <el-input-number 
+                  v-model.number="form.totalSlots" 
+                  :min="1" 
+                  :max="100" 
+                  :precision="0"
+                  @change="validateTotalSlots"
+                />
+                <div class="hint-text">号源不超过100个</div>
+                <div v-if="totalSlotsError" class="error-message">{{ totalSlotsError }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title">高级规则</div>
+          <div class="kv">
+            <div class="kv-row">
+              <div class="kv-label single-line">每天最多排班次数</div>
+              <div class="kv-value">
+                <el-input-number v-model.number="form.maxDailySchedules" :min="1" :max="10" :precision="0" />
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label single-line">最多连续出诊天数</div>
+              <div class="kv-value">
+                <el-input-number v-model.number="form.maxContinuousDays" :min="1" :max="30" :precision="0" />
+              </div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label single-line">跳过周末</div>
+              <div class="kv-value"><el-switch v-model="form.skipWeekends" /></div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label single-line">跳过节假日</div>
+              <div class="kv-value"><el-switch v-model="form.skipHolidays" /></div>
+            </div>
+            <div class="kv-row">
+              <div class="kv-label single-line">优先级</div>
+              <div class="kv-value">
+                <el-input-number v-model.number="form.priority" :min="0" :max="100" :precision="0" />
+              </div>
+            </div>
+          </div>
+        </div>
       </el-form>
       <template #footer>
-        <div style="text-align:right">
+        <div class="detail-footer">
           <el-button @click="formVisible=false">取消</el-button>
-          <el-button type="primary" @click="submitForm">{{ formMode==='create'?'创建':'保存' }}</el-button>
-          <el-button type="success" @click="submitAndEnable">保存并启用</el-button>
+          <el-button 
+            v-if="formMode==='create'" 
+            type="success" 
+            @click="submitAndEnable"
+            :loading="formSubmitting"
+          >
+            保存并启用
+          </el-button>
+          <el-button 
+            v-else 
+            type="primary" 
+            @click="submitForm"
+            :loading="formSubmitting"
+          >
+            保存
+          </el-button>
         </div>
       </template>
     </el-drawer>
 
     <!-- 应用规则对话框 -->
-    <el-dialog v-model="applyVisible" title="应用规则生成排班" width="640px" class="apply-dialog">
+    <el-dialog v-model="applyVisible" title="应用规则生成排班" width="640px" class="apply-dialog" :close-on-click-modal="false">
       <div class="apply-intro">即将应用规则：{{ currentRuleData?.ruleName || '-' }}</div>
       <el-card shadow="never" class="apply-card">
-        <div class="kv">
-          <div class="kv-row">
-            <div class="kv-label">应用日期范围</div>
-            <div class="kv-value">
+        <div class="apply-form-container">
+          <div class="form-row">
+            <div class="form-label">应用日期范围：</div>
+            <div class="form-value date-range">
               <el-date-picker v-model="applyForm.applyStartDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" />
-              <span style="margin:0 8px;">至</span>
+              <span class="date-separator">至</span>
               <el-date-picker v-model="applyForm.applyEndDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
-              <span style="color:#909399; margin-left:8px;">必填</span>
+              <span class="required-mark">（必填）</span>
             </div>
           </div>
-          <div class="kv-row">
-            <div class="kv-label">覆盖已有排班</div>
-            <div class="kv-value"><el-checkbox v-model="applyForm.overwriteExisting">覆盖已有排班（谨慎使用）</el-checkbox></div>
+          
+          <div class="form-row">
+            <div class="form-label"></div>
+            <div class="form-value">
+              <el-checkbox v-model="applyForm.overwriteExisting" class="overwrite-checkbox">
+                覆盖已有排班（谨慎使用）
+              </el-checkbox>
+            </div>
           </div>
-          <div class="kv-row">
-            <div class="kv-label">排除日期（可选）</div>
-            <div class="kv-value">
-              <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          
+          <div class="form-row">
+            <div class="form-label">排除日期（可选）：</div>
+            <div class="form-value">
+              <div class="exclude-date-input">
                 <el-date-picker v-model="applyExcludeInput" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
-                <el-button size="small" @click="addExcludeDate">添加日期</el-button>
+                <el-button size="small" @click="addExcludeDate" class="add-date-btn">+ 添加日期</el-button>
               </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <el-tag v-for="d in applyForm.excludeDates" :key="d" closable @close="removeExcludeDate(d)">{{ d }}</el-tag>
+              <div class="exclude-date-tags">
+                <el-tag v-for="d in applyForm.excludeDates" :key="d" closable @close="removeExcludeDate(d)" class="exclude-date-tag">
+                  × {{ d }}
+                </el-tag>
               </div>
             </div>
           </div>
-          <div class="kv-row">
-            <div class="kv-label">预计生成排班数</div>
-            <div class="kv-value"><el-tag type="info">约 {{ estimatedApplyCount }} 条</el-tag></div>
+          
+          <div class="form-row">
+            <div class="form-label">预计生成排班数：</div>
+            <div class="form-value">
+              <el-tag type="info" class="estimate-tag">约 {{ estimatedApplyCount }} 条</el-tag>
+              <span class="estimate-desc">（根据规则和日期范围自动计算）</span>
+            </div>
           </div>
         </div>
       </el-card>
+      
       <div class="apply-tips">
-        <div style="margin-bottom:6px;">提示：</div>
-        <div>- 生成的排班将立即生效</div>
-        <div>- 如果选择覆盖，将删除该时间范围内的现有排班</div>
-        <div>- 建议先检测冲突：<el-button size="small" @click="checkConflicts(currentRuleData)">检测冲突</el-button></div>
+        <div class="tips-title">⚠️ 提示：</div>
+        <div class="tips-content">
+          <div>- 生成的排班将立即生效</div>
+          <div>- 如果选择覆盖，将删除该时间范围内的现有排班</div>
+          <div>- 建议先检测冲突：<el-button size="small" @click="checkConflicts(currentRuleData)" class="conflict-btn">检测冲突</el-button></div>
+        </div>
       </div>
+      
       <template #footer>
-        <div class="detail-footer">
+        <div class="dialog-footer">
           <el-button @click="applyVisible=false">取消</el-button>
           <el-button type="primary" @click="submitApply">确认生成</el-button>
         </div>
@@ -332,26 +489,40 @@
           <el-button type="success" :disabled="detailData.status!=='ACTIVE'" @click="openApply(detailData)">应用规则</el-button>
           <el-button v-if="detailData.status!=='ACTIVE'" type="success" @click="doEnable(detailData)">启用</el-button>
           <el-button v-else type="warning" @click="doDisable(detailData)">禁用</el-button>
-          <el-popconfirm title="确认删除该规则？" @confirm="doDelete(detailData)">
-            <template #reference>
-              <el-button type="danger">删除</el-button>
-            </template>
-          </el-popconfirm>
+              <el-popconfirm title="确认删除该规则？" width="260" popper-class="popconfirm-wide" @confirm="doDelete(detailData)">
+                <template #reference>
+                  <el-button type="danger">删除</el-button>
+                </template>
+              </el-popconfirm>
         </div>
       </template>
     </el-dialog>
 
     <!-- 应用结果提示 -->
-    <el-dialog v-model="applyResultVisible" title="排班生成结果" width="520px">
-      <div style="display:flex; flex-direction:column; gap:8px; text-align:left;">
-        <div style="font-size:16px;">✅ 排班生成完成</div>
-        <div>成功生成：{{ applyResultData.successCount || 0 }} 条</div>
-        <div>跳过：{{ applyResultData.skipCount || 0 }} 条（已存在）</div>
-        <div>失败：{{ applyResultData.errorCount || 0 }} 条</div>
-        <div v-if="(applyResultData.errors||[]).length" style="color:#909399;">可在日志查看失败详情</div>
+    <el-dialog v-model="applyResultVisible" title="排班生成结果" width="480px" class="result-dialog">
+      <div class="result-content">
+        <div class="result-header">
+          <el-icon class="success-icon"><CircleCheck /></el-icon>
+          <span class="result-title">排班生成成功</span>
+        </div>
+        <div class="result-stats">
+          <div class="stat-item">
+            <span class="stat-label">成功生成：</span>
+            <span class="stat-value success">{{ applyResultData.successCount || 0 }} 条</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">跳过：</span>
+            <span class="stat-value skip">{{ applyResultData.skipCount || 0 }} 条（已存在）</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">失败：</span>
+            <span class="stat-value error">{{ applyResultData.errorCount || 0 }} 条</span>
+            <span v-if="(applyResultData.errors||[]).length" class="error-detail" @click="showErrorDetails">（查看详情）</span>
+          </div>
+        </div>
       </div>
       <template #footer>
-        <div class="detail-footer">
+        <div class="result-footer">
           <el-button type="primary" @click="goToAdminSchedule">查看生成的排班</el-button>
           <el-button @click="applyResultVisible=false">关闭</el-button>
         </div>
@@ -376,7 +547,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { List, CircleCheck, CloseBold, Timer } from '@element-plus/icons-vue'
 import {
@@ -410,6 +581,7 @@ const pageSize = ref(20)
 
 const formVisible = ref(false)
 const formMode = ref('create') // create | edit
+const formSubmitting = ref(false)
 const form = ref({
   ruleName: '',
   ruleType: 'FIXED_WEEKLY',
@@ -418,26 +590,40 @@ const form = ref({
   clinicId: null,
   slotType: 'normal',
   totalSlots: 20,
-  maxDailySchedules: 2,
-  maxContinuousDays: 5,
+  maxDailySchedules: null,
+  maxContinuousDays: null,
   skipWeekends: false,
   skipHolidays: false,
   startDate: new Date().toISOString().slice(0,10),
-  endDate: '',
+  endDate: null,
   priority: 0,
   description: ''
 })
 const formRef = ref()
 const formRules = {
-  ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }, { min: 1, max: 100, message: '长度不超过100字符', trigger: 'blur' }],
+  ruleName: [
+    { required: true, message: '请输入规则名称', trigger: 'blur' },
+    { min: 2, max: 30, message: '规则名称为2–30个字符', trigger: 'blur' }
+  ],
   ruleType: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
-  timeSlots: [{ validator: (_,_val,cb)=>{ if (!timeSlots.value.length) return cb(new Error('至少选择一个时段')); cb() }, trigger: 'change' }],
-  totalSlots: [{ type: 'number', required: true, message: '请输入总号源数', trigger: 'change' }, { validator: (_,_val,cb)=>{ const v=form.value.totalSlots; if (v<1||v>100) return cb(new Error('总号源数需在1-100之间')); cb() }, trigger: 'change' }],
-  endDate: [{ validator: (_,_val,cb)=>{ const s=form.value.startDate; const e=form.value.endDate; if (e && s && e<=s) return cb(new Error('结束日期必须晚于开始日期')); cb() }, trigger: 'change' }]
+  weekDays: [{ validator: (_,_val,cb)=>{ const rt = normalizeRuleType(form.value.ruleType); if (rt==='FIXED_WEEKLY' && !weekDays.value.length) return cb(new Error('请至少选择一天进行排班')); cb() }, trigger: 'change' }],
+  totalSlots: [
+    { type: 'number', required: true, message: '请输入总号源数', trigger: 'change' },
+    { validator: (_,_val,cb)=>{ const v=form.value.totalSlots; if (!Number.isInteger(v) || v<1||v>100) return cb(new Error('号源个数为1–100的整数')); cb() }, trigger: 'change' }
+  ],
+  startDate: [
+    { required: true, message: '请选择开始日期', trigger: 'change' },
+    { validator: (_,_val,cb)=>{ const s=form.value.startDate; const today = new Date().toISOString().slice(0,10); if (s && s < today) return cb(new Error('开始日期不能早于今天')); cb() }, trigger: 'change' }
+  ],
+  endDate: [{ validator: (_,_val,cb)=>{ const s=form.value.startDate; const e=form.value.endDate; if (e && s && e<=s) return cb(new Error('结束日期必须晚于开始日期')); cb() }, trigger: 'change' }],
+  maxDailySchedules: [{ validator: (_,_val,cb)=>{ const v=form.value.maxDailySchedules; if (v==null||v==='') return cb(); if (!Number.isInteger(v) || v<1||v>10) return cb(new Error('每天最多排班次数需为1-10的整数')); cb() }, trigger: 'change' }],
+  maxContinuousDays: [{ validator: (_,_val,cb)=>{ const v=form.value.maxContinuousDays; if (v==null||v==='') return cb(); if (!Number.isInteger(v) || v<1||v>30) return cb(new Error('最多连续出诊天数需为1-30的整数')); cb() }, trigger: 'change' }],
+  priority: [{ validator: (_,_val,cb)=>{ const v=form.value.priority; if (!Number.isInteger(v) || v<0||v>100) return cb(new Error('优先级需为0-100的整数')); cb() }, trigger: 'change' }],
+  description: [{ max: 200, message: '描述不超过200字符', trigger: 'blur' }]
 }
 
 const weekDays = ref([])
-const timeSlots = ref(['morning','afternoon'])
+const timeSlots = ref([])
 const weekOptions = {1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六', 7: '周日'}
 
 const applyVisible = ref(false)
@@ -550,7 +736,12 @@ const openCreate = () => {
   formMode.value = 'create'
   formVisible.value = true
   weekDays.value = []
-  timeSlots.value = ['morning','afternoon']
+  timeSlots.value = []
+  // 重置验证错误
+  if (typeof ruleNameError !== 'undefined') ruleNameError.value = ''
+  if (typeof ruleTypeError !== 'undefined') ruleTypeError.value = ''
+  if (typeof weekDaysError !== 'undefined') weekDaysError.value = ''
+  if (typeof totalSlotsError !== 'undefined') totalSlotsError.value = ''
 }
 
 const openEdit = async (row) => {
@@ -579,18 +770,38 @@ const openEdit = async (row) => {
     weekDays.value = normalizeWeekDays(data.weekDays)
     timeSlots.value = normalizeTimeSlots(data.timeSlots)
     currentRuleId.value = data.id
+    // 重置验证错误
+    ruleNameError.value = ''
+    ruleTypeError.value = ''
+    weekDaysError.value = ''
+    totalSlotsError.value = ''
   } catch (e) {
     ElMessage.error('加载规则详情失败')
   }
 }
 
 const submitForm = async () => {
+  // 先执行自定义验证
+  if (typeof validateRuleName === 'function') validateRuleName()
+  if (typeof validateRuleType === 'function') validateRuleType()
+  if (typeof validateWeekDays === 'function') validateWeekDays()
+  if (typeof validateTotalSlots === 'function') validateTotalSlots()
+  
+  // 检查是否有错误
+  const isValid = ((typeof isFormValid !== 'undefined') && (isFormValid?.value === true)) || (typeof checkFormValid === 'function' && checkFormValid())
+  if (!isValid) {
+    ElMessage.error(buildInvalidReasonsText())
+    return
+  }
+  
   if (formRef.value) {
     const ok = await formRef.value.validate().catch(()=>false)
     if (!ok) return
   }
   const payload = { ...form.value, weekDays: weekDays.value, timeSlots: timeSlots.value }
   try {
+    formSubmitting.value = true
+    ElMessage.info('正在保存...')
     if (formMode.value === 'create') {
       await createScheduleRule(payload)
       ElMessage.success('创建成功')
@@ -602,16 +813,36 @@ const submitForm = async () => {
     reload()
   } catch (e) {
     ElMessage.error('提交失败')
-  }
+  } finally { formSubmitting.value = false }
 }
 
+// 日期选择禁用逻辑与联动
+const disableBeforeToday = (date) => { const t = new Date(); t.setHours(0,0,0,0); return date.getTime() < t.getTime() }
+const disableEndBeforeStart = (date) => { const s = form.value.startDate; if (!s) return false; const sd = new Date(s); sd.setHours(0,0,0,0); return date.getTime() <= sd.getTime() }
+watch(() => form.value.startDate, (s) => { const e = form.value.endDate; if (e && new Date(e).getTime() <= new Date(s).getTime()) { form.value.endDate = null } })
+
 const submitAndEnable = async () => {
+  // 先执行自定义验证
+  if (typeof validateRuleName === 'function') validateRuleName()
+  if (typeof validateRuleType === 'function') validateRuleType()
+  if (typeof validateWeekDays === 'function') validateWeekDays()
+  if (typeof validateTotalSlots === 'function') validateTotalSlots()
+  
+  // 检查是否有错误
+  const isValid2 = ((typeof isFormValid !== 'undefined') && (isFormValid?.value === true)) || (typeof checkFormValid === 'function' && checkFormValid())
+  if (!isValid2) {
+    ElMessage.error(buildInvalidReasonsText())
+    return
+  }
+  
   if (formRef.value) {
     const ok = await formRef.value.validate().catch(()=>false)
     if (!ok) return
   }
   const payload = { ...form.value, weekDays: weekDays.value, timeSlots: timeSlots.value }
   try {
+    formSubmitting.value = true
+    ElMessage.info('正在保存并启用...')
     let id = currentRuleId.value
     if (formMode.value === 'create') {
       const res = await createScheduleRule(payload)
@@ -624,7 +855,7 @@ const submitAndEnable = async () => {
     ElMessage.success('保存并启用成功')
     formVisible.value = false
     reload()
-  } catch (e) { ElMessage.error('保存并启用失败') }
+  } catch (e) { ElMessage.error('保存并启用失败') } finally { formSubmitting.value = false }
 }
 
 const doDelete = async (row) => {
@@ -733,6 +964,154 @@ const normalizeWeekDays = (val) => Array.isArray(val) ? val : String(val||'').sp
 const normalizeTimeSlots = (val) => Array.isArray(val) ? val : String(val||'').split(',').filter(Boolean)
 const getWeekDaysDisplay = (val) => normalizeWeekDays(val).map(n=>weekOptions[n]).join('、')
 const getTimeSlotsDisplay = (val) => normalizeTimeSlots(val).map(s=>mapTimeSlot(s)).join('、')
+
+const goToAdminSchedule = () => { router.push('/admin/schedule') }
+
+const showErrorDetails = () => {
+  if (applyResultData.value.errors && applyResultData.value.errors.length > 0) {
+    const errorMessages = applyResultData.value.errors.map(err => err.message || err).join('\n')
+    ElMessageBox.alert(errorMessages, '失败详情', {
+      confirmButtonText: '确定',
+      customClass: 'error-details-dialog'
+    })
+  }
+}
+
+// 表单验证状态
+const ruleNameError = ref('')
+const ruleTypeError = ref('')
+const weekDaysError = ref('')
+const totalSlotsError = ref('')
+
+// 验证规则名称
+const validateRuleName = () => {
+  const name = form.value.ruleName?.trim() || ''
+  if (!name) {
+    ruleNameError.value = '请输入规则名称'
+    return false
+  }
+  if (name.length < 2) {
+    ruleNameError.value = '规则名称至少2个字符'
+    return false
+  }
+  if (name.length > 30) {
+    ruleNameError.value = '规则名称最多30个字'
+    return false
+  }
+  ruleNameError.value = ''
+  return true
+}
+
+// 验证规则类型
+const validateRuleType = () => {
+  if (!form.value.ruleType) {
+    ruleTypeError.value = '请选择规则类型'
+    return false
+  }
+  ruleTypeError.value = ''
+  return true
+}
+
+// 验证星期选择
+const validateWeekDays = () => {
+  const rt = normalizeRuleType(form.value.ruleType)
+  if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) {
+    weekDaysError.value = '请至少选择一天进行排班'
+    return false
+  }
+  weekDaysError.value = ''
+  return true
+}
+
+// 验证总号源数
+const validateTotalSlots = () => {
+  const slots = form.value.totalSlots
+  if (!slots || slots < 1 || slots > 100) {
+    totalSlotsError.value = '号源个数为1–100的整数'
+    return false
+  }
+  totalSlotsError.value = ''
+  return true
+}
+
+// 验证规则描述长度
+const validateDescription = () => {
+  const desc = form.value.description || ''
+  if (desc.length > 200) {
+    form.value.description = desc.substring(0, 200)
+  }
+}
+
+// 表单整体验证
+const isFormValid = computed(() => {
+  const nameLen = (form.value.ruleName || '').trim().length
+  const ruleNameValid = nameLen >= 2 && nameLen <= 30
+  const ruleTypeValid = !!form.value.ruleType
+  const rt = normalizeRuleType(form.value.ruleType)
+  const weekDaysValid = rt === 'FIXED_WEEKLY' ? (weekDays.value && weekDays.value.length > 0) : true
+  const totalSlotsValid = form.value.totalSlots >= 1 && form.value.totalSlots <= 100
+  const startValid = !!form.value.startDate
+  const endValid = !form.value.endDate || (new Date(form.value.endDate).getTime() > new Date(form.value.startDate).getTime())
+  return ruleNameValid && ruleTypeValid && weekDaysValid && totalSlotsValid && startValid && endValid
+})
+
+const invalidReasons = computed(() => {
+  const reasons = []
+  const nameLen = (form.value.ruleName || '').trim().length
+  if (nameLen < 2 || nameLen > 30) reasons.push('规则名称需为2–30个字符')
+  if (!form.value.ruleType) reasons.push('请选择规则类型')
+  const rt = normalizeRuleType(form.value.ruleType)
+  if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) reasons.push('固定周排班需至少选择一天')
+  const slots = form.value.totalSlots
+  if (!(slots >= 1 && slots <= 100)) reasons.push('总号源数需为1–100的整数')
+  if (!form.value.startDate) reasons.push('请选择开始日期')
+  if (form.value.endDate && new Date(form.value.endDate).getTime() <= new Date(form.value.startDate).getTime()) reasons.push('结束日期必须晚于开始日期')
+  return reasons
+})
+const invalidReasonsText = computed(() => {
+  const arr = invalidReasons.value || []
+  return arr.length ? arr.join('；') : '请完善必填项'
+})
+
+// 运行时校验函数，避免因计算属性不可用导致点击报错
+function checkFormValid() {
+  const nameLen = (form.value.ruleName || '').trim().length
+  if (nameLen < 2 || nameLen > 30) return false
+  if (!form.value.ruleType) return false
+  const rt = normalizeRuleType(form.value.ruleType)
+  if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) return false
+  const slots = form.value.totalSlots
+  if (!(slots >= 1 && slots <= 100)) return false
+  const s = form.value.startDate
+  if (!s) return false
+  const e = form.value.endDate
+  if (e && new Date(e).getTime() <= new Date(s).getTime()) return false
+  return true
+}
+
+// 构建错误提示文本（不依赖计算属性）
+function buildInvalidReasonsText() {
+  const reasons = []
+  const nameLen = (form.value.ruleName || '').trim().length
+  if (nameLen < 2 || nameLen > 30) reasons.push('规则名称需为2–30个字符')
+  if (!form.value.ruleType) reasons.push('请选择规则类型')
+  const rt = normalizeRuleType(form.value.ruleType)
+  if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) reasons.push('固定周排班需至少选择一天')
+  const slots = form.value.totalSlots
+  if (!(slots >= 1 && slots <= 100)) reasons.push('总号源数需为1–100的整数')
+  const s = form.value.startDate
+  if (!s) reasons.push('请选择开始日期')
+  const e = form.value.endDate
+  if (e && new Date(e).getTime() <= new Date(s).getTime()) reasons.push('结束日期必须晚于开始日期')
+  return reasons.length ? reasons.join('；') : '请完善必填项'
+}
+
+// 监听表单变化，实时验证
+watch(() => form.value.ruleName, validateRuleName)
+watch(() => form.value.ruleType, validateRuleType)
+watch(weekDays, validateWeekDays)
+watch(() => form.value.totalSlots, validateTotalSlots)
+watch(() => form.value.description, validateDescription)
 </script>
 
 <style scoped>
@@ -771,11 +1150,170 @@ const getTimeSlotsDisplay = (val) => normalizeTimeSlots(val).map(s=>mapTimeSlot(
 .apply-intro { text-align: left; margin-bottom: 8px; color: #303133; }
 .apply-card { margin-bottom: 8px; }
 .apply-tips { text-align: left; color: #606266; margin-top: 4px; }
-</style>
-const goToAdminSchedule = () => { router.push('/admin/schedule') }
-const openDeleteConfirm = async (row) => {
-  try {
-    await ElMessageBox.confirm('确认删除该规则？', '提示', { type: 'warning', center: true, confirmButtonText: '删除', cancelButtonText: '取消' })
-    await doDelete(row)
-  } catch {}
+.popconfirm-wide { min-width: 280px; }
+.popconfirm-wide .el-popconfirm__main { white-space: nowrap; }
+.form-section { background: #fff; border: 1px solid #ebeef5; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.form-section .section-title { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #ebeef5; text-align: left; }
+.form-section .kv { padding: 12px 16px; }
+.rule-type-tips { margin-top: 8px; color: #909399; font-size: 12px; }
+
+/* 应用规则对话框样式 */
+.apply-dialog :deep(.el-dialog__body) { padding-top: 6px; }
+.apply-intro { text-align: left; margin-bottom: 16px; color: #303133; font-size: 16px; font-weight: 500; }
+.apply-card { margin-bottom: 16px; border: 1px solid #ebeef5; }
+.apply-form-container { padding: 8px 0; }
+.form-row { display: flex; align-items: flex-start; margin-bottom: 16px; }
+.form-label { width: 140px; color: #606266; font-size: 14px; line-height: 32px; text-align: left; }
+.form-value { flex: 1; }
+.date-range { display: flex; align-items: center; gap: 8px; }
+.date-separator { color: #909399; font-size: 14px; }
+.required-mark { color: #f56c6c; font-size: 12px; margin-left: 8px; }
+.overwrite-checkbox { color: #e6a23c; font-weight: 500; }
+.exclude-date-input { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.add-date-btn { background-color: #409eff; color: white; border: none; }
+.add-date-btn:hover { background-color: #66b1ff; }
+.exclude-date-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.exclude-date-tag { background-color: #f0f9ff; border-color: #b3d8ff; color: #409eff; }
+.estimate-tag { margin-right: 8px; }
+.estimate-desc { color: #909399; font-size: 12px; }
+.apply-tips { background-color: #fef0f0; border: 1px solid #fbc4c4; border-radius: 4px; padding: 12px; margin-top: 16px; }
+.tips-title { color: #f56c6c; font-weight: 600; margin-bottom: 8px; }
+.tips-content { color: #606266; font-size: 14px; line-height: 1.6; }
+.tips-content div { margin-bottom: 4px; }
+.conflict-btn { margin-left: 8px; background-color: #e6a23c; color: white; border: none; }
+.conflict-btn:hover { background-color: #eebe77; }
+.dialog-footer { text-align: right; }
+
+/* 结果对话框样式 */
+.result-dialog :deep(.el-dialog__body) { padding: 24px; }
+.result-content { text-align: center; }
+.result-header { display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
+.success-icon { color: #67c23a; font-size: 24px; margin-right: 8px; }
+.result-title { color: #303133; font-size: 18px; font-weight: 600; }
+.result-stats { text-align: left; }
+.stat-item { margin-bottom: 12px; display: flex; align-items: center; }
+.stat-label { color: #606266; font-size: 14px; width: 80px; }
+.stat-value { font-size: 14px; font-weight: 500; }
+.stat-value.success { color: #67c23a; }
+.stat-value.skip { color: #909399; }
+.stat-value.error { color: #f56c6c; }
+.error-detail { color: #409eff; cursor: pointer; margin-left: 8px; font-size: 12px; }
+.error-detail:hover { text-decoration: underline; }
+.result-footer { text-align: right; }
+
+/* 规则表单样式 */
+.rule-form-drawer :deep(.el-drawer__header) {
+  font-size: 22px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 0;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #ebeef5;
 }
+
+.required-legend {
+  color: #909399;
+  font-size: 12px;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.required-mark {
+  color: #f56c6c;
+  margin-left: 4px;
+}
+
+.kv-label.single-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+/* 高级规则特定样式 */
+.form-section .kv-row {
+  align-items: center;
+}
+
+.form-section .kv-label {
+  flex-shrink: 0;
+  padding-right: 8px;
+  min-width: 140px;
+  max-width: 180px;
+}
+
+/* 确保高级规则标签不换行 */
+.form-section:nth-child(5) .kv-label {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* 提示文字样式 */
+.hint-text {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.error-message {
+  color: #f56c6c;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.weekday-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.weekday-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.weekday-checkbox {
+  margin-right: 0;
+  min-width: 60px;
+}
+
+.weekday-checkbox :deep(.el-checkbox__label) {
+  font-size: 14px;
+  color: #606266;
+}
+
+/* 增强表单字段样式 */
+.form-section :deep(.el-input__inner),
+.form-section :deep(.el-textarea__inner) {
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  transition: border-color 0.2s;
+}
+
+.form-section :deep(.el-input__inner:focus),
+.form-section :deep(.el-textarea__inner:focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.form-section :deep(.el-input-number) {
+  width: 120px;
+}
+
+.form-section :deep(.el-input-number__increase),
+.form-section :deep(.el-input-number__decrease) {
+  border-radius: 0;
+}
+
+/* 错误状态样式 */
+.form-section :deep(.el-input__inner.error),
+.form-section :deep(.el-textarea__inner.error) {
+  border-color: #f56c6c;
+}
+
+</style>

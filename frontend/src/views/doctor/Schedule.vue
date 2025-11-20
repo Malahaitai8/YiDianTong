@@ -243,7 +243,20 @@
 
         <!-- 患者列表 -->
         <div class="patients-section">
-          <h4>预约患者列表</h4>
+          <div class="patients-header">
+            <h4>今日预约</h4>
+            <div class="patients-actions">
+              <el-select v-model="dialogTimeSlotFilter" placeholder="时间段" size="small" style="width: 120px" @change="() => loadPatientsForSchedule(selectedSchedule.id)">
+                <el-option label="全部" value="" />
+                <el-option label="上午" value="MORNING" />
+                <el-option label="下午" value="AFTERNOON" />
+                <el-option label="晚上" value="EVENING" />
+              </el-select>
+              <el-tag type="warning" effect="light">上午：{{ dialogMorningCount }}</el-tag>
+              <el-tag type="success" effect="light">下午：{{ dialogAfternoonCount }}</el-tag>
+              <el-tag type="info" effect="light">晚上：{{ dialogEveningCount }}</el-tag>
+            </div>
+          </div>
           <el-table
             :data="selectedSchedule.patients || []"
             style="width: 100%"
@@ -290,7 +303,7 @@ import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { formatDate } from '@/utils'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
-import { getMySchedules, getMyInfo } from '@/api/doctor'
+import { getMySchedules, getMyInfo, getTodayPatients } from '@/api/doctor'
 
 // 视图模式
 const viewMode = ref('week') // 'day' 或 'week'
@@ -299,6 +312,10 @@ const selectedDate = ref(new Date())
 const selectedMonth = ref(new Date())
 const scheduleDialogVisible = ref(false)
 const selectedSchedule = ref(null)
+const dialogTimeSlotFilter = ref('')
+const dialogMorningCount = ref(0)
+const dialogAfternoonCount = ref(0)
+const dialogEveningCount = ref(0)
 // 顶部筛选栏模型
 const filterStartDate = ref(null) // Date
 const filterEndDate = ref(null)   // Date
@@ -538,6 +555,7 @@ const handleDaySlotClick = (date, timeSlot) => {
     selectedSchedule.value = schedule
     scheduleDialogVisible.value = true
     // 加载患者列表
+    dialogTimeSlotFilter.value = normalizeSlot(schedule.timeSlot)
     loadPatientsForSchedule(schedule.id)
   }
 }
@@ -545,55 +563,29 @@ const handleDaySlotClick = (date, timeSlot) => {
 // 加载指定排班的患者列表
 const loadPatientsForSchedule = async (scheduleId) => {
   try {
-    // 注意：这里需要一个新的API接口来获取指定排班的患者列表
-    // 建议的API: GET /appointment/schedule/{scheduleId}
-    // 返回该排班下的所有预约患者信息
-    
-    // 暂时使用模拟数据
-    const mockPatients = [
-      { 
-        id: 1, 
-        name: '张三', 
-        phone: '138****1234', 
-        appointmentTime: '08:30', 
-        status: '已完成',
-        patientId: 101
-      },
-      { 
-        id: 2, 
-        name: '李四', 
-        phone: '139****5678', 
-        appointmentTime: '09:00', 
-        status: '待就诊',
-        patientId: 102
-      },
-      { 
-        id: 3, 
-        name: '王五', 
-        phone: '137****9012', 
-        appointmentTime: '09:30', 
-        status: '待就诊',
-        patientId: 103
-      }
-    ]
-    
+    const params = { timeSlot: dialogTimeSlotFilter.value || undefined }
+    const resp = await getTodayPatients(params)
+    const rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
+    dialogMorningCount.value = Number(resp?.data?.morningCount || 0)
+    dialogAfternoonCount.value = Number(resp?.data?.afternoonCount || 0)
+    dialogEveningCount.value = Number(resp?.data?.eveningCount || 0)
+    const filtered = rawList.filter(item => {
+      if (item.scheduleId) return item.scheduleId === scheduleId
+      // 兜底：按日期与时间段匹配
+      const dateMatch = !!selectedSchedule.value?.scheduleDate && (item.scheduleDate === selectedSchedule.value.scheduleDate)
+      const slotMatch = !!selectedSchedule.value?.timeSlot && (normalizeSlot(item.timeSlot) === normalizeSlot(selectedSchedule.value.timeSlot))
+      return dateMatch && slotMatch
+    })
     if (selectedSchedule.value) {
-      selectedSchedule.value.patients = mockPatients
+      selectedSchedule.value.patients = filtered.map(item => ({
+        id: item.appointmentId,
+        name: item.patientName,
+        phone: item.phoneNumber,
+        appointmentTime: item.appointmentTime ? String(item.appointmentTime).split(' ')[1] : '',
+        status: item.statusName || getAppointmentStatusText(item.status),
+        patientId: item.patientId
+      }))
     }
-    
-    // TODO: 实际的API调用应该是这样的：
-    // const response = await request.get(`/appointment/schedule/${scheduleId}`)
-    // if (response.data) {
-    //   selectedSchedule.value.patients = response.data.map(appointment => ({
-    //     id: appointment.id,
-    //     name: appointment.patientName,
-    //     phone: appointment.patientPhone,
-    //     appointmentTime: formatTime(appointment.appointmentTime),
-    //     status: getAppointmentStatusText(appointment.status),
-    //     patientId: appointment.patientId
-    //   }))
-    // }
-    
   } catch (error) {
     console.error('加载患者列表失败:', error)
     ElMessage.error('加载患者列表失败')
@@ -1114,6 +1106,15 @@ onMounted(() => {
 .patients-section {
   margin-top: 20px;
 }
+
+.patients-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.patients-actions { display: flex; align-items: center; gap: 8px; }
 
 .patients-section h4 {
   margin: 0 0 15px 0;

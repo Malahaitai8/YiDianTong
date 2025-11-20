@@ -63,6 +63,7 @@ const userStore = useUserStore()
 const menuItems = ref([
   { path: '/admin/dashboard', name: '数据概览' },
   { path: '/admin/doctors', name: '医生管理' },
+  { path: '/admin/patients', name: '患者管理' },
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
   { path: '/admin/schedule-rules', name: '排班规则' },
