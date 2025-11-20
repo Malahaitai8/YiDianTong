@@ -132,8 +132,10 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
 
                         // 患者端匿名访问：医生详情页排班接口
+                        .requestMatchers(HttpMethod.GET, "/doctor/*/schedules").permitAll()
                         
-                        
+                        // 允许访问排班详情接口（挂号确认页需要）
+                        .requestMatchers(HttpMethod.GET, "/schedule/selectById/*").permitAll()
 
                         // 允许访问Swagger文档
                         .requestMatchers(

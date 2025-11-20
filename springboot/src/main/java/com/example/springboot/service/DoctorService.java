@@ -70,10 +70,10 @@ public class DoctorService {
             if (currentUserId == null) {
                 throw new CustomerException("401", "未登录");
             }
-
+            
             // 检查是否为本人
             if (!currentUserId.equals(existingDoctor.getUserId())) {
-                logger.warn("用户 {} 尝试修改医生 {} 的信息，但该医生关联的用户ID为 {}",
+                logger.warn("用户 {} 尝试修改医生 {} 的信息，但该医生关联的用户ID为 {}", 
                            currentUserId, doctor.getId(), existingDoctor.getUserId());
                 throw new CustomerException("403", "无权限修改其他医生的信息");
             }
@@ -180,7 +180,7 @@ public class DoctorService {
         // 为每个排班统计预约信息
         List<Map<String, Object>> enrichedSchedules = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
+        
         for (Schedule schedule : schedules) {
             Map<String, Object> item = new HashMap<>();
             item.put("id", schedule.getId());
@@ -190,11 +190,11 @@ public class DoctorService {
             item.put("totalSlots", schedule.getTotalSlots());
             item.put("availableSlots", schedule.getAvailableSlots());
             item.put("bookedSlots", schedule.getTotalSlots() - schedule.getAvailableSlots());
-
+            
             // 查询该排班的预约数量
             int appointmentCount = appointmentMapper.countByScheduleId(schedule.getId());
             item.put("appointmentCount", appointmentCount);
-
+            
             enrichedSchedules.add(item);
         }
 
@@ -208,14 +208,14 @@ public class DoctorService {
         Map<String, Object> result = new HashMap<>();
         result.put("schedules", enrichedSchedules);
         result.put("total", enrichedSchedules.size());
-
+        
         return result;
     }
 
     /**
      * 医生查看预约患者列表
      */
-    public Map<String, Object> getMyPatients(Long doctorId, Date date, String timeSlot,
+    public Map<String, Object> getMyPatients(Long doctorId, Date date, String timeSlot, 
                                              String status, String patientName) {
         // 查询该医生的所有预约
         List<Appointment> appointments = appointmentMapper.selectByDoctorId(doctorId);
@@ -224,7 +224,7 @@ public class DoctorService {
         List<Map<String, Object>> filteredPatients = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         SimpleDateFormat sdfTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
+        
         for (Appointment appointment : appointments) {
             // 日期筛选
             if (date != null && appointment.getAppointmentTime() != null) {
@@ -232,7 +232,7 @@ public class DoctorService {
                 appointmentCal.setTime(appointment.getAppointmentTime());
                 Calendar filterCal = Calendar.getInstance();
                 filterCal.setTime(date);
-
+                
                 if (appointmentCal.get(Calendar.YEAR) != filterCal.get(Calendar.YEAR) ||
                     appointmentCal.get(Calendar.DAY_OF_YEAR) != filterCal.get(Calendar.DAY_OF_YEAR)) {
                     continue;
@@ -270,11 +270,11 @@ public class DoctorService {
             // 构建返回数据
             Map<String, Object> item = new HashMap<>();
             item.put("appointmentId", appointment.getId());
-            item.put("appointmentTime", appointment.getAppointmentTime() != null ?
+            item.put("appointmentTime", appointment.getAppointmentTime() != null ? 
                      sdfTime.format(appointment.getAppointmentTime()) : null);
             item.put("status", appointment.getStatus());
             item.put("sourceType", appointment.getSourceType());
-
+            
             // 患者信息
             item.put("patientId", patient.getId());
             item.put("patientName", patient.getName());
@@ -282,14 +282,14 @@ public class DoctorService {
             item.put("patientAge", null);     // User实体中无年龄字段
             item.put("patientPhone", patient.getPhoneNumber());
             item.put("patientIdCard", patient.getIdCardNumber());
-
+            
             // 排班信息
             if (schedule != null) {
                 item.put("scheduleDate", sdf.format(schedule.getScheduleDate()));
                 item.put("timeSlot", schedule.getTimeSlot());
                 item.put("slotType", schedule.getSlotType());
             }
-
+            
             filteredPatients.add(item);
         }
 
@@ -305,44 +305,8 @@ public class DoctorService {
         Map<String, Object> result = new HashMap<>();
         result.put("patients", filteredPatients);
         result.put("total", filteredPatients.size());
-
+        
         return result;
-    }
-
-    /**
-     * 医生端：当日预约患者列表
-     */
-    public Map<String, Object> getTodayPatients(Long doctorId, String timeSlot) {
-        Date today = new Date();
-        String normalized = timeSlot == null || timeSlot.isEmpty() ? null : normalizeTimeSlot(timeSlot);
-        List<com.example.springboot.dto.DoctorPatientDTO> items =
-                appointmentMapper.selectTodayPatientsByDoctor(doctorId, today, normalized);
-
-        // 统计汇总
-        int total = items.size();
-        int morning = 0, afternoon = 0, evening = 0;
-        for (com.example.springboot.dto.DoctorPatientDTO dto : items) {
-            String slot = dto.getTimeSlot();
-            if (slot == null) continue;
-            switch (slot.toLowerCase()) {
-                case "morning": morning++; break;
-                case "afternoon": afternoon++; break;
-                case "evening": evening++; break;
-                default: break;
-            }
-        }
-
-        // 按预约时间排序（早到晚）
-        items.sort(java.util.Comparator.comparing(com.example.springboot.dto.DoctorPatientDTO::getAppointmentTime,
-                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("patients", items);
-        resp.put("total", total);
-        resp.put("morningCount", morning);
-        resp.put("afternoonCount", afternoon);
-        resp.put("eveningCount", evening);
-        return resp;
     }
 
     /**
@@ -350,30 +314,30 @@ public class DoctorService {
      */
     public Map<String, Object> getDoctorDashboard(Long doctorId) {
         Map<String, Object> dashboard = new HashMap<>();
-
+        
         // 1. 今日待接诊人数
         int todayPatients = countTodayPatients(doctorId);
         dashboard.put("todayPatients", todayPatients);
-
+        
         // 2. 本周排班数量
         int weekSchedules = countWeekSchedules(doctorId);
         dashboard.put("weekSchedules", weekSchedules);
-
+        
         // 3. 待审核的调班申请数量
         dashboard.put("pendingChangeRequests", 0);
-
+        
         // 4. 近7天统计
         Map<String, Integer> last7Days = getLast7DaysStatistics(doctorId);
         dashboard.put("last7DaysAppointments", last7Days);
-
+        
         // 5. 本月累计接诊人数
         int monthlyTotal = countMonthlyAppointments(doctorId);
         dashboard.put("monthlyTotal", monthlyTotal);
-
+        
         // 6. 最近的排班（未来3天）
         List<Map<String, Object>> upcomingSchedules = getUpcomingSchedules(doctorId, 3);
         dashboard.put("upcomingSchedules", upcomingSchedules);
-
+        
         return dashboard;
     }
 
@@ -386,13 +350,13 @@ public class DoctorService {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         Date startOfDay = cal.getTime();
-
+        
         cal.add(Calendar.DAY_OF_MONTH, 1);
         Date endOfDay = cal.getTime();
-
+        
         List<Appointment> appointments = appointmentMapper.selectByDoctorId(doctorId);
         int count = 0;
-
+        
         for (Appointment appointment : appointments) {
             if (appointment.getAppointmentTime() != null &&
                 !appointment.getAppointmentTime().before(startOfDay) &&
@@ -401,7 +365,7 @@ public class DoctorService {
                 count++;
             }
         }
-
+        
         return count;
     }
 
@@ -412,10 +376,10 @@ public class DoctorService {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         Date startDate = cal.getTime();
-
+        
         cal.add(Calendar.DAY_OF_MONTH, 7);
         Date endDate = cal.getTime();
-
+        
         List<Schedule> schedules = scheduleMapper.selectByDoctorAndDateRange(doctorId, startDate, endDate);
         return schedules.size();
     }
@@ -423,24 +387,24 @@ public class DoctorService {
     private Map<String, Integer> getLast7DaysStatistics(Long doctorId) {
         Map<String, Integer> stats = new LinkedHashMap<>();
         SimpleDateFormat sdf = new SimpleDateFormat("MM-dd");
-
+        
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_MONTH, -6);
-
+        
         for (int i = 0; i < 7; i++) {
             cal.set(Calendar.HOUR_OF_DAY, 0);
             cal.set(Calendar.MINUTE, 0);
             cal.set(Calendar.SECOND, 0);
             cal.set(Calendar.MILLISECOND, 0);
             Date dayStart = cal.getTime();
-
+            
             cal.add(Calendar.DAY_OF_MONTH, 1);
             Date dayEnd = cal.getTime();
-
+            
             int count = countAppointmentsInRange(doctorId, dayStart, dayEnd);
             stats.put(sdf.format(dayStart), count);
         }
-
+        
         return stats;
     }
 
@@ -452,17 +416,17 @@ public class DoctorService {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         Date monthStart = cal.getTime();
-
+        
         cal.add(Calendar.MONTH, 1);
         Date monthEnd = cal.getTime();
-
+        
         return countAppointmentsInRange(doctorId, monthStart, monthEnd);
     }
 
     private int countAppointmentsInRange(Long doctorId, Date startDate, Date endDate) {
         List<Appointment> appointments = appointmentMapper.selectByDoctorId(doctorId);
         int count = 0;
-
+        
         for (Appointment appointment : appointments) {
             if (appointment.getAppointmentTime() != null &&
                 !appointment.getAppointmentTime().before(startDate) &&
@@ -470,7 +434,7 @@ public class DoctorService {
                 count++;
             }
         }
-
+        
         return count;
     }
 
@@ -481,14 +445,14 @@ public class DoctorService {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         Date startDate = cal.getTime();
-
+        
         cal.add(Calendar.DAY_OF_MONTH, days);
         Date endDate = cal.getTime();
-
+        
         List<Schedule> schedules = scheduleMapper.selectByDoctorAndDateRange(doctorId, startDate, endDate);
         List<Map<String, Object>> result = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
+        
         for (Schedule schedule : schedules) {
             Map<String, Object> item = new HashMap<>();
             item.put("scheduleDate", sdf.format(schedule.getScheduleDate()));
@@ -498,7 +462,7 @@ public class DoctorService {
             item.put("availableSlots", schedule.getAvailableSlots());
             result.add(item);
         }
-
+        
         return result;
     }
 
