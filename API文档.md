@@ -1421,7 +1421,7 @@ GET /api/admin/schedules?doctorId=1&startDate=2025-10-25&endDate=2025-10-31&page
 
 **权限**: 仅管理员
 
-**说明**: 为指定排班增加号源数量，同时增加总号源和可用号源
+**说明**: 为指定排班增加号源数量，并自动从候补队列中为患者创建预约。
 
 **路径参数**:
 - `id`: 排班ID（必填）
@@ -1449,13 +1449,17 @@ GET /api/admin/schedules?doctorId=1&startDate=2025-10-25&endDate=2025-10-31&page
   "code": "200",
   "msg": "成功",
   "data": {
-    "id": 123,
-    "doctorId": 5,
-    "scheduleDate": "2025-11-20",
-    "timeSlot": "morning",
-    "slotType": "normal",
-    "totalSlots": 30,
-    "availableSlots": 18
+    "schedule": {
+      "id": 123,
+      "doctorId": 5,
+      "scheduleDate": "2025-11-20",
+      "timeSlot": "morning",
+      "slotType": "normal",
+      "totalSlots": 30,
+      "availableSlots": 15
+    },
+    "filledFromWaitlist": 3,
+    "message": "成功增加 10 个号源，并自动为 3 位候补患者创建了预约。"
   }
 }
 ```
@@ -1481,11 +1485,13 @@ GET /api/admin/schedules?doctorId=1&startDate=2025-10-25&endDate=2025-10-31&page
 ```
 
 **业务逻辑**:
-1. 验证排班是否存在
-2. 计算新的总号源 = 原总号源 + slotsToAdd
-3. 计算新的可用号源 = 原可用号源 + slotsToAdd
-4. 更新数据库（事务性保证）
-5. 返回更新后的排班信息
+1. 验证排班是否存在。
+2. 更新数据库中的 `total_slots` 和 `available_slots`，增加 `slotsToAdd` 的数量。
+3. **循环处理候补队列**：
+   - 尝试从该排班的候补队列中弹出一个患者。
+   - 如果成功，为该患者自动创建预约，并重复此步骤，直到新增的号源被用完。
+   - 如果候补队列为空，则提前结束循环。
+4. 返回更新后的排班信息、成功填充的候补人数以及操作的汇总信息。
 
 **使用场景**:
 - 患者需求量突然增加，需要临时增加号源

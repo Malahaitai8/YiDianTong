@@ -1,7 +1,7 @@
 module.exports = {
   devServer: {
     port: 8081, // 开发服务器端口
-    open: true, // 自动打开浏览器
+    open: false, // 不再自动打开浏览器，请手动访问 http://localhost:8081
     proxy: {
       // 代理配置（可选）
       '/api': {

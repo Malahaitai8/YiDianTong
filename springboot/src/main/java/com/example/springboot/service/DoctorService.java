@@ -310,6 +310,22 @@ public class DoctorService {
     }
 
     /**
+     * 医生查看当日预约患者列表
+     */
+    public Map<String, Object> getTodayPatients(Long doctorId, String timeSlot) {
+        // 获取今天的日期范围
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date today = cal.getTime();
+        
+        // 调用 getMyPatients 方法，传入今天的日期和时间段
+        return getMyPatients(doctorId, today, timeSlot, null, null);
+    }
+
+    /**
      * 医生Dashboard
      */
     public Map<String, Object> getDoctorDashboard(Long doctorId) {

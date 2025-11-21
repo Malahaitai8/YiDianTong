@@ -120,19 +120,11 @@ public class AppointmentController {
         appointment.setPatientId(patientId);
         appointment.setScheduleId(request.getScheduleId());
 
-        // 4. [修复] 填充排班信息
+        // 4. 填充排班信息
         appointment.setDoctorId(schedule.getDoctorId());
-        
-        // 使用前端传入的精确预约时间
         appointment.setAppointmentTime(request.getAppointmentTime());
 
-        // 5. [修复] 填充费用 (TODO: 业务逻辑缺失)
-        // 假设费用在 Schedule 表中 (但 DB 实体没有)
-        // 暂设为 0
-        appointment.setFee(new BigDecimal("0.00"));
-        // (TODO: 缺少计算报销比例的逻辑)
-        appointment.setActualFee(new BigDecimal("0.00"));
-
+        // 5. 费用和状态由 Service 层计算和设置
         appointment.setStatus("scheduled");
         appointment.setSourceType("ONLINE");
         appointment.setCreatedAt(new java.util.Date());

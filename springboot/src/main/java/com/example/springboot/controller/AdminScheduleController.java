@@ -154,14 +154,14 @@ public class AdminScheduleController {
      * 加号（增加号源数量）
      * POST /api/admin/schedules/{id}/add-slots
      */
-    @Operation(summary = "加号", description = "为指定排班增加号源数量")
+    @Operation(summary = "加号并处理候补", description = "为指定排班增加号源，并自动处理候补队列")
     @PostMapping("/{id}/add-slots")
     public Result addSlots(
             @Parameter(description = "排班ID", required = true) @PathVariable Long id,
             @RequestBody @Valid AddSlotsRequest request) {
         try {
-            Schedule schedule = scheduleService.addSlots(id, request.getSlotsToAdd());
-            return Result.success(schedule);
+            Map<String, Object> result = scheduleService.addSlots(id, request.getSlotsToAdd());
+            return Result.success(result);
         } catch (Exception e) {
             return Result.error("加号失败: " + e.getMessage());
         }

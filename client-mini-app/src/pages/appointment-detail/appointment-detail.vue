@@ -92,12 +92,8 @@
 
 		<!-- 底部操作栏 -->
 		<view class="bottom-bar">
-			<!-- 待就诊/已确认状态：显示退号和候补按钮 -->
+			<!-- 待就诊/已确认状态：仅显示退号按钮；加入候补不应出现在预约详情页 -->
 			<template v-if="canCancel">
-				<button class="action-btn waitlist-btn" @click="goToWaitlist">
-					<text class="btn-icon">⏰</text>
-					<text class="btn-text">加入候补</text>
-				</button>
 				<button class="action-btn cancel-btn" @click="goToCancel">
 					<text class="btn-icon">❌</text>
 					<text class="btn-text">退号</text>
@@ -131,7 +127,7 @@ export default {
 				appointmentTime: '',
 				timeSlot: '',
 				timeSlotDisplay: '',
-				status: 'PENDING', // PENDING, CONFIRMED, COMPLETED, CANCELLED
+				status: 'pending', // Changed from 'PENDING' to 'pending' to match backend
 				originalFee: '0.00',
 				actualFee: '0.00',
 				reimbursementRate: '',
@@ -144,7 +140,9 @@ export default {
 		// 是否可以取消（待就诊或已确认状态）
 		canCancel() {
 			const status = this.appointmentDetail.status;
-			return status === 'PENDING' || status === 'CONFIRMED';
+			return status === 'PENDING' || status === 'pending' || 
+				   status === 'CONFIRMED' || status === 'confirmed' ||
+				   status === 'SCHEDULED' || status === 'scheduled';
 		}
 	},
 	onLoad(options) {
@@ -197,9 +195,15 @@ export default {
 		getStatusText(status) {
 			const statusMap = {
 				'PENDING': '待就诊',
+				'pending': '待就诊',
 				'CONFIRMED': '已确认',
+				'confirmed': '已确认',
+				'SCHEDULED': '已确认',
+				'scheduled': '已确认',
 				'COMPLETED': '已完成',
-				'CANCELLED': '已取消'
+				'completed': '已完成',
+				'CANCELLED': '已取消',
+				'cancelled': '已取消'
 			};
 			return statusMap[status] || '未知状态';
 		},
@@ -208,9 +212,15 @@ export default {
 		getStatusIcon(status) {
 			const iconMap = {
 				'PENDING': '⏳',
+				'pending': '⏳',
 				'CONFIRMED': '✅',
+				'confirmed': '✅',
+				'SCHEDULED': '✅',
+				'scheduled': '✅',
 				'COMPLETED': '✔️',
-				'CANCELLED': '❌'
+				'completed': '✔️',
+				'CANCELLED': '❌',
+				'cancelled': '❌'
 			};
 			return iconMap[status] || '❓';
 		},
@@ -219,9 +229,15 @@ export default {
 		getStatusClass(status) {
 			const classMap = {
 				'PENDING': 'status-pending',
+				'pending': 'status-pending',
 				'CONFIRMED': 'status-confirmed',
+				'confirmed': 'status-confirmed',
+				'SCHEDULED': 'status-confirmed',
+				'scheduled': 'status-confirmed',
 				'COMPLETED': 'status-completed',
-				'CANCELLED': 'status-cancelled'
+				'completed': 'status-completed',
+				'CANCELLED': 'status-cancelled',
+				'cancelled': 'status-cancelled'
 			};
 			return classMap[status] || '';
 		},

@@ -5,6 +5,8 @@
 		},
 		onLaunch: function() {
 			console.log('App Launch')
+			// 校验登录状态，防止token过期
+			this.$store.dispatch('user/validateToken')
 		},
 		onShow: function() {
 			console.log('App Show')

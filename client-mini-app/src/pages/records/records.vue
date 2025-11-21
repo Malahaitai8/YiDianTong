@@ -7,30 +7,30 @@
 
 		<!-- 分类筛选标签 -->
 		<view class="filter-tabs">
-			<view 
-				class="tab-item" 
-				:class="{ active: currentFilter === 'all' }" 
+			<view
+				class="tab-item"
+				:class="{ active: currentFilter === 'all' }"
 				@click="filterRecords('all')"
 			>
 				全部
 			</view>
-			<view 
-				class="tab-item" 
-				:class="{ active: currentFilter === 'appointment' }" 
+			<view
+				class="tab-item"
+				:class="{ active: currentFilter === 'appointment' }"
 				@click="filterRecords('appointment')"
 			>
 				预约
 			</view>
-			<view 
-				class="tab-item" 
-				:class="{ active: currentFilter === 'visit' }" 
+			<view
+				class="tab-item"
+				:class="{ active: currentFilter === 'visit' }"
 				@click="filterRecords('visit')"
 			>
 				就诊
 			</view>
-			<view 
-				class="tab-item" 
-				:class="{ active: currentFilter === 'waitlist' }" 
+			<view
+				class="tab-item"
+				:class="{ active: currentFilter === 'waitlist' }"
 				@click="filterRecords('waitlist')"
 			>
 				候补
@@ -45,7 +45,7 @@
 			</view>
 
 			<view v-else>
-				<view class="record-card" v-for="item in filteredList" :key="item.id || item.scheduleId" @click="viewDetail(item)">
+				<view class="record-card" v-for="item in filteredList" :key="item.id || item.scheduleId" @click="onCardClick(item)">
 					<view class="row" v-if="item.type !== 'waitlist'">
 						<text class="label">就诊医生</text>
 						<text class="value">{{ item.doctorName || item.doctorTitle || ('#' + item.doctorId) || '未知医生' }}</text>
@@ -56,7 +56,7 @@
 					</view>
 					<view class="row">
 						<text class="label">就诊时间</text>
-						<text class="value">{{ item.appointmentTime || item.scheduleDate || '未知时间' }} {{ item.timeSlotDisplay || '' }}</text>
+						<text class="value">{{ item.formattedAppointmentTime }} {{ item.timeSlotDisplay || '' }}</text>
 					</view>
 					<view class="row">
 						<text class="label">状态</text>
@@ -72,7 +72,7 @@
 					</view>
 					<view class="actions" @click.stop v-if="item.type !== 'waitlist'">
 						<button class="btn detail" @click.stop="viewDetail(item)">查看详情</button>
-						<button v-if="item.status==='PENDING' || item.status==='CONFIRMED'" class="btn cancel" @click.stop="cancel(item)">退号</button>
+						<button v-if="item.status==='PENDING' || item.status==='scheduled' || item.status==='CONFIRMED'" class="btn cancel" @click.stop="cancel(item)">退号</button>
 						<button class="btn delete" @click.stop="remove(item)">删除</button>
 					</view>
 					<view class="actions" @click.stop v-else>
@@ -86,8 +86,9 @@
 </template>
 
 <script>
-import { getMyAppointments, cancelAppointment, deleteAppointment } from '@/api/appointment.js'
+import { cancelAppointment, deleteAppointment } from '@/api/appointment.js'
 import { getMyWaitlist, cancelWaitlist } from '@/api/waitlist.js'
+import request from '@/utils/request.js'
 
 export default {
 	data() {
@@ -101,25 +102,47 @@ export default {
 		// 合并所有记录
 		allRecords() {
 			// 处理预约记录
-			const appointmentRecords = this.appointments.map(item => ({
-				...item,
-				type: 'appointment'
-			}));
-			
-			// 处理候补记录
-			const waitlistRecords = this.waitlists.map(item => ({
-				scheduleId: item.scheduleId,
-				rank: item.rank,
-				queueSize: item.queueSize,
-				type: 'waitlist',
-				status: 'WAITLIST', // 候补状态
-				id: `waitlist_${item.scheduleId}`, // 生成唯一ID
-				// 添加一些默认值，以便在界面中显示
-				doctorName: '未知医生',
-				scheduleDate: '未知日期',
-				timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot)
-			}));
-			
+			const appointmentRecords = this.appointments.map(item => {
+				// 格式化就诊时间
+				let formattedTime = '未知时间';
+				if (item.appointmentTime) {
+					const date = new Date(item.appointmentTime);
+					formattedTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+				} else if (item.scheduleDate) {
+					const date = new Date(item.scheduleDate);
+					formattedTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+				}
+
+				return {
+					...item,
+					type: 'appointment',
+					formattedAppointmentTime: formattedTime,
+					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot)
+				};
+			});
+
+			// 处理候补记录（使用后端返回的医生与排班信息，确保与数据库一致）
+			const waitlistRecords = this.waitlists.map(item => {
+				let formattedTime = '未知日期';
+				if (item.scheduleDate) {
+					const d = new Date(item.scheduleDate);
+					if (!isNaN(d.getTime())) {
+						formattedTime = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+					}
+				}
+				return {
+					scheduleId: item.scheduleId,
+					rank: item.rank,
+					queueSize: item.queueSize,
+					type: 'waitlist',
+					status: 'WAITLIST', // 候补状态
+					id: `waitlist_${item.scheduleId}`,
+					doctorName: item.doctorName || (item.doctorId ? ('#'+item.doctorId) : '未知医生'),
+					formattedAppointmentTime: formattedTime,
+					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot) || item.timeSlotName || ''
+				};
+			});
+
 			// 合并所有记录
 			return [...appointmentRecords, ...waitlistRecords];
 		},
@@ -129,13 +152,13 @@ export default {
 				return this.allRecords;
 			} else if (this.currentFilter === 'appointment') {
 				// 只显示预约记录（待就诊和已确认）
-				return this.allRecords.filter(item => 
-					item.type === 'appointment' && (item.status === 'PENDING' || item.status === 'CONFIRMED')
+				return this.allRecords.filter(item =>
+					item.type === 'appointment' && (item.status === 'PENDING' || item.status === 'scheduled' || item.status === 'CONFIRMED')
 				);
 			} else if (this.currentFilter === 'visit') {
 				// 只显示就诊记录（已完成）
-				return this.allRecords.filter(item => 
-					item.type === 'appointment' && item.status === 'COMPLETED'
+				return this.allRecords.filter(item =>
+					item.type === 'appointment' && (item.status === 'COMPLETED' || item.status === 'completed')
 				);
 			} else if (this.currentFilter === 'waitlist') {
 				// 只显示候补记录
@@ -157,19 +180,36 @@ export default {
 		this.loadData();
 	},
 	methods: {
+			onCardClick(item) {
+				// 卡片区域点击：根据类型跳转到正确的详情页
+				if (item && item.type === 'waitlist') {
+					this.viewWaitlistDetail(item);
+				} else {
+					this.viewDetail(item);
+				}
+			},
+
 		async loadData() {
-			try {
-				// 获取预约记录
-				const appointmentData = await getMyAppointments();
-				this.appointments = Array.isArray(appointmentData) ? appointmentData : ((appointmentData && appointmentData.list) ? appointmentData.list : []);
-				
-				// 获取候补记录
-				const waitlistData = await getMyWaitlist();
-				this.waitlists = Array.isArray(waitlistData) ? waitlistData : ((waitlistData && waitlistData.list) ? waitlistData.list : []);
-			} catch (e) {
-				console.error('加载数据失败:', e);
-				uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
-			}
+			// 分开加载，避免一个失败导致另一个也无法加载，特别是预约记录为空时
+			request({ url: '/appointment/me', method: 'GET', silent: true })
+				.then(data => {
+					this.appointments = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				})
+				.catch(err => {
+					// 没有预约记录时静默处理，不弹toast
+					console.log('加载预约记录失败（可能无记录）:', err);
+					this.appointments = [];
+				});
+
+			getMyWaitlist()
+				.then(data => {
+					this.waitlists = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				})
+				.catch(err => {
+					console.error('加载候补记录失败:', err);
+					uni.showToast({ title: err.msg || '加载候补记录失败', icon: 'none' });
+					this.waitlists = []; // 确保清空
+				});
 		},
 		// 筛选记录
 		filterRecords(type) {
@@ -187,9 +227,12 @@ export default {
 		statusName(s) {
 			switch (s) {
 				case 'PENDING': return '待就诊';
+				case 'scheduled': return '待就诊';
 				case 'CONFIRMED': return '已确认';
 				case 'COMPLETED': return '已完成';
+				case 'completed': return '已完成';
 				case 'CANCELLED': return '已取消';
+				case 'cancelled': return '已取消';
 				case 'WAITLIST': return '候补中';
 				default: return s || '-';
 			}

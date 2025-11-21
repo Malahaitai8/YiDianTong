@@ -64,23 +64,24 @@ public class WaitlistController {
     @PostMapping("/next/{scheduleId}")
     @PreAuthorize("hasRole('ADMIN')")
     public Result popNext(@PathVariable Long scheduleId) {
-
-        // [修改] service 现在返回 Long patientId
         Long patientId = waitlistService.popNext(scheduleId);
-
         if (patientId == null) {
             return Result.error("队列为空");
         }
         return Result.success(patientId);
     }
 
-    /** [新增] 退出候补队列 */
-    @Operation(summary = "退出候补队列", description = "患者主动退出候补队列")
+    /** 退出候补队列（患者） */
+    @Operation(summary = "退出候补队列", description = "患者从指定排班的候补队列中移除自身")
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("hasRole('PATIENT')")
     public Result cancel(@PathVariable Long scheduleId) {
         Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
-        waitlistService.removeFromQueue(patientId, scheduleId);
-        return Result.success("退出成功");
+        try {
+            waitlistService.removeFromQueue(patientId, scheduleId);
+            return Result.success("已退出候补队列");
+        } catch (Exception e) {
+            return Result.error("操作失败: " + e.getMessage());
+        }
     }
 }

@@ -106,8 +106,11 @@ public class AppointmentService {
                 }
                 BigDecimal fee = systemConfigService.getDecimalOrDefault(key, new BigDecimal("0.00"));
                 appointment.setFee(fee);
+                
+                // 根据患者身份计算实际支付费用
                 if (appointment.getActualFee() == null || appointment.getActualFee().compareTo(BigDecimal.ZERO) <= 0) {
-                    appointment.setActualFee(fee);
+                    BigDecimal actualFee = calculateActualFee(appointment.getPatientId(), fee);
+                    appointment.setActualFee(actualFee);
                 }
             }
         } catch (Exception e) {
@@ -162,7 +165,7 @@ public class AppointmentService {
 
         // 如果删除成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
         if (result > 0) {
-            boolean filled = processWaitlistAfterDeletion(appointment.getScheduleId());
+            boolean filled = processNextInWaitlist(appointment.getScheduleId());
             if (!filled) {
                 try {
                     scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
@@ -175,8 +178,8 @@ public class AppointmentService {
         return result;
     }
 
-    /** [修改] 处理候补队列：当预约被删除或取消后，为队首患者创建预约；返回是否已被候补填充 */
-    private boolean processWaitlistAfterDeletion(Long scheduleId) {
+    /** [修改] 处理候补队列：为队首患者创建预约；返回是否已被候补填充 */
+    public boolean processNextInWaitlist(Long scheduleId) {
         try {
             // [修改] 1. 从 Redis 弹出下一个患者 (返回 Long patientId)
             Long nextPatientId = waitlistService.popNext(scheduleId);
@@ -191,7 +194,7 @@ public class AppointmentService {
                 newAppointment.setPatientId(nextPatientId);
 
                 newAppointment.setScheduleId(scheduleId);
-                newAppointment.setStatus("scheduled");
+                newAppointment.setStatus("PENDING");
                 newAppointment.setSourceType("WAITLIST");
 
                 // [修复] 必须设置预约时间，否则取消时会出错
@@ -226,7 +229,10 @@ public class AppointmentService {
                         }
                         BigDecimal fee = systemConfigService.getDecimalOrDefault(key, new BigDecimal("0.00"));
                         newAppointment.setFee(fee);
-                        newAppointment.setActualFee(fee); // 假设候补也是全价
+                        
+                        // 根据患者身份计算实际支付费用
+                        BigDecimal actualFee = calculateActualFee(nextPatientId, fee);
+                        newAppointment.setActualFee(actualFee);
                     } else {
                         newAppointment.setFee(new BigDecimal("0.00"));
                         newAppointment.setActualFee(new BigDecimal("0.00"));
@@ -307,7 +313,7 @@ public class AppointmentService {
 
         // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
         if (result > 0) {
-            boolean filled = processWaitlistAfterDeletion(appointment.getScheduleId());
+            boolean filled = processNextInWaitlist(appointment.getScheduleId());
             if (!filled) {
                 try {
                     scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
@@ -352,6 +358,39 @@ public class AppointmentService {
     }
 
     // ===== 工具方法 =====
+    
+    /**
+     * 根据患者身份计算实际支付费用
+     */
+    private BigDecimal calculateActualFee(Long patientId, BigDecimal originalFee) {
+        try {
+            Patient patient = patientMapper.selectById(patientId);
+            if (patient == null) {
+                return originalFee;
+            }
+            
+            String specificRole = patient.getSpecificRole();
+            if (specificRole == null || !"verified".equals(patient.getIdStatus())) {
+                // 未认证或无身份信息，不享受报销
+                return originalFee;
+            }
+            
+            // 根据身份类型计算报销后的实际费用
+            if ("student".equals(specificRole)) {
+                // 学生报锅95%，实付5%
+                return originalFee.multiply(new BigDecimal("0.05"));
+            } else if ("teacher".equals(specificRole)) {
+                // 教师报锅90%，实付10%
+                return originalFee.multiply(new BigDecimal("0.10"));
+            }
+            
+            return originalFee;
+        } catch (Exception e) {
+            logger.warn("计算实际费用失败: {}", e.getMessage());
+            return originalFee;
+        }
+    }
+    
     private Date atStartOfDay(Date date) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.setTime(date);

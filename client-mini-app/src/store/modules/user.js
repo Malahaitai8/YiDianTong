@@ -1,5 +1,6 @@
 import { getToken, setToken, removeToken, getUserInfo as getUserInfoCache, setUserInfo as setUserInfoCache, removeUserInfo as removeUserInfoCache } from '@/utils/auth.js'
 import { login as loginApi } from '@/api/auth.js'
+import request from '@/utils/request.js'
 
 const state = {
     token: getToken(), // 启动时从缓存读取 Token
@@ -44,7 +45,29 @@ const actions = {
     // 退出登录
     logout({ commit }) {
         commit('CLEAR_USER')
-    }
+    },
+
+	// [新增] 验证Token有效性
+	validateToken({ commit, state }) {
+		if (!state.token) {
+			return Promise.resolve(false)
+		}
+		// 发起一个静默的API请求来验证token
+		// 这里我们用获取患者信息的接口，因为它需要登录
+		// silent: true 选项可以防止在token失效时弹出全局错误提示
+		return new Promise(resolve => {
+			request({ url: '/patient/profile', method: 'GET', silent: true })
+				.then(() => {
+					// 请求成功，token有效
+					resolve(true)
+				})
+				.catch(() => {
+						// 请求失败，很可能是token过期
+						commit('CLEAR_USER') // 清除本地存储的无效信息
+						resolve(false)
+					})
+		})
+	}
 }
 
 export default {

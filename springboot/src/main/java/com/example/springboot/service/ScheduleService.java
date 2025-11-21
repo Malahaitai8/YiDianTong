@@ -16,9 +16,13 @@ public class ScheduleService {
 
     @Resource
     private ScheduleMapper scheduleMapper;
-    
+
     @Resource
     private DoctorMapper doctorMapper;
+
+
+    @Resource
+    private AppointmentService appointmentService;
 
     private final String[] DAYS_OF_WEEK = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
 
@@ -37,18 +41,18 @@ public class ScheduleService {
 
         // 查询数据库
         List<Schedule> schedules = scheduleMapper.selectSchedulesByDateRange(startDate, endDate);
-        
+
         // 转换为DTO并添加星期几信息
         List<ScheduleDTO> scheduleDTOs = new ArrayList<>();
         for (Schedule schedule : schedules) {
             ScheduleDTO dto = new ScheduleDTO();
             BeanUtils.copyProperties(schedule, dto);
-            
+
             // 获取星期几
             calendar.setTime(schedule.getScheduleDate());
             int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1;
             dto.setDayOfWeek(DAYS_OF_WEEK[dayOfWeek]);
-            
+
             scheduleDTOs.add(dto);
         }
 
@@ -69,8 +73,8 @@ public class ScheduleService {
 
         // 2. 检查是否已存在相同的排班
         int exists = scheduleMapper.checkScheduleExists(
-            request.getDoctorId(), 
-            request.getScheduleDate(), 
+            request.getDoctorId(),
+            request.getScheduleDate(),
             request.getTimeSlot()
         );
         if (exists > 0) {
@@ -84,7 +88,7 @@ public class ScheduleService {
         schedule.setTimeSlot(request.getTimeSlot());
         schedule.setSlotType(request.getSlotType());
         schedule.setTotalSlots(request.getTotalSlots());
-        
+
         // 如果没有指定可用号源数，则默认等于总号源数
         if (request.getAvailableSlots() != null) {
             schedule.setAvailableSlots(request.getAvailableSlots());
@@ -113,8 +117,8 @@ public class ScheduleService {
 
         // 3. 生成日期列表
         List<Date> dateList = generateDateList(
-            request.getStartDate(), 
-            request.getEndDate(), 
+            request.getStartDate(),
+            request.getEndDate(),
             request.getSkipWeekends(),
             request.getExcludeDates()
         );
@@ -200,7 +204,7 @@ public class ScheduleService {
 
         // 3. 执行更新
         scheduleMapper.updateById(schedule);
-        
+
         // 4. 返回更新后的排班
         return scheduleMapper.selectById(id);
     }
@@ -277,7 +281,7 @@ public class ScheduleService {
         int pageSize = request.getPageSize();
         int startIndex = (page - 1) * pageSize;
         int endIndex = Math.min(startIndex + pageSize, schedules.size());
-        
+
         List<ScheduleWithDetailsDTO> pagedSchedules = schedules.subList(startIndex, endIndex);
 
         // 4. 返回结果
@@ -319,7 +323,7 @@ public class ScheduleService {
 
         while (!calendar.getTime().after(endDate)) {
             Date currentDate = calendar.getTime();
-            
+
             // 检查是否需要跳过周末
             if (skipWeekends != null && skipWeekends) {
                 int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
@@ -328,7 +332,7 @@ public class ScheduleService {
                     continue;
                 }
             }
-            
+
             // 检查是否在排除日期中
             boolean isExcluded = false;
             if (excludeDates != null) {
@@ -342,11 +346,11 @@ public class ScheduleService {
                     }
                 }
             }
-            
+
             if (!isExcluded) {
                 dateList.add(currentDate);
             }
-            
+
             calendar.add(Calendar.DAY_OF_MONTH, 1);
         }
 
@@ -354,26 +358,39 @@ public class ScheduleService {
     }
 
     /**
-     * 加号（增加号源数量）
+     * 加号（增加号源数量），并自动处理候补队列
      */
     @Transactional
-    public Schedule addSlots(Long id, Integer slotsToAdd) {
+    public Map<String, Object> addSlots(Long id, Integer slotsToAdd) {
         // 1. 查询排班
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
             throw new RuntimeException("排班不存在");
         }
 
-        // 2. 计算新的号源数量
-        int newTotalSlots = schedule.getTotalSlots() + slotsToAdd;
-        int newAvailableSlots = schedule.getAvailableSlots() + slotsToAdd;
-
-        // 3. 更新号源数量
-        schedule.setTotalSlots(newTotalSlots);
-        schedule.setAvailableSlots(newAvailableSlots);
+        // 2. 更新号源数量
+        schedule.setTotalSlots(schedule.getTotalSlots() + slotsToAdd);
+        schedule.setAvailableSlots(schedule.getAvailableSlots() + slotsToAdd);
         scheduleMapper.updateById(schedule);
 
-        // 4. 返回更新后的排班
-        return scheduleMapper.selectById(id);
+        // 3. 循环处理候补队列，直到新增的号源被用完或候补队列为空
+        int filledCount = 0;
+        for (int i = 0; i < slotsToAdd; i++) {
+            boolean filled = appointmentService.processNextInWaitlist(id);
+            if (filled) {
+                filledCount++;
+            } else {
+                // 候补队列已空，无需继续
+                break;
+            }
+        }
+
+        // 4. 准备返回结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("schedule", scheduleMapper.selectById(id)); // 返回最新的排班信息
+        result.put("filledFromWaitlist", filledCount);
+        result.put("message", String.format("成功增加 %d 个号源，并自动为 %d 位候补患者创建了预约。", slotsToAdd, filledCount));
+
+        return result;
     }
 }

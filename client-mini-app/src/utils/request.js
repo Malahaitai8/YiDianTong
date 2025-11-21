@@ -5,10 +5,13 @@ import config from '@/config' // 引入配置文件
 const BASE_URL = config.baseURL
 
 const request = (options) => {
+    const silent = !!options.silent; // 允许调用方静默失败（不弹toast）
     return new Promise((resolve, reject) => {
-        uni.showLoading({
-            title: '加载中...'
-        })
+        if (!silent) {
+            uni.showLoading({
+                title: '加载中...'
+            })
+        }
 
         // 1. 自动拼接 API 基础地址
         if (!BASE_URL) {
@@ -45,14 +48,18 @@ const request = (options) => {
                 }
                 // 假设 401 是 Token 失效
                 else if (data.code === '401' || data.code === 401) {
-                    uni.showToast({ title: '登录已过期', icon: 'none' });
+                    if (!silent) uni.showToast({ title: '登录已过期', icon: 'none' });
                     store.dispatch('user/logout'); // 触发 Vuex 登出
                     uni.navigateTo({ url: '/pages/login/login' }); // 跳转登录页
                     reject(data);
                 }
                 // 其他业务错误
                 else {
-                    uni.showToast({ title: data.msg || '请求失败', icon: 'none' });
+                    if (!silent) {
+                        uni.showToast({ title: data.msg || '请求失败', icon: 'none' });
+                    } else {
+                        console.log('请求静默失败：', data);
+                    }
                     reject(data);
                 }
             },
