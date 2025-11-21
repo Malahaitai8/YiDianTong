@@ -133,7 +133,7 @@ public class AppointmentController {
         // (TODO: 缺少计算报销比例的逻辑)
         appointment.setActualFee(new BigDecimal("0.00"));
 
-        appointment.setStatus("PENDING");
+        appointment.setStatus("scheduled");
         appointment.setSourceType("ONLINE");
         appointment.setCreatedAt(new java.util.Date());
 

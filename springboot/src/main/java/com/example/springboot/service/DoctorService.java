@@ -397,7 +397,7 @@ public class DoctorService {
             if (appointment.getAppointmentTime() != null &&
                 !appointment.getAppointmentTime().before(startOfDay) &&
                 appointment.getAppointmentTime().before(endOfDay) &&
-                ("PENDING".equals(appointment.getStatus()) || "CONFIRMED".equals(appointment.getStatus()))) {
+                ("scheduled".equals(appointment.getStatus()))) {
                 count++;
             }
         }

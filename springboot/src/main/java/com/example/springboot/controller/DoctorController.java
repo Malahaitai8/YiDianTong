@@ -232,7 +232,7 @@ public class DoctorController {
             @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING）")
             @RequestParam(required = false) String timeSlot,
 
-            @Parameter(description = "预约状态（PENDING/CONFIRMED/COMPLETED/CANCELLED）")
+            @Parameter(description = "预约状态（scheduled/completed/cancelled）")
             @RequestParam(required = false) String status,
 
             @Parameter(description = "患者姓名（模糊搜索）")

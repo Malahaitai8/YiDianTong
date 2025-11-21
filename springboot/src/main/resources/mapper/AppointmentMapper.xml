@@ -77,7 +77,7 @@
     <select id="countByPatientAndDate" resultType="int">
         select count(*) from appointment
         where patient_id = #{patientId}
-          and status != 'CANCELLED'
+          and status != 'cancelled'
           and appointment_time >= #{dayStart}
           and appointment_time &lt; #{dayEnd}
     </select>
@@ -87,7 +87,7 @@
         select count(*) from appointment
         where patient_id = #{patientId}
           and schedule_id = #{scheduleId}
-          and status != 'CANCELLED'
+          and status != 'cancelled'
     </select>
 
 
@@ -103,10 +103,9 @@
             a.appointment_time AS appointmentTime,
             a.status AS status,
             CASE a.status
-                WHEN 'PENDING' THEN '待就诊'
-                WHEN 'CONFIRMED' THEN '已确认'
-                WHEN 'COMPLETED' THEN '已完成'
-                WHEN 'CANCELLED' THEN '已取消'
+                WHEN 'scheduled' THEN '待就诊'
+                WHEN 'completed' THEN '已完成'
+                WHEN 'cancelled' THEN '已取消'
                 ELSE a.status
             END AS statusName,
             a.fee AS fee,
@@ -127,7 +126,7 @@
         JOIN schedule s ON a.schedule_id = s.id
         WHERE a.doctor_id = #{doctorId}
           AND s.schedule_date = DATE(#{date})
-          AND a.status != 'CANCELLED'
+          AND a.status != 'cancelled'
         <if test="timeSlot != null and timeSlot != ''">
           AND s.time_slot = #{timeSlot}
         </if>

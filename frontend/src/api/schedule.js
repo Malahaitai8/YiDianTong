@@ -32,6 +32,17 @@ export const getScheduleById = (id) => {
 }
 
 /**
+ * 根据ID查询排班详细信息（包含科室、门诊等信息）
+ * @param {number} id - 排班ID
+ */
+export const getScheduleDetailsById = (id) => {
+  return request({
+    url: `/schedule/details/${id}`,
+    method: 'get'
+  })
+}
+
+/**
  * 创建单个排班
  * @param {Object} data - 排班数据
  * @param {number} data.doctorId - 医生ID
