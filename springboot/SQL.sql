@@ -256,3 +256,5 @@ CREATE TABLE `application_request` (
     INDEX `idx_applicant` (`applicant_id`),
     INDEX `idx_doctor` (`doctor_id`)
 ) COMMENT='统一申请记录表 - 管理调班申请和医生信息修改申请';
+
+ -- =================
