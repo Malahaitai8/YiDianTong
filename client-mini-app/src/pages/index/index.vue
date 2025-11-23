@@ -42,7 +42,7 @@
 					<view class="nav-icon-box">
 						<text class="nav-icon">🏥</text>
 					</view>
-					<text class="nav-text">按科室</text>
+					<text class="nav-text">找门诊</text>
 				</view>
 				<view class="nav-item" @click="goToDoctors">
 					<view class="nav-icon-box">
@@ -155,11 +155,11 @@ export default {
 			return true;
 		},
 		goToAppointment() {
-			// 线上挂号入口（需要登录）
+			// 线上挂号入口（需要登录）- 进入科室列表
 			this.guardedNavigate('/pages/department-list/department-list');
 		},
 		goToDepartments() {
-			// 按科室浏览（需要登录）
+			// 找门诊入口（需要登录）- 进入科室列表
 			this.guardedNavigate('/pages/department-list/department-list');
 		},
 		goToDoctors() {

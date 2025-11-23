@@ -280,10 +280,10 @@ export default {
 			this.handleSearch();
 		},
 		
-		// 跳转到科室详情（实际是医生列表）
+		// 跳转到科室详情（新流程：先选门诊）
 		goToDepartmentDetail(department) {
 			uni.navigateTo({
-				url: `/pages/doctor-list/doctor-list?departmentId=${department.id}&departmentName=${department.name}`
+				url: `/pages/clinic-list/clinic-list?departmentId=${department.id}&departmentName=${encodeURIComponent(department.name)}`
 			});
 		},
 		
