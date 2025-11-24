@@ -634,9 +634,9 @@ Authorization: Bearer <your_token_here>
 
 ### 3.9 医生坐诊时间（患者端）
 
-**接口**: `GET /doctor/{id}/schedules`  
-**权限**: 需要登录（患者/医生/管理员均可）  
-**说明**: 患者在医生详情页查看该医生在指定日期范围内的坐诊安排。  
+**接口**: `GET /doctor/{id}/schedules`
+**权限**: 需要登录（患者/医生/管理员均可）
+**说明**: 患者在医生详情页查看该医生在指定日期范围内的坐诊安排。
 
 **路径参数**:
 - `id`: 医生ID
@@ -647,10 +647,10 @@ Authorization: Bearer <your_token_here>
 - `timeSlot` (可选): 时间段（可选值：`MORNING`/`AFTERNOON`/`EVENING`，亦兼容中文：`上午`/`下午`/`晚上`）
 
 **规则说明**:
-1. 未传 `startDate`/`endDate` 时，默认从“今天”起的未来 30 天；  
-2. `endDate` 会被规范化为“次日零点”，以确保包含传入的当天；  
-3. `timeSlot` 兼容英文与中文取值（内部统一为 `morning/afternoon/evening`）；  
-4. 返回结构与医生端“我的排班”一致，便于前端复用。  
+1. 未传 `startDate`/`endDate` 时，默认从“今天”起的未来 30 天；
+2. `endDate` 会被规范化为“次日零点”，以确保包含传入的当天；
+3. `timeSlot` 兼容英文与中文取值（内部统一为 `morning/afternoon/evening`）；
+4. 返回结构与医生端“我的排班”一致，便于前端复用。
 
 **响应示例**:
 ```json
@@ -686,18 +686,18 @@ Authorization: Bearer <your_token_here>
 ```
 
 **字段说明**:
-- `id`: 排班ID  
-- `scheduleDate`: 排班日期（yyyy-MM-dd）  
-- `timeSlot`: 时间段（morning/afternoon/evening）  
-- `slotType`: 号别（normal/expert/vip）  
-- `totalSlots`: 总号源数  
-- `availableSlots`: 剩余可预约号源数  
-- `bookedSlots`: 已预约号源数（totalSlots - availableSlots）  
-- `appointmentCount`: 预约记录数（与 bookedSlots 一般一致，保留用于统计）  
+- `id`: 排班ID
+- `scheduleDate`: 排班日期（yyyy-MM-dd）
+- `timeSlot`: 时间段（morning/afternoon/evening）
+- `slotType`: 号别（normal/expert/vip）
+- `totalSlots`: 总号源数
+- `availableSlots`: 剩余可预约号源数
+- `bookedSlots`: 已预约号源数（totalSlots - availableSlots）
+- `appointmentCount`: 预约记录数（与 bookedSlots 一般一致，保留用于统计）
 
 **关联说明**:
-- 通过 `id`（即 `scheduleId`）可用于创建预约（见 7.5 创建预约）。  
-- 若需跨科室/医生搜索号源，请使用 7.4 “搜索可预约时段”。  
+- 通过 `id`（即 `scheduleId`）可用于创建预约（见 7.5 创建预约）。
+- 若需跨科室/医生搜索号源，请使用 7.4 “搜索可预约时段”。
 
 ---
 
@@ -3392,7 +3392,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
      "password": "123456"
    }
    ```
-   
+
 3. **保存Token**: 将返回的 `token` 保存到本地，后续请求都需要携带
 
 ---
@@ -3433,7 +3433,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 3. **查看候补状态**: `GET /waitlist/me`
    - 查看自己在队列中的位置
 
-4. **等待通知**: 
+4. **等待通知**:
    - 当有空位时，管理员调用 `POST /waitlist/next/{scheduleId}`
    - 系统自动为队首患者创建预约
 
@@ -3539,7 +3539,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
    - `doctor`: 可以查看自己的排班和预约
    - `admin`: 拥有所有权限
 
-4. **预约限制**: 
+4. **预约限制**:
    - 每个患者每天最多预约3次（可通过系统配置调整）
    - 预约时间必须是未来时间
 
@@ -3965,8 +3965,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 说明：统一管理不同层级（全局/医生/门诊）的排班与预约容量策略，解耦具体排班记录中的 `slotType`、`totalSlots` 与平台治理策略，支持覆盖继承。
 
 ### 15.1 查询全局上限配置
-**接口**: `GET /api/admin/schedule-settings`  
-**权限**: 管理员  
+**接口**: `GET /api/admin/schedule-settings`
+**权限**: 管理员
 **响应示例**:
 ```json
 {
@@ -4004,8 +4004,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 15.2 更新全局上限配置
-**接口**: `PUT /api/admin/schedule-settings`  
-**权限**: 管理员  
+**接口**: `PUT /api/admin/schedule-settings`
+**权限**: 管理员
 **请求体（部分字段可选）**:
 ```json
 {
@@ -4032,10 +4032,10 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 15.3 查询医生级上限
-**接口**: `GET /api/admin/schedule-settings/doctor/{doctorId}`  
-**权限**: 管理员  
+**接口**: `GET /api/admin/schedule-settings/doctor/{doctorId}`
+**权限**: 管理员
 **路径参数**:
-- `doctorId`: 医生ID  
+- `doctorId`: 医生ID
 **响应示例**:
 ```json
 {
@@ -4057,10 +4057,10 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 15.4 更新医生级上限
-**接口**: `PUT /api/admin/schedule-settings/doctor/{doctorId}`  
-**权限**: 管理员  
+**接口**: `PUT /api/admin/schedule-settings/doctor/{doctorId}`
+**权限**: 管理员
 **路径参数**:
-- `doctorId`: 医生ID  
+- `doctorId`: 医生ID
 **请求体（部分字段可选）**:
 ```json
 {
@@ -4081,10 +4081,10 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 15.5 查询门诊级上限
-**接口**: `GET /api/admin/schedule-settings/clinic/{clinicId}`  
-**权限**: 管理员  
+**接口**: `GET /api/admin/schedule-settings/clinic/{clinicId}`
+**权限**: 管理员
 **路径参数**:
-- `clinicId`: 门诊ID  
+- `clinicId`: 门诊ID
 **响应示例**:
 ```json
 {
@@ -4105,10 +4105,10 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 15.6 更新门诊级上限
-**接口**: `PUT /api/admin/schedule-settings/clinic/{clinicId}`  
-**权限**: 管理员  
+**接口**: `PUT /api/admin/schedule-settings/clinic/{clinicId}`
+**权限**: 管理员
 **路径参数**:
-- `clinicId`: 门诊ID  
+- `clinicId`: 门诊ID
 **请求体（部分字段可选）**:
 ```json
 {
@@ -4125,12 +4125,12 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 使用说明：
 - 排班创建/更新与预约创建时，可参考上述配置进行约束校验：
-  1) 校验 `slotType` 是否在 `allowedSlotTypes` 内  
-  2) 校验 `totalSlots` 不超过 `maxSlotsPerSchedule`  
-  3) 跨排班累计校验医生单日预约量不超过 `maxAppointmentsPerDayPerDoctor`  
-  4) 患者侧校验单日预约次数不超过 `maxAppointmentsPerDayPerPatient`  
-  5) 取消时根据 `cancelPolicy` 执行时间窗与惩罚策略  
-- 覆盖优先级：医生级 > 门诊级 > 全局；同层级使用最新的有效期配置  
+  1) 校验 `slotType` 是否在 `allowedSlotTypes` 内
+  2) 校验 `totalSlots` 不超过 `maxSlotsPerSchedule`
+  3) 跨排班累计校验医生单日预约量不超过 `maxAppointmentsPerDayPerDoctor`
+  4) 患者侧校验单日预约次数不超过 `maxAppointmentsPerDayPerPatient`
+  5) 取消时根据 `cancelPolicy` 执行时间窗与惩罚策略
+- 覆盖优先级：医生级 > 门诊级 > 全局；同层级使用最新的有效期配置
 
 ---
 
@@ -4139,10 +4139,10 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 说明：为小程序/患者端提供问答助手能力，支持“猜你想问”（高频问题）与“关键词匹配”两类接口。数据来源于系统配置中的 FAQ/统计条目，后续可对接专门知识库表。
 
 ### 16.1 高频问题统计
-接口：`GET /api/patient/qa/top-questions`  
-权限：患者（`PATIENT`）  
+接口：`GET /api/patient/qa/top-questions`
+权限：患者（`PATIENT`）
 请求参数：
-- `limit` 可选，返回条数，默认 10  
+- `limit` 可选，返回条数，默认 10
 
 响应示例：
 ```json
@@ -4163,8 +4163,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 16.2 关键词匹配接口
-接口：`POST /api/patient/qa/keyword-match`  
-权限：患者（`PATIENT`）  
+接口：`POST /api/patient/qa/keyword-match`
+权限：患者（`PATIENT`）
 请求体：
 ```json
 { "query": "退号 时限", "topK": 5 }
@@ -4199,32 +4199,32 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ### 16.3 管理端 FAQ 管理（CRUD）
 说明：管理员维护问答助手的知识库与统计，支持导入/导出。
 
-- 接口：`GET /api/admin/qa/faqs`  
-  权限：管理员  
-  说明：分页/全量获取 FAQ 列表  
-  查询参数：`page`、`pageSize`（可选）  
+- 接口：`GET /api/admin/qa/faqs`
+  权限：管理员
+  说明：分页/全量获取 FAQ 列表
+  查询参数：`page`、`pageSize`（可选）
 
-- 接口：`POST /api/admin/qa/faqs`  
-  权限：管理员  
+- 接口：`POST /api/admin/qa/faqs`
+  权限：管理员
   请求体（单条）：
   ```json
   { "question": "可以取消预约吗？", "answer": "就诊前2小时可在个人中心取消。" }
   ```
 
-- 接口：`PUT /api/admin/qa/faqs/{id}`  
-  权限：管理员  
+- 接口：`PUT /api/admin/qa/faqs/{id}`
+  权限：管理员
   请求体（部分字段可选）：
   ```json
   { "question": "可以取消预约吗？", "answer": "就诊前2小时可在个人中心取消，逾期计违约。" }
   ```
 
-- 接口：`DELETE /api/admin/qa/faqs/{id}`  
-  权限：管理员  
+- 接口：`DELETE /api/admin/qa/faqs/{id}`
+  权限：管理员
   说明：删除 FAQ
 
-- 接口：`POST /api/admin/qa/faqs/import`  
-  权限：管理员  
-  说明：批量导入 FAQ  
+- 接口：`POST /api/admin/qa/faqs/import`
+  权限：管理员
+  说明：批量导入 FAQ
   请求体：
   ```json
   {
@@ -4235,13 +4235,13 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
   }
   ```
 
-- 接口：`GET /api/admin/qa/faqs/export`  
-  权限：管理员  
+- 接口：`GET /api/admin/qa/faqs/export`
+  权限：管理员
   说明：导出当前 FAQ 列表（JSON）
 
-- 接口：`PUT /api/admin/qa/stats`  
-  权限：管理员  
-  说明：维护高频问题统计（可人工校正或清零）  
+- 接口：`PUT /api/admin/qa/stats`
+  权限：管理员
+  说明：维护高频问题统计（可人工校正或清零）
   请求体：
   ```json
   { "stats": { "如何预约挂号？": 128, "可以取消预约吗？": 97 } }
@@ -4253,8 +4253,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ---
 
 ### 16.4 面向未来的大模型集成端点（预留）
-接口：`POST /api/patient/qa/ask`  
-权限：患者  
+接口：`POST /api/patient/qa/ask`
+权限：患者
 用途：统一对话入口，优先使用大模型（如已启用且有配额），否则回退关键词匹配。
 
 请求体：
@@ -4309,8 +4309,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 - `qa.safety.maxTokens`、`qa.safety.timeoutMs`、`qa.safety.blocklist`：安全与风控配置
 
 回退策略：
-1) 当 `qa.llm.enabled=false` 或调用异常/超时，回退至关键词匹配  
-2) 当命中“固定身份回答”规则时，直接返回固定文本  
+1) 当 `qa.llm.enabled=false` 或调用异常/超时，回退至关键词匹配
+2) 当命中“固定身份回答”规则时，直接返回固定文本
 
 审计与埋点（建议）：
 - 记录 `query`、`source`（LLM/FAQ/IDENTITY_RULE）、`latencyMs`、`traceId`
@@ -4425,8 +4425,8 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-**文档版本**: v1.7  
-**最后更新**: 2025-11-11  
+**文档版本**: v1.7
+**最后更新**: 2025-11-11
 **维护者**: YiDianTong 开发团队
 
 ---
@@ -4467,3 +4467,47 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 - 新增申请管理统一模块
 - 新增排班规则管理功能
 
+
+
+
+## 8️⃣ 管理端统计报表模块
+
+### 8.1 获取全局概览统计
+
+**接口**: `GET /api/admin/stats/overview`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 提供全站的核心运营指标，用于数据大屏或后台首页展示。
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "totalAppointments": 1520,
+    "completedAppointments": 1280,
+    "cancelledAppointments": 150,
+    "noShowAppointments": 35,
+    "totalSlots": 5200,
+    "availableSlots": 850,
+    "usedSlots": 4350,
+    "completionRate": 0.9343, // 就诊完成率
+    "utilization": 0.8365    // 号源利用率
+  }
+}
+```
+
+**字段说明**:
+- `totalAppointments`: 累计总预约单数
+- `completedAppointments`: 累计已完成的预约单数
+- `cancelledAppointments`: 累计已取消的预约单数
+- `noShowAppointments`: 累计爽约的单数
+- `totalSlots`: 系统中所有排班的总号源数
+- `availableSlots`: 当前剩余的总可用号源数
+- `usedSlots`: 已被预约占用的总号源数
+- `completionRate`: 就诊完成率（`已完成 / (总预约 - 已取消)`），结果为0到1之间的小数
+- `utilization`: 号源利用率（`已使用号源 / 总号源`），结果为0到1之间的小数
+
+---

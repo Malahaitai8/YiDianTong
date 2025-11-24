@@ -10,8 +10,8 @@
 
     <!-- 根据患者查询预约列表（包含医生信息） -->
     <select id="selectByPatientIdWithDoctorInfo" resultType="com.example.springboot.dto.AppointmentWithDoctorDTO" parameterType="long">
-        SELECT 
-            a.*, 
+        SELECT
+            a.*,
             d.name AS doctorName,
             d.title AS doctorTitle,
             s.schedule_date AS scheduleDate,
@@ -61,7 +61,7 @@
 
     <!-- 根据主键更新预约信息 -->
     <update id="updateById" parameterType="com.example.springboot.entity.Appointment">
-        update appointment 
+        update appointment
         set patient_id = #{patientId},
             doctor_id = #{doctorId},
             schedule_id = #{scheduleId},
@@ -89,5 +89,16 @@
           and schedule_id = #{scheduleId}
           and status != 'CANCELLED'
     </select>
+
+    <!-- 根据状态统计预约数量 -->
+    <select id="countByStatus" resultType="int">
+        SELECT count(*) FROM appointment WHERE status = #{status}
+    </select>
+
+    <!-- 统计总预约数量 -->
+    <select id="countTotal" resultType="int">
+        SELECT count(*) FROM appointment
+    </select>
+
 
 </mapper>

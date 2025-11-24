@@ -41,4 +41,16 @@ public interface AppointmentMapper {
 
     /** 判断是否已对同一排班预约（不含已取消） */
     int existsByPatientAndSchedule(Long patientId, Long scheduleId);
+
+    // ========== 统计接口方法 ==========
+
+    /**
+     * 根据状态统计预约数量
+     */
+    int countByStatus(@Param("status") String status);
+
+    /**
+     * 统计总预约数量
+     */
+    int countTotal();
 }

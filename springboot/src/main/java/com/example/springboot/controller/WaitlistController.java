@@ -6,6 +6,8 @@ import com.example.springboot.dto.CreateWaitlistRequest;
 import com.example.springboot.dto.WaitlistInfoDTO; // <-- [新增] 导入
 // [删除] import com.example.springboot.entity.Waitlist; // 不再需要
 import com.example.springboot.service.WaitlistService;
+import com.example.springboot.mapper.PatientMapper;
+import com.example.springboot.entity.Patient;
 import jakarta.annotation.Resource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,19 +33,22 @@ public class WaitlistController {
     @Resource
     private WaitlistService waitlistService;
 
+    @Resource
+    private PatientMapper patientMapper;
+
 
     /** [修改] 加入候补队列 */
     @Operation(summary = "加入候补队列", description = "当号源已满时，患者可加入候补队列")
     @PostMapping
     @PreAuthorize("hasRole('PATIENT')")
     public Result addToQueue(@jakarta.validation.Valid @RequestBody CreateWaitlistRequest request) {
-        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
-
-        // [修改] Service 已包含校验逻辑 (号源是否已满, 是否重复)
-        // [修改] Service 方法现在返回 void
-        waitlistService.addToQueue(patientId, request.getScheduleId());
-
-        return Result.success("加入候补成功"); // [修改] 返回成功信息
+        Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("当前用户不是有效的患者");
+        }
+        waitlistService.addToQueue(patient.getId(), request.getScheduleId());
+        return Result.success("加入候补成功");
     }
 
     /** [修改] 查看我的候补列表 */
@@ -51,11 +56,13 @@ public class WaitlistController {
     @GetMapping("/me")
     @PreAuthorize("hasRole('PATIENT')")
     public Result myQueue() {
-        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
-
-        // [修改] service 现在返回 List<WaitlistInfoDTO>
-        List<WaitlistInfoDTO> myQueues = waitlistService.listByPatient(patientId);
-
+        Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            // 如果不是有效患者，返回空列表是合理的，不应报错
+            return Result.success(java.util.Collections.emptyList());
+        }
+        List<WaitlistInfoDTO> myQueues = waitlistService.listByPatient(patient.getId());
         return Result.success(myQueues);
     }
 
@@ -76,9 +83,13 @@ public class WaitlistController {
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("hasRole('PATIENT')")
     public Result cancel(@PathVariable Long scheduleId) {
-        Long patientId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("当前用户不是有效的患者");
+        }
         try {
-            waitlistService.removeFromQueue(patientId, scheduleId);
+            waitlistService.removeFromQueue(patient.getId(), scheduleId);
             return Result.success("已退出候补队列");
         } catch (Exception e) {
             return Result.error("操作失败: " + e.getMessage());

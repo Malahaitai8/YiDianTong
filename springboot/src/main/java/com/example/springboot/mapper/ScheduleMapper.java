@@ -56,7 +56,7 @@ public interface ScheduleMapper {
     );
 
     // ========== 管理端排班管理接口 ==========
-    
+
     /**
      * 插入排班记录
      */
@@ -64,19 +64,19 @@ public interface ScheduleMapper {
             "VALUES (#{doctorId}, #{scheduleDate}, #{timeSlot}, #{slotType}, #{totalSlots}, #{availableSlots})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Schedule schedule);
-    
+
     /**
      * 更新排班记录
      * (实现在 ScheduleMapper.xml 中，支持动态更新)
      */
     int updateById(Schedule schedule);
-    
+
     /**
      * 删除排班记录
      */
     @Delete("DELETE FROM schedule WHERE id = #{id}")
     int deleteById(@Param("id") Long id);
-    
+
     /**
      * 根据医生ID查询排班列表
      */
@@ -88,7 +88,7 @@ public interface ScheduleMapper {
      * (实现在 ScheduleMapper.xml 中)
      */
     List<ScheduleWithDetailsDTO> selectByDoctorIdWithDetails(@Param("doctorId") Long doctorId);
-    
+
     /**
      * 根据医生ID和日期范围查询排班列表
      */
@@ -98,22 +98,22 @@ public interface ScheduleMapper {
     List<Schedule> selectByDoctorAndDateRange(@Param("doctorId") Long doctorId,
                                                @Param("startDate") Date startDate,
                                                @Param("endDate") Date endDate);
-    
+
     @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +
             "AND schedule_date >= #{startDate} AND schedule_date < #{endDate}")
     int countByDoctorAndDateRange(@Param("doctorId") Long doctorId,
                                   @Param("startDate") Date startDate,
                                   @Param("endDate") Date endDate);
-    
+
     /**
      * 检查排班是否已存在（防止重复创建）
      */
     @Select("SELECT COUNT(*) FROM schedule WHERE doctor_id = #{doctorId} " +
             "AND schedule_date = #{scheduleDate} AND time_slot = #{timeSlot}")
-    int checkScheduleExists(@Param("doctorId") Long doctorId, 
-                           @Param("scheduleDate") Date scheduleDate, 
+    int checkScheduleExists(@Param("doctorId") Long doctorId,
+                           @Param("scheduleDate") Date scheduleDate,
                            @Param("timeSlot") String timeSlot);
-    
+
     /**
      * 条件查询排班（管理端）
      * (实现在 ScheduleMapper.xml 中)
@@ -126,7 +126,7 @@ public interface ScheduleMapper {
         @Param("timeSlot") String timeSlot,
         @Param("slotType") String slotType
     );
-    
+
     /**
      * 统计符合条件的排班数量
      */
@@ -149,3 +149,17 @@ public interface ScheduleMapper {
                                     @Param("timeSlot") String timeSlot);
 
 }
+
+    // ========== 统计接口方法 ==========
+
+    /**
+     * 统计所有排班的总号源数
+     */
+    @Select("SELECT SUM(total_slots) FROM schedule")
+    Integer sumTotalSlots();
+
+    /**
+     * 统计所有排班的总可用号源数
+     */
+    @Select("SELECT SUM(available_slots) FROM schedule")
+    Integer sumAvailableSlots();
