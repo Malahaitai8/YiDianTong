@@ -2,6 +2,7 @@ package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.dto.AppointmentWithDoctorDTO;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
