@@ -165,11 +165,11 @@ export default {
 			return '其他';
 		},
 		
-		// 跳转到医生列表
+		// 跳转到门诊列表
 		goToDoctorList(department) {
-			// 改为进入科室预约流程：科室 → 日期 → 号源（按上/下午，含医生）
+			// 新流程：科室 → 门诊 → 近七日号源
 			uni.navigateTo({
-				url: `/pages/department-appointment/department-appointment?departmentId=${department.id}&departmentName=${encodeURIComponent(department.name)}`
+				url: `/pages/clinic-list/clinic-list?departmentId=${department.id}&departmentName=${encodeURIComponent(department.name)}`
 			});
 		}
 	}
