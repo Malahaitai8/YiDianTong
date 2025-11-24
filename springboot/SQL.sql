@@ -256,3 +256,14 @@ CREATE TABLE `application_request` (
     INDEX `idx_applicant` (`applicant_id`),
     INDEX `idx_doctor` (`doctor_id`)
 ) COMMENT='统一申请记录表 - 管理调班申请和医生信息修改申请';
+
+-- 创建问题记录表 (question_log)
+CREATE TABLE `question_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '问题记录唯一ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID (外键关联user表)',
+    `question_content` TEXT NOT NULL COMMENT '问题内容',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT='用户问题记录表 - 用于统计高频问题';

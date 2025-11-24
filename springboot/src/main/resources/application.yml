@@ -4,7 +4,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
-    url: jdbc:mysql://localhost:3306/yi_dian_tong_2?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    url: jdbc:mysql://localhost:3306/yi_dian_tong?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
 
 
 # MyBatis配置
@@ -43,3 +43,12 @@ logging:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
+
+
+# deepseek配置(wzm)
+deepseek:
+  api:
+    key: ${DEEPSEEK_API_KEY:sk-6803552ef4384e0aa49251069fd95bdd}
+    url: https://api.deepseek.com/v1/chat/completions
+    model: deepseek-chat
+    timeout: 30000
