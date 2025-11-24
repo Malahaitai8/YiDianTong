@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ai")
+@RequestMapping("/api/deepseek")
 @Slf4j
 public class DeepSeekController {
 
