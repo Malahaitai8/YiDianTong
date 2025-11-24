@@ -148,8 +148,6 @@ public interface ScheduleMapper {
                                     @Param("scheduleDate") Date scheduleDate,
                                     @Param("timeSlot") String timeSlot);
 
-}
-
     // ========== 统计接口方法 ==========
 
     /**
@@ -163,3 +161,4 @@ public interface ScheduleMapper {
      */
     @Select("SELECT SUM(available_slots) FROM schedule")
     Integer sumAvailableSlots();
+}
