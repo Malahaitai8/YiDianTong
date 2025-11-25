@@ -137,7 +137,7 @@ export default {
 			uni.navigateTo({ url });
 		},
 		goToQA() {
-			this.guardedNavigate('/pkg-helper/qa-robot/qa-robot');
+			this.guardedNavigate('/pages/ai-chat/ai-chat');
 		},
 		goToSearch() {
 			this.guardedNavigate('/pages/search/search');

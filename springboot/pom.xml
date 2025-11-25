@@ -11,8 +11,8 @@
 	<groupId>com.example</groupId>
 	<artifactId>springboot</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>springboot</name>
-	<description>springboot</description>
+	<name>挂号系统后端</name>
+	<description>易点通挂号系统 - 医院预约挂号管理平台后端服务</description>
 	<url/>
 
 	<properties>
@@ -56,6 +56,11 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-security</artifactId>
 	</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
 
 	<!-- JWT -->
 	<dependency>
