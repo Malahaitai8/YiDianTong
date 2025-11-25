@@ -46,6 +46,11 @@ public class AIController {
             String apiUrl = customApiUrl != null && !customApiUrl.trim().isEmpty()
                     ? customApiUrl : modelApiUrl;
 
+            System.out.println("=== AI模型调用调试信息 ===");
+            System.out.println("1. 最终使用的API地址: " + apiUrl);
+            System.out.println("2. 消息内容: " + message);
+            System.out.println("3. 默认API地址配置: " + modelApiUrl);
+
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", "qwen-model");
             requestBody.put("messages", List.of(
@@ -57,12 +62,52 @@ public class AIController {
             requestBody.put("stream", false);
 
             String url = apiUrl + "/v1/chat/completions";
+            System.out.println("4. 完整请求URL: " + url);
+            System.out.println("5. 请求体内容: " + requestBody);
+
+            System.out.println("6. 开始发送请求到模型服务...");
 
             // 添加超时和错误处理
             Map<String, Object> response = restTemplate.postForObject(url, requestBody, Map.class);
 
+            System.out.println("7. 收到模型响应: " + response);
+
             if (response == null) {
+                System.out.println("8. 错误: 响应为null");
                 return "抱歉，AI服务返回空响应";
+            }
+
+            System.out.println("9. 响应包含的键: " + response.keySet());
+
+            // 解析响应
+            if (response.containsKey("choices")) {
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+                System.out.println("10. choices数量: " + choices.size());
+
+                if (!choices.isEmpty()) {
+                    Map<String, Object> firstChoice = choices.get(0);
+                    System.out.println("11. 第一个choice内容: " + firstChoice);
+
+                    if (firstChoice.containsKey("message")) {
+                        Map<String, Object> messageObj = (Map<String, Object>) firstChoice.get("message");
+                        System.out.println("12. message对象: " + messageObj);
+
+                        String content = (String) messageObj.get("content");
+                        System.out.println("13. 最终返回内容: " + content);
+                        System.out.println("=== 调用成功 ===");
+                        return content;
+                    } else {
+                        System.out.println("14. 错误: choice中没有message字段");
+                    }
+                } else {
+                    System.out.println("15. 错误: choices列表为空");
+                }
+            } else {
+                System.out.println("16. 错误: 响应中没有choices字段");
+                // 检查是否有错误信息
+                if (response.containsKey("error")) {
+                    System.out.println("17. 错误详情: " + response.get("error"));
+                }
             }
 
             System.out.println("=== 调用失败 ===");
