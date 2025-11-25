@@ -110,6 +110,7 @@
 import { getMyWaitlist, cancelWaitlist, joinWaitlist } from '@/api/waitlist.js'
 import { searchAvailable } from '@/api/appointment.js'
 import { getScheduleDetailsById } from '@/api/schedule.js'
+import request from '@/utils/request.js'
 
 export default {
 	name: 'Waitlist',
@@ -122,6 +123,7 @@ export default {
 			timeSlot: '',
 			loading: false,
 			refreshTimer: null,
+			checkAppointmentTimer: null, // 检查预约的定时器
 			// 医生信息
 			doctorInfo: {
 				id: null,
@@ -139,7 +141,14 @@ export default {
 			waitlistInfo: {
 				rank: undefined,
 				queueSize: 0
-			}
+			},
+			// 上次检查的候补状态
+			lastWaitlistStatus: null,
+			// 检查预约的间隔（毫秒）
+			checkInterval: 10000, // 10秒
+			// 最大检查次数
+			maxCheckCount: 30, // 最多检查5分钟
+			currentCheckCount: 0
 		};
 	},
 	onLoad(options) {
@@ -189,28 +198,39 @@ export default {
 		this.startAutoRefresh();
 	},
 	onUnload() {
-		// 清除定时器
+		// 清除所有定时器
 		if (this.refreshTimer) {
 			clearInterval(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+		if (this.checkAppointmentTimer) {
+			clearInterval(this.checkAppointmentTimer);
+			this.checkAppointmentTimer = null;
 		}
 	},
 	methods: {
 		// 加载候补信息
-		async loadWaitlistInfo() {
-			this.loading = true;
+		async loadWaitlistInfo(silent = false) {
+			if (!silent) {
+				this.loading = true;
+			}
 			try {
 				// 获取我的候补列表
-				const waitlistData = await getMyWaitlist();
+				const waitlistData = await getMyWaitlist({ silent: true });
 				console.log('候补列表数据:', waitlistData);
-				
+
 				// 查找当前排班的候补信息
+				let currentWaitlist = null;
 				if (Array.isArray(waitlistData) && this.scheduleId) {
-					const currentWaitlist = waitlistData.find(item => item.scheduleId === this.scheduleId);
+					currentWaitlist = waitlistData.find(item => item.scheduleId === this.scheduleId);
 					if (currentWaitlist) {
 						this.waitlistInfo.rank = currentWaitlist.rank;
 						this.waitlistInfo.queueSize = currentWaitlist.queueSize;
 					}
 				}
+
+				// 检测候补状态变化
+				await this.checkWaitlistSuccess(currentWaitlist);
 
 				// 通过排班ID获取详细信息（包含医生、科室等）
 				if (this.scheduleId) {
@@ -250,22 +270,195 @@ export default {
 					icon: 'none'
 				});
 			} finally {
-				this.loading = false;
+				if (!silent) {
+					this.loading = false;
+				}
 			}
+		},
+
+		// 检测候补状态变化
+		async checkWaitlistSuccess(currentWaitlist) {
+			// 记录当前候补状态
+			const currentStatus = currentWaitlist ? 'waiting' : 'none';
+
+			// 第一次检测，只记录状态
+			if (this.lastWaitlistStatus === null) {
+				this.lastWaitlistStatus = currentStatus;
+				console.log('初始化候补状态:', currentStatus);
+
+				// 如果有候补记录，启动预约检查定时器
+				if (currentWaitlist) {
+					this.startAppointmentCheck();
+				}
+				return;
+			}
+
+			// 检测候补记录消失
+			if (this.lastWaitlistStatus === 'waiting' && currentStatus === 'none') {
+				console.log('检测到候补记录消失');
+
+				// 停止所有定时器
+				this.stopAllTimers();
+
+				// 检查是否有新预约
+				const hasAppointment = await this.checkForNewAppointment();
+
+				if (hasAppointment) {
+					console.log('✅ 候补成功！已找到新预约');
+					this.handleWaitlistSuccess();
+				} else {
+					console.log('❌ 候补记录消失但未找到新预约（可能是手动退出）');
+					// 返回上一页
+					setTimeout(() => {
+						uni.navigateBack();
+					}, 1000);
+				}
+			}
+
+			// 更新状态
+			this.lastWaitlistStatus = currentStatus;
+		},
+
+		// 启动预约检查定时器
+		startAppointmentCheck() {
+			console.log('启动预约检查定时器，每', this.checkInterval / 1000, '秒检查一次');
+
+			// 清除旧的定时器
+			if (this.checkAppointmentTimer) {
+				clearInterval(this.checkAppointmentTimer);
+			}
+
+			// 启动新的定时器
+			this.checkAppointmentTimer = setInterval(async () => {
+				this.currentCheckCount++;
+				console.log(`第 ${this.currentCheckCount} 次检查预约...`);
+
+				// 达到最大检查次数
+				if (this.currentCheckCount >= this.maxCheckCount) {
+					console.log('达到最大检查次数，停止检查');
+					this.stopAllTimers();
+					return;
+				}
+
+				// 检查是否有新预约
+				const hasAppointment = await this.checkForNewAppointment();
+				if (hasAppointment) {
+					console.log('✅ 检测到新预约！候补成功');
+					this.stopAllTimers();
+					this.handleWaitlistSuccess();
+				}
+			}, this.checkInterval);
+		},
+
+		// 检查是否有新预约
+		async checkForNewAppointment() {
+			try {
+				const data = await request({ url: '/appointment/me', method: 'GET', silent: true });
+				const appointments = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+
+				console.log('当前预约列表:', appointments);
+
+				// 查找匹配的预约：scheduleId匹配 且 来源是候补
+				const newAppointment = appointments.find(apt => {
+					const match = apt.scheduleId === this.scheduleId && apt.sourceType === 'WAITLIST';
+					if (match) {
+						console.log('找到匹配的预约:', apt);
+					}
+					return match;
+				});
+
+				return !!newAppointment;
+			} catch (err) {
+				console.error('检查预约失败:', err);
+				return false;
+			}
+		},
+
+		// 停止所有定时器
+		stopAllTimers() {
+			if (this.refreshTimer) {
+				clearInterval(this.refreshTimer);
+				this.refreshTimer = null;
+			}
+			if (this.checkAppointmentTimer) {
+				clearInterval(this.checkAppointmentTimer);
+				this.checkAppointmentTimer = null;
+			}
+		},
+
+		// 处理候补成功
+		handleWaitlistSuccess() {
+			// 写入消息中心
+			this.addSuccessMessage();
+
+			// 显示成功弹窗
+			this.showSuccessModal();
+		},
+
+		// 添加成功消息到消息中心
+		addSuccessMessage() {
+			try {
+				const messages = uni.getStorageSync('user_messages') || [];
+				const newMessage = {
+					id: Date.now(),
+					type: 'waitlist_success',
+					title: '候补成功',
+					content: `您的候补已成功转为预约，医生：${this.doctorInfo.name || '未知医生'}，时间：${this.scheduleInfo.date} ${this.scheduleInfo.timeSlotDisplay}`,
+					time: new Date().toISOString(),
+					read: false
+				};
+				messages.unshift(newMessage);
+				// 只保留最近50条消息
+				if (messages.length > 50) {
+					messages.splice(50);
+				}
+				uni.setStorageSync('user_messages', messages);
+				console.log('候补成功消息已写入消息中心');
+			} catch (e) {
+				console.error('写入消息中心失败:', e);
+			}
+		},
+
+		// 显示候补成功弹窗
+		showSuccessModal() {
+			uni.showModal({
+				title: '🎉 候补成功',
+				content: '您的候补已成功转为预约！请前往就诊记录查看详情，或稍后查看消息通知。',
+				confirmText: '查看记录',
+				cancelText: '稍后查看',
+				success: (res) => {
+					if (res.confirm) {
+						// 通过全局数据传递参数，因为switchTab不支持URL参数
+						getApp().globalData.waitlistSuccess = {
+							from: 'waitlist_success',
+							scheduleId: this.scheduleId,
+							timestamp: Date.now()
+						};
+						// 跳转到记录页面
+						uni.switchTab({
+							url: '/pages/records/records'
+						});
+					} else {
+						// 返回上一页
+						uni.navigateBack();
+					}
+				}
+			});
 		},
 
 		// 启动自动刷新
 		startAutoRefresh() {
-			// 每30秒刷新一次数据
+			console.log('启动自动刷新，每30秒刷新一次候补状态');
+			// 每30秒刷新一次数据，使用静默模式
 			this.refreshTimer = setInterval(() => {
-				this.loadWaitlistInfo();
+				this.loadWaitlistInfo(true); // 静默刷新
 			}, 30000);
 		},
 
 		// 手动刷新数据
 		async refreshData() {
 			uni.showLoading({ title: '刷新中...' });
-			await this.loadWaitlistInfo();
+			await this.loadWaitlistInfo(false); // 非静默刷新
 			uni.hideLoading();
 			uni.showToast({
 				title: '刷新成功',
