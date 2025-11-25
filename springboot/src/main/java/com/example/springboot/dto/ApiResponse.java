@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class ApiResponse<T> {
+    private int code;
     private boolean success;
     private String message;
     private T data;
@@ -12,6 +13,7 @@ public class ApiResponse<T> {
     // 静态工厂方法
     public static <T> ApiResponse<T> success(T data) {
         ApiResponse<T> response = new ApiResponse<>();
+        response.setCode(200);
         response.setSuccess(true);
         response.setMessage("成功");
         response.setData(data);
@@ -21,6 +23,7 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> error(String message) {
         ApiResponse<T> response = new ApiResponse<>();
+        response.setCode(500);
         response.setSuccess(false);
         response.setMessage(message);
         response.setTimestamp(System.currentTimeMillis());

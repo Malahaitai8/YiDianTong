@@ -13,6 +13,12 @@
 			}
 		},
 		{
+			"path": "pages/ai-chat/ai-chat",
+			"style": {
+				"navigationBarTitleText": "智能小助手"
+			}
+		},
+		{
 			"path": "pages/appointment/appointment",
 			"style": {
 				"navigationBarTitleText": "挂号"
