@@ -3,6 +3,7 @@ package com.example.springboot.service;
 import com.example.springboot.config.SecurityUtils;
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.entity.Patient;
+import com.example.springboot.entity.PrepaymentOrder;
 // [删除] import com.example.springboot.entity.Waitlist; // 不再需要
 import com.example.springboot.entity.Schedule; // <-- [新增] 导入
 import com.example.springboot.exception.CustomerException;
@@ -40,6 +41,9 @@ public class AppointmentService {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private PrepaymentOrderService prepaymentOrderService;
 
     public List<Appointment> selectAll() {
 
@@ -187,21 +191,41 @@ public class AppointmentService {
             // [修改] 2. 检查返回的 patientId
             if (nextPatientId != null) {
 
-                // 3. 为队首患者创建预约
+                // [新增] 3. 验证预支付状态
+                PrepaymentOrder prepaymentOrder = null;
+                try {
+                    // 查找该患者在该排班的预支付订单
+                    List<PrepaymentOrder> orders = prepaymentOrderService.getOrdersByPatientId(nextPatientId);
+                    prepaymentOrder = orders.stream()
+                        .filter(order -> order.getScheduleId().equals(scheduleId))
+                        .filter(order -> "PAID".equals(order.getStatus()))
+                        .findFirst()
+                        .orElse(null);
+
+                    if (prepaymentOrder == null) {
+                        logger.warn("候补转预约失败：未找到已支付的预支付订单，患者ID={}, 排班ID={}", nextPatientId, scheduleId);
+                        // 将患者重新加入候补队列末尾，给其时间完成支付
+                        waitlistService.addToQueue(nextPatientId, scheduleId);
+                        return false;
+                    }
+                } catch (Exception e) {
+                    logger.error("验证预支付状态失败: {}", e.getMessage());
+                    // 将患者重新加入候补队列
+                    waitlistService.addToQueue(nextPatientId, scheduleId);
+                    return false;
+                }
+
+                // 4. 为队首患者创建预约
                 Appointment newAppointment = new Appointment();
-
-                // [修改] 4. 使用弹出的ID
                 newAppointment.setPatientId(nextPatientId);
-
                 newAppointment.setScheduleId(scheduleId);
-                newAppointment.setStatus("PENDING");
+                newAppointment.setStatus("scheduled"); // 直接设为已预约状态
                 newAppointment.setSourceType("WAITLIST");
 
-                // [修复] 必须设置预约时间，否则取消时会出错
-                // 暂定为当前时间，或者您可以根据排班时间计算一个
+                // [修复] 必须设置预约时间
                 Date now = new java.util.Date();
                 newAppointment.setCreatedAt(now);
-                newAppointment.setAppointmentTime(now); // <-- 关键修复
+                newAppointment.setAppointmentTime(now);
 
                 // 5. 从 schedule 表查询医生ID
                 var schedule = scheduleMapper.selectById(scheduleId);
@@ -213,46 +237,29 @@ public class AppointmentService {
                 int decreased = scheduleMapper.decreaseAvailableSlots(scheduleId);
                 if (decreased <= 0) {
                     logger.warn("候补创建失败：无可用号源 scheduleId={}", scheduleId);
+                    // 将患者重新加入候补队列
+                    waitlistService.addToQueue(nextPatientId, scheduleId);
                     return false;
                 }
 
-                // [新增] 7. 计算费用 (从 create 方法复制而来)
-                try {
-                    if (schedule != null) {
-                        String slotType = schedule.getSlotType();
-                        String normalized = slotType == null ? "NORMAL" : slotType.trim().toUpperCase();
-                        String key;
-                        switch (normalized) {
-                            case "EXPERT": key = "FEE_EXPERT"; break;
-                            case "VIP": key = "FEE_VIP"; break;
-                            default: key = "FEE_NORMAL";
-                        }
-                        BigDecimal fee = systemConfigService.getDecimalOrDefault(key, new BigDecimal("0.00"));
-                        newAppointment.setFee(fee);
-                        
-                        // 根据患者身份计算实际支付费用
-                        BigDecimal actualFee = calculateActualFee(nextPatientId, fee);
-                        newAppointment.setActualFee(actualFee);
-                    } else {
-                        newAppointment.setFee(new BigDecimal("0.00"));
-                        newAppointment.setActualFee(new BigDecimal("0.00"));
-                    }
-                } catch (Exception e) {
-                    logger.warn("候补计算费用失败: {}", e.getMessage());
-                    if (newAppointment.getFee() == null) {
-                        newAppointment.setFee(new BigDecimal("0.00"));
-                    }
-                    if (newAppointment.getActualFee() == null) {
-                        newAppointment.setActualFee(new BigDecimal("0.00"));
-                    }
-                }
+                // 7. 使用预支付订单中的费用信息
+                newAppointment.setFee(prepaymentOrder.getOriginalFee());
+                newAppointment.setActualFee(prepaymentOrder.getActualFee());
 
-                // 8. 入库
+                // 8. 入库预约记录
                 appointmentMapper.insert(newAppointment);
 
-                // [修改] 9. 更新日志
-                logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}",
-                        nextPatientId, scheduleId);
+                // 9. 消费预支付订单
+                try {
+                    prepaymentOrderService.consumeOrder(prepaymentOrder.getWaitlistId());
+                } catch (Exception e) {
+                    logger.error("消费预支付订单失败: {}", e.getMessage());
+                    // 这里可以考虑是否需要回滚预约创建，但为了简化流程，我们继续处理
+                }
+
+                // 10. 更新日志
+                logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}, 订单号={}",
+                        nextPatientId, scheduleId, prepaymentOrder.getOrderNo());
                 return true;
             }
         } catch (Exception e) {

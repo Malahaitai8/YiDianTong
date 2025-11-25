@@ -157,6 +157,36 @@ CREATE TABLE `system_config` (
     UNIQUE KEY `uk_config_key` (`key`)
 ) COMMENT='系统全局配置与规则表';
 
+-- 12. 创建预支付订单表 (prepayment_order)
+CREATE TABLE `prepayment_order` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '预支付订单唯一ID',
+    `order_no` VARCHAR(64) NOT NULL COMMENT '订单号（唯一）',
+    `patient_id` BIGINT NOT NULL COMMENT '患者ID',
+    `schedule_id` BIGINT NOT NULL COMMENT '排班ID',
+    `waitlist_id` BIGINT NOT NULL COMMENT '候补记录ID',
+    `order_type` VARCHAR(20) NOT NULL DEFAULT 'WAITLIST' COMMENT '订单类型 (WAITLIST-候补预支付)',
+    `original_fee` DECIMAL(10,2) NOT NULL COMMENT '原始挂号费',
+    `actual_fee` DECIMAL(10,2) NOT NULL COMMENT '实际支付费用（报销后）',
+    `paid_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '已支付金额',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态 (PENDING-待支付, PAID-已支付, REFUNDED-已退款, CONSUMED-已消费, EXPIRED-已过期)',
+    `payment_method` VARCHAR(20) NULL COMMENT '支付方式 (ALIPAY, WECHAT, BALANCE等)',
+    `payment_time` DATETIME NULL COMMENT '支付时间',
+    `refund_time` DATETIME NULL COMMENT '退款时间',
+    `refund_reason` VARCHAR(255) NULL COMMENT '退款原因',
+    `expire_time` DATETIME NOT NULL COMMENT '订单过期时间',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_order_no` (`order_no`),
+    FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`waitlist_id`) REFERENCES `waitlist`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX `idx_patient_status` (`patient_id`, `status`),
+    INDEX `idx_waitlist_status` (`waitlist_id`, `status`),
+    INDEX `idx_expire_time` (`expire_time`)
+) COMMENT='候补预支付订单表';
+
 -- 12. 插入系统配置初始数据
 INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例'),

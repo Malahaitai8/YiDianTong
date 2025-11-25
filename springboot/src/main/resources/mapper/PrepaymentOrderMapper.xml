@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.PrepaymentOrderMapper">
+    <resultMap id="PrepaymentOrderResultMap" type="com.example.springboot.entity.PrepaymentOrder">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="patient_id" property="patientId"/>
+        <result column="schedule_id" property="scheduleId"/>
+        <result column="waitlist_id" property="waitlistId"/>
+        <result column="order_type" property="orderType"/>
+        <result column="original_fee" property="originalFee"/>
+        <result column="actual_fee" property="actualFee"/>
+        <result column="paid_amount" property="paidAmount"/>
+        <result column="status" property="status"/>
+        <result column="payment_method" property="paymentMethod"/>
+        <result column="payment_time" property="paymentTime"/>
+        <result column="refund_time" property="refundTime"/>
+        <result column="refund_reason" property="refundReason"/>
+        <result column="expire_time" property="expireTime"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        order by created_at desc
+    </select>
+
+    <select id="selectById" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where id = #{id}
+    </select>
+
+    <select id="selectByOrderNo" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where order_no = #{orderNo}
+    </select>
+
+    <select id="selectByWaitlistId" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where waitlist_id = #{waitlistId}
+    </select>
+
+    <select id="selectByPatientId" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where patient_id = #{patientId}
+        order by created_at desc
+    </select>
+
+    <select id="selectByPatientIdAndStatus" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where patient_id = #{patientId}
+        and status = #{status}
+        order by created_at desc
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into prepayment_order(
+            order_no, patient_id, schedule_id, waitlist_id, order_type,
+            original_fee, actual_fee, paid_amount, status, payment_method,
+            payment_time, refund_time, refund_reason, expire_time, created_at, updated_at
+        )
+        values(
+            #{orderNo}, #{patientId}, #{scheduleId}, #{waitlistId}, #{orderType},
+            #{originalFee}, #{actualFee}, #{paidAmount}, #{status}, #{paymentMethod},
+            #{paymentTime}, #{refundTime}, #{refundReason}, #{expireTime}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <update id="update">
+        update prepayment_order
+        <set>
+            <if test="orderNo != null">order_no = #{orderNo},</if>
+            <if test="patientId != null">patient_id = #{patientId},</if>
+            <if test="scheduleId != null">schedule_id = #{scheduleId},</if>
+            <if test="waitlistId != null">waitlist_id = #{waitlistId},</if>
+            <if test="orderType != null">order_type = #{orderType},</if>
+            <if test="originalFee != null">original_fee = #{originalFee},</if>
+            <if test="actualFee != null">actual_fee = #{actualFee},</if>
+            <if test="paidAmount != null">paid_amount = #{paidAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
+            <if test="paymentTime != null">payment_time = #{paymentTime},</if>
+            <if test="refundTime != null">refund_time = #{refundTime},</if>
+            <if test="refundReason != null">refund_reason = #{refundReason},</if>
+            <if test="expireTime != null">expire_time = #{expireTime},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        update prepayment_order
+        set status = #{status},
+            updated_at = now()
+        where id = #{id}
+    </update>
+
+    <update id="updatePaymentInfo">
+        update prepayment_order
+        set status = #{status},
+            payment_method = #{paymentMethod},
+            payment_time = #{paymentTime},
+            paid_amount = #{paidAmount},
+            updated_at = now()
+        where id = #{id}
+    </update>
+
+    <update id="updateRefundInfo">
+        update prepayment_order
+        set status = #{status},
+            refund_time = #{refundTime},
+            refund_reason = #{refundReason},
+            updated_at = now()
+        where id = #{id}
+    </update>
+
+    <delete id="delete">
+        delete from prepayment_order where id = #{id}
+    </delete>
+
+    <select id="selectExpiredOrders" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where status = 'PENDING'
+        and expire_time &lt; now()
+    </select>
+
+    <select id="selectOrdersForRefund" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where status = 'PAID'
+        and id in (
+            select po.id from prepayment_order po
+            join waitlist w on po.waitlist_id = w.id
+            where w.status in ('EXPIRED', 'CANCELLED')
+        )
+    </select>
+</mapper>
