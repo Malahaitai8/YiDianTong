@@ -24,4 +24,7 @@ public class ScheduleWithDetailsDTO {
     private String slotType;
     private Integer totalSlots;
     private Integer availableSlots;
+
+    /** 挂号费（由后端根据 system_config 计算后填充给前端使用） */
+    private java.math.BigDecimal fee;
 }

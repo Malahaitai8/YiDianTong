@@ -60,7 +60,18 @@
 					</view>
 					<view class="row">
 						<text class="label">状态</text>
-						<text class="value status" :class="String(item.status||'').toLowerCase()">{{ statusName(item.status) }}</text>
+						<text
+							class="value status"
+							:class="{
+								pending: item.status === 'PENDING' || item.status === 'scheduled',
+								confirmed: item.status === 'CONFIRMED',
+								completed: item.status === 'COMPLETED' || item.status === 'completed',
+								waitlist: item.type === 'waitlist' || item.status === 'WAITLIST',
+								cancelled: item.status === 'CANCELLED' || item.status === 'cancelled'
+							}"
+						>
+							{{ statusName(item.status) }}
+						</text>
 					</view>
 					<view class="row" v-if="item.fee !== undefined || item.actualFee !== undefined">
 						<text class="label">费用</text>

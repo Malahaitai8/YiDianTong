@@ -44,7 +44,10 @@
 						class="slot-card"
 						v-for="s in getSlotsByPeriod(p)"
 						:key="s.id"
-						:class="slotCardClass(s)"
+						:class="{
+							active: selectedSlot && selectedSlot.id === s.id,
+							'no-slots': s.availableSlots === 0
+						}"
 						@click="selectSlot(s)"
 					>
 						<view class="slot-top">
@@ -201,21 +204,38 @@ export default {
 			};
 		},
 		getSlotType(s) {
+			// 优先使用后端提供的 slotType，其次根据医生职称映射
 			const t = s.slotType || this.mapDoctorTitleToSlotType(s.doctorTitle);
 			return t || '普通号';
 		},
 		getSlotPrice(s) {
-			const raw = s.price ?? s.fee ?? s.amount;
-			if (raw != null) return raw;
-			if (s.doctorTitle === '主任医师') return 50;
-			if (s.doctorTitle === '副主任医师') return 30;
-			if (s.doctorTitle === '主治医师') return 20;
-			return 15;
+			// 1) 若后端返回了明确的费用字段，则直接使用（与后端结算一致）
+			const raw = s.fee ?? s.price ?? s.amount;
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 2) 否则根据号别类型做前端映射（保持与当前 system_config 中的默认值一致）
+			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			const slotType = (s.slotType || '').toString().trim().toUpperCase();
+			if (slotType === 'VIP') {
+				return '100.00';
+			}
+			if (slotType === 'EXPERT') {
+				return '30.00';
+			}
+
+			// 3) 兜底：按职称简单区分专家/普通
+			if (s.doctorTitle && s.doctorTitle.includes('主任')) {
+				return '30.00';
+			}
+			return '15.00';
 		},
 		mapDoctorTitleToSlotType(title) {
-			if (title === '主任医师') return '专家号';
-			if (title === '副主任医师') return '副主任号';
-			if (title === '主治医师') return '主治号';
+			if (!title) return '普通号';
+			if (title.includes('主任')) return '专家号';
+			if (title.includes('副主任')) return '专家号';
+			if (title.includes('主治')) return '普通号';
 			return '普通号';
 		},
 		selectSlot(s) {

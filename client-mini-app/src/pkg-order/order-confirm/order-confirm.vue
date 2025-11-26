@@ -179,9 +179,16 @@ export default {
 			return 0;
 		},
 		
-		// 原价
+		// 原价 —— 优先使用后端排班返回的 fee/price，若没有则按号别简单映射
 		originalFee() {
-			const fee = this.schedule.fee || this.estimateFee();
+			const raw = this.schedule.fee ?? this.schedule.price;
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 后端未返回费用字段时的兜底：
+			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			const fee = this.estimateFeeBySlotType(this.schedule.slotType);
 			return Number(fee).toFixed(2);
 		},
 		
@@ -320,20 +327,13 @@ export default {
 			}
 		},
 		
-		// 估算费用（根据医生职称）
-		estimateFee() {
-			const title = this.doctorInfo.title || '';
-			if (title.includes('主任')) return 50;
-			if (title.includes('副主任')) return 30;
-			if (title.includes('主治')) return 20;
-			return 15;
-		},
-		
-		// 根据号别类型估算费用
+		// 根据号别类型估算费用（仅在后端未返回 fee 时作为兜底使用）
 		estimateFeeBySlotType(slotType) {
-			if (slotType === 'vip' || slotType === 'VIP') return 100;
-			if (slotType === 'expert' || slotType === '专家') return 50;
-			return 15; // normal/普通
+			const s = String(slotType || '').toUpperCase();
+			if (s === 'VIP') return 100;                 // VIP 号
+			if (s === 'EXPERT' || s === '专家') return 30; // 专家号
+			// 默认普通号
+			return 15;
 		},
 		
 		// 格式化显示日期

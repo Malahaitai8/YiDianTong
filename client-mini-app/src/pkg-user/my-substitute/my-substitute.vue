@@ -55,7 +55,12 @@
 					<view v-if="item.status === 'WAITING'" class="stats-section">
 						<view class="stat-item" v-if="item.successRate !== null && item.successRate !== undefined">
 							<text class="stat-label">预计成功率</text>
-							<text class="stat-value" :class="getSuccessRateClass(item.successRate)">{{ formatSuccessRate(item.successRate) }}%</text>
+							<text
+								class="stat-value"
+								:class="item.successRate >= 70 ? 'high' : (item.successRate >= 40 ? 'medium' : 'low')"
+							>
+								{{ formatSuccessRate(item.successRate) }}%
+							</text>
 						</view>
 						<view class="stat-item" v-if="item.avgWaitTime !== null && item.avgWaitTime !== undefined">
 							<text class="stat-label">平均等待时长</text>
@@ -64,7 +69,12 @@
 					</view>
 					<view class="row">
 						<text class="label">状态</text>
-						<text class="value status" :class="getStatusClass(item.status)">{{ getStatusText(item.status) }}</text>
+						<text
+							class="value status"
+							:class="item.status === 'WAITING' ? 'waiting' : (item.status === 'SUCCESS' ? 'success' : (item.status === 'CANCELLED' ? 'cancelled' : ''))"
+						>
+							{{ getStatusText(item.status) }}
+						</text>
 					</view>
 					<view class="actions" @click.stop>
 						<button v-if="item.status === 'WAITING'" class="btn cancel" @click.stop="cancelWaitlist(item)">退出候补</button>

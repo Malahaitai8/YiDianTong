@@ -33,7 +33,12 @@
 				<view class="card-middle">
 					<view class="doctor-name-row">
 						<text class="doctor-name">{{ doctor.name }}</text>
-						<text class="doctor-title" :class="getTitleClass(doctor.title)">{{ doctor.title }}</text>
+						<text
+							class="doctor-title"
+							:class="doctor.title === '主任医师' ? 'senior' : (doctor.title === '副主任医师' ? 'associate' : '')"
+						>
+							{{ doctor.title }}
+						</text>
 					</view>
 					<text class="doctor-department" v-if="doctor.clinic">{{ doctor.clinic.name }}</text>
 					<view class="doctor-specialty" v-if="doctor.specialty">
