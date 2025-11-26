@@ -22,3 +22,4 @@ public class WechatSubscribe {
     private Date updatedAt;
 }
 
+

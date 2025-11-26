@@ -19,3 +19,4 @@ public interface WechatSubscribeMapper {
     List<WechatSubscribe> selectByUserId(@Param("userId") Long userId);
 }
 
+

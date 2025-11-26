@@ -27,3 +27,4 @@ public interface NotificationMapper {
     int markAllAsRead(@Param("userId") Long userId, @Param("readTime") Date readTime);
 }
 
+
