@@ -39,6 +39,9 @@ public class WaitlistService {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
     private static final String WAITLIST_KEY_PREFIX = "waitlist:schedule:";
     private static final String PATIENT_KEY_PREFIX = "waitlist:patient:";
     private static final String STATS_CACHE_KEY_PREFIX = "waitlist:stats:";
@@ -61,33 +64,54 @@ public class WaitlistService {
     }
 
     private void addInternal(Waitlist waitlist, boolean skipAvailabilityCheck) {
+        // 仅在必要时打开 DEBUG 观察候补入队流程，正常运行不刷屏
+        logger.debug("addInternal start waitlistId={} scheduleId={} patientId={}",
+            waitlist != null ? waitlist.getId() : null,
+            waitlist != null ? waitlist.getScheduleId() : null,
+            waitlist != null ? waitlist.getPatientId() : null);
+            
         if (waitlist == null || waitlist.getId() == null) {
+            logger.error("addInternal failed: waitlist is null or id is null");
             throw new CustomerException("候补记录不存在");
         }
 
         Schedule schedule = scheduleMapper.selectById(waitlist.getScheduleId());
         if (schedule == null) {
+            logger.error("addInternal failed: schedule not found scheduleId={}", waitlist.getScheduleId());
             throw new CustomerException("排班不存在");
         }
         if (!skipAvailabilityCheck
                 && schedule.getAvailableSlots() != null
                 && schedule.getAvailableSlots() > 0) {
+            logger.warn("addInternal failed: slots available scheduleId={} availableSlots={}", 
+                waitlist.getScheduleId(), schedule.getAvailableSlots());
             throw new CustomerException("当前仍有号源，可直接预约");
         }
 
         String queueKey = WAITLIST_KEY_PREFIX + waitlist.getScheduleId();
-        Double score = redisTemplate.opsForZSet().score(queueKey, waitlist.getId());
+        String member = String.valueOf(waitlist.getId());
+        logger.debug("addInternal checking Redis queueKey={} member={}", queueKey, member);
+        
+        Double score = stringRedisTemplate.opsForZSet().score(queueKey, member);
         if (score != null) {
+            logger.warn("addInternal failed: already in queue queueKey={} member={} score={}", queueKey, member, score);
             throw new CustomerException("已在候补队列中，请勿重复提交");
         }
 
         long joinTime = waitlist.getJoinTime() != null ? waitlist.getJoinTime().getTime() : System.currentTimeMillis();
-        redisTemplate.opsForZSet().add(queueKey, waitlist.getId(), (double) joinTime);
+        logger.debug("addInternal writing to Redis queueKey={} member={} score={}", queueKey, member, joinTime);
+        
+        Boolean addResult = stringRedisTemplate.opsForZSet().add(queueKey, member, (double) joinTime);
+        logger.debug("addInternal Redis ZADD result={} queueKey={} member={}", addResult, queueKey, member);
 
         String patientKey = PATIENT_KEY_PREFIX + waitlist.getPatientId();
-        redisTemplate.opsForSet().add(patientKey, String.valueOf(waitlist.getId()));
+        Long saddResult = stringRedisTemplate.opsForSet().add(patientKey, member);
+        logger.debug("addInternal Redis SADD result={} patientKey={} member={}", saddResult, patientKey, member);
+        
         // 清理遗留的 scheduleId 索引
-        redisTemplate.opsForSet().remove(patientKey, String.valueOf(waitlist.getScheduleId()));
+        stringRedisTemplate.opsForSet().remove(patientKey, String.valueOf(waitlist.getScheduleId()));
+        
+        logger.debug("addInternal completed successfully waitlistId={} scheduleId={}", waitlist.getId(), waitlist.getScheduleId());
     }
 
     public Waitlist popNext(Long scheduleId) {
@@ -98,9 +122,14 @@ public class WaitlistService {
         int attempts = 0;
         
         while (attempts < maxAttempts) {
-            Set<ZSetOperations.TypedTuple<Object>> tuples = redisTemplate.opsForZSet().popMin(key, 1);
+            Set<ZSetOperations.TypedTuple<String>> tuples = stringRedisTemplate.opsForZSet().popMin(key, 1);
             if (tuples == null || tuples.isEmpty()) {
-                return null;
+                // Redis 队列为空时，回退到数据库按 join_time 查询
+                Waitlist fallback = waitlistMapper.selectNextWaiting(scheduleId);
+                if (fallback != null) {
+                    cleanupPatientIndex(fallback.getPatientId(), fallback.getId(), scheduleId);
+                }
+                return fallback;
             }
             
             Object rawValue = tuples.iterator().next().getValue();
@@ -131,9 +160,18 @@ public class WaitlistService {
 
     public List<WaitlistInfoDTO> listByPatient(Long patientId) {
         String patientKey = PATIENT_KEY_PREFIX + patientId;
-        Set<Object> rawValues = redisTemplate.opsForSet().members(patientKey);
+        Set<String> rawValues = stringRedisTemplate.opsForSet().members(patientKey);
         if (rawValues == null || rawValues.isEmpty()) {
-            return List.of();
+            // Redis 无数据时回退数据库
+            return waitlistMapper.selectByPatientId(patientId).stream()
+                    .filter(Objects::nonNull)
+                    .filter(waitlist -> {
+                        String status = waitlist.getStatus();
+                        return "WAITING".equalsIgnoreCase(status) || "NOTIFIED".equalsIgnoreCase(status);
+                    })
+                    .map(this::buildInfoDTO)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
         }
 
         return rawValues.stream()
@@ -162,9 +200,9 @@ public class WaitlistService {
             return;
         }
         String queueKey = WAITLIST_KEY_PREFIX + waitlist.getScheduleId();
-        redisTemplate.opsForZSet().remove(queueKey, waitlist.getId());
-        // 清理遗留的 patientId 记录
-        redisTemplate.opsForZSet().remove(queueKey, waitlist.getPatientId());
+        stringRedisTemplate.opsForZSet().remove(queueKey, String.valueOf(waitlist.getId()));
+        // 清理遗留的 patientId 记录（兼容老数据）
+        stringRedisTemplate.opsForZSet().remove(queueKey, String.valueOf(waitlist.getPatientId()));
         cleanupPatientIndex(waitlist.getPatientId(), waitlist.getId(), waitlist.getScheduleId());
         
         // 清除相关统计数据缓存，确保数据实时性
@@ -240,23 +278,23 @@ public class WaitlistService {
 
     private void cleanupPatientIndex(Long patientId, Long waitlistId, Long scheduleId) {
         String patientKey = PATIENT_KEY_PREFIX + patientId;
-        redisTemplate.opsForSet().remove(patientKey, String.valueOf(waitlistId));
+        stringRedisTemplate.opsForSet().remove(patientKey, String.valueOf(waitlistId));
         if (scheduleId != null) {
-            redisTemplate.opsForSet().remove(patientKey, String.valueOf(scheduleId));
+            stringRedisTemplate.opsForSet().remove(patientKey, String.valueOf(scheduleId));
         }
     }
 
     private WaitlistInfoDTO buildInfoDTO(Waitlist waitlist) {
         String queueKey = WAITLIST_KEY_PREFIX + waitlist.getScheduleId();
-        Long rank = redisTemplate.opsForZSet().rank(queueKey, waitlist.getId());
+        Long rank = stringRedisTemplate.opsForZSet().rank(queueKey, String.valueOf(waitlist.getId()));
         if (rank == null) {
             // 兼容旧版：排序依据 patientId
-            rank = redisTemplate.opsForZSet().rank(queueKey, waitlist.getPatientId());
+            rank = stringRedisTemplate.opsForZSet().rank(queueKey, String.valueOf(waitlist.getPatientId()));
             if (rank == null) {
                 return null;
             }
         }
-        Long queueSize = redisTemplate.opsForZSet().size(queueKey);
+        Long queueSize = stringRedisTemplate.opsForZSet().size(queueKey);
         WaitlistInfoDTO dto = new WaitlistInfoDTO(waitlist.getId(), waitlist.getScheduleId(), rank, queueSize);
 
         Schedule schedule = scheduleMapper.selectById(waitlist.getScheduleId());

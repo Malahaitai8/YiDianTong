@@ -165,4 +165,5 @@ public interface ScheduleMapper {
      */
     @Select("SELECT SUM(available_slots) FROM schedule")
     Integer sumAvailableSlots();
+
 }

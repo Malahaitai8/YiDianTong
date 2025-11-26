@@ -5,6 +5,28 @@ spring:
     username: root
     password: 123456
     url: jdbc:mysql://localhost:3306/yi_dian_tong_2?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    # 数据库连接池优化（HikariCP）
+    hikari:
+      maximum-pool-size: 20  # 最大连接数
+      minimum-idle: 5        # 最小空闲连接数
+      connection-timeout: 30000        # 连接超时时间（毫秒）
+      idle-timeout: 600000             # 空闲连接超时时间（毫秒）
+      max-lifetime: 1800000            # 连接最大生命周期（毫秒）
+      leak-detection-threshold: 60000  # 连接泄漏检测阈值（毫秒）
+
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # 本地 Redis 不需要密码
+      password: ""
+      lettuce:
+        pool:
+          max-active: 20   # 高并发优化：增加最大连接数
+          max-idle: 10
+          min-idle: 5
+          max-wait: 1000ms
 
 
 # MyBatis配置
@@ -12,7 +34,8 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.example.springboot.entity
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 关闭控制台逐条 SQL 打印，避免日志过多。如果需要排查 SQL，再临时改为 StdOutImpl。
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
     map-underscore-to-camel-case: true
 
 # 服务器配置
@@ -24,35 +47,14 @@ jwt:
   secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
   expiration: 604800000 # 7天(毫秒)
 
-# 日志配置（开启安全调试日志）
+# 日志配置（默认 INFO，只对需要的包单独调级）
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.example.springboot: DEBUG
-
-# Redis配置
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      # 本地 Redis 不需要密码
-      password: ""
-      lettuce:
-        pool:
-          max-active: 20  # 高并发优化：增加最大连接数
-          max-idle: 10
-          min-idle: 5
-          max-wait: 1000ms
-
-# 数据库连接池优化（HikariCP）
-  datasource:
-    hikari:
-      maximum-pool-size: 20  # 最大连接数
-      minimum-idle: 5  # 最小空闲连接数
-      connection-timeout: 30000  # 连接超时时间（毫秒）
-      idle-timeout: 600000  # 空闲连接超时时间（毫秒）
-      max-lifetime: 1800000  # 连接最大生命周期（毫秒）
-      leak-detection-threshold: 60000  # 连接泄漏检测阈值（毫秒）
+    root: INFO
+    # Spring Security 不再输出 DEBUG 级别的过滤器链日志
+    org.springframework.security: INFO
+    # 业务代码保持 INFO 级别，必要时再打开 DEBUG
+    com.example.springboot: INFO
 
 # 微信小程序配置
 wechat:

@@ -217,20 +217,9 @@ public class AppointmentService {
             }
         }
 
-        // 删除预约
+        // 删除预约（仅做数据清理，不再直接影响号源，避免和业务退号规则冲突）
         int result = appointmentMapper.deleteById(id);
-
-        // 如果删除成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
-        if (result > 0) {
-            boolean filled = processNextInWaitlist(appointment.getScheduleId());
-            if (!filled) {
-                try {
-                    scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
-                } catch (Exception e) {
-                    logger.warn("归还号源失败: {}", e.getMessage());
-                }
-            }
-        }
+        // 号源增减统一走 cancelById 流程；deleteById 只做物理删除，避免多次“归还号源”导致 available_slots 跳变
 
         return result;
     }
@@ -238,16 +227,20 @@ public class AppointmentService {
     /** [修改] 处理候补队列：为队首患者创建预约；返回是否已被候补填充 */
     @Transactional(rollbackFor = Exception.class)
     public boolean processNextInWaitlist(Long scheduleId) {
+        // 只在需要排查问题时打开 DEBUG；正常运行不刷屏
+        logger.debug("processNextInWaitlist start scheduleId={}", scheduleId);
         final int maxAttempts = 10;
         int attempts = 0;
         while (attempts < maxAttempts) {
             attempts++;
             Waitlist waitlistEntry = waitlistService.popNext(scheduleId);
             if (waitlistEntry == null) {
+                logger.debug("processNextInWaitlist no candidate scheduleId={} attempts={}", scheduleId, attempts);
                 return false;
             }
             boolean processed = processSingleWaitlistEntry(scheduleId, waitlistEntry);
             if (processed) {
+                logger.info("processNextInWaitlist success scheduleId={} attempts={}", scheduleId, attempts);
                 return true;
             }
         }
@@ -257,6 +250,7 @@ public class AppointmentService {
 
     private boolean processSingleWaitlistEntry(Long scheduleId, Waitlist waitlistEntry) {
         try {
+            logger.debug("processSingleWaitlistEntry start scheduleId={} waitlistId={}", scheduleId, waitlistEntry != null ? waitlistEntry.getId() : null);
             // [修复] 验证候补记录中的scheduleId是否与传入的scheduleId一致
             Long waitlistScheduleId = waitlistEntry.getScheduleId();
             if (!scheduleId.equals(waitlistScheduleId)) {
@@ -290,7 +284,7 @@ public class AppointmentService {
                 return false;
             }
             
-            logger.info("候补转预约：验证通过 waitlistId={}, scheduleId={}, patientId={}", 
+            logger.debug("候补转预约：验证通过 waitlistId={}, scheduleId={}, patientId={}",
                 waitlistEntry.getId(), scheduleId, nextPatientId);
 
             // 3. 验证预支付状态
@@ -325,7 +319,7 @@ public class AppointmentService {
                 // [修复] 根据排班的日期和时间段计算正确的预约时间
                 Date appointmentTime = calculateAppointmentTimeFromSchedule(schedule.getScheduleDate(), schedule.getTimeSlot());
                 newAppointment.setAppointmentTime(appointmentTime);
-                logger.info("候补转预约：设置预约时间为排班时间 scheduleDate={}, timeSlot={}, appointmentTime={}", 
+                logger.debug("候补转预约：设置预约时间为排班时间 scheduleDate={}, timeSlot={}, appointmentTime={}",
                     schedule.getScheduleDate(), schedule.getTimeSlot(), appointmentTime);
             } else {
                 // 如果排班不存在，使用当前时间（不应该发生，但作为兜底）
@@ -333,7 +327,7 @@ public class AppointmentService {
                 newAppointment.setAppointmentTime(now);
             }
 
-            // [修复] 在扣减号源前，检查是否已有其他预约占用了这个号源
+            // [修复] 在进行候补转预约前，基于总号源和未取消预约数检查容量
             int existingAppointments = appointmentMapper.countByScheduleId(scheduleId);
             Schedule currentSchedule = scheduleMapper.selectById(scheduleId);
             if (currentSchedule == null) {
@@ -341,24 +335,18 @@ public class AppointmentService {
                 waitlistService.requeue(waitlistEntry);
                 return false;
             }
-            
-            // 检查已预约数量是否已达到总号源数
+
             int totalSlots = currentSchedule.getTotalSlots() != null ? currentSchedule.getTotalSlots() : 0;
             if (existingAppointments >= totalSlots) {
-                logger.warn("候补转预约失败：该排班的所有号源已被预约 scheduleId={}, totalSlots={}, existingAppointments={}", 
+                logger.warn("候补转预约失败：该排班的所有号源已被预约 scheduleId={}, totalSlots={}, existingAppointments={}",
                     scheduleId, totalSlots, existingAppointments);
                 waitlistService.requeue(waitlistEntry);
                 return false;
             }
-            
-            // [修复] 原子性扣减号源
-            int decreased = scheduleMapper.decreaseAvailableSlots(scheduleId);
-            if (decreased <= 0) {
-                logger.warn("候补创建失败：无可用号源 scheduleId={}, availableSlots={}", 
-                    scheduleId, currentSchedule.getAvailableSlots());
-                waitlistService.requeue(waitlistEntry);
-                return false;
-            }
+
+            // [规则调整] 不再依赖 available_slots 判断容量，只用于前端展示。
+            // 对于候补转预约，无论当前 available_slots 为多少，只要未取消预约数 < totalSlots，就允许转预约。
+            // 这里不再调用 decreaseAvailableSlots，而是根据业务规则在后续单独调整 available_slots。
             
             // [修复] 扣减号源后，再次检查是否已有相同患者的预约（防止并发重复）
             int duplicateCheck = appointmentMapper.existsByPatientAndSchedule(nextPatientId, scheduleId);
@@ -384,7 +372,6 @@ public class AppointmentService {
             if (finalCheck > 0) {
                 logger.error("候补转预约失败：最终检查发现重复预约，归还号源并回滚 scheduleId={}, patientId={}, waitlistId={}", 
                     scheduleId, nextPatientId, waitlistEntry.getId());
-                scheduleMapper.increaseAvailableSlots(scheduleId);
                 try {
                     waitlistMapper.updateStatus(waitlistEntry.getId(), "GRANTED");
                 } catch (Exception e) {
@@ -394,6 +381,19 @@ public class AppointmentService {
             }
 
             appointmentMapper.insert(newAppointment);
+
+            // ========== 依据新业务规则调整 available_slots ==========
+            // 规则：无论排班是否已满，只要有候补成功顶上，都要“吃掉”一个可用号源：
+            // - 如果原来 available_slots > 0，则减 1；
+            // - 如果原来为 0，则保持 0（不允许负数）。
+            try {
+                Schedule beforeUpdate = scheduleMapper.selectById(scheduleId);
+                if (beforeUpdate != null && beforeUpdate.getAvailableSlots() != null && beforeUpdate.getAvailableSlots() > 0) {
+                    scheduleMapper.decreaseAvailableSlots(scheduleId);
+                }
+            } catch (Exception e) {
+                logger.warn("候补转预约后调整 available_slots 失败 scheduleId={}, error={}", scheduleId, e.getMessage());
+            }
 
             try {
                 prepaymentOrderService.consumeOrder(waitlistEntry.getId());
@@ -521,32 +521,34 @@ public class AppointmentService {
 
         int result = appointmentMapper.updateStatus(id, "cancelled");
 
-            // 如果取消成功，尝试从候补队列中弹出下一个患者并创建预约；若无候补则归还号源
-            if (result > 0) {
-                boolean filled = processNextInWaitlist(appointment.getScheduleId());
-                if (!filled) {
-                    try {
-                        scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
-                        
-                        // 推送号源释放通知
-                        Schedule schedule = scheduleMapper.selectById(appointment.getScheduleId());
-                        if (schedule != null) {
-                            com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
-                            String doctorName = doctor != null ? doctor.getName() : "未知医生";
-                            String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(schedule.getScheduleDate());
-                            
-                            com.example.springboot.websocket.WaitlistWebSocketServer.pushSlotAvailable(
-                                appointment.getScheduleId(),
-                                doctorName,
-                                dateStr,
-                                schedule.getTimeSlot()
-                            );
-                        }
-                    } catch (Exception e) {
-                        logger.warn("归还号源失败: {}", e.getMessage());
+        // 如果取消成功，优先尝试用候补顶上；只有没有候补成功时才真正归还号源
+        if (result > 0) {
+            logger.info("cancelById -> scheduleId={} appointmentId={} start processNextInWaitlist", appointment.getScheduleId(), id);
+            boolean filled = processNextInWaitlist(appointment.getScheduleId());
+            logger.info("cancelById -> scheduleId={} appointmentId={} filled={}", appointment.getScheduleId(), id, filled);
+            if (!filled) {
+                // 无候补成功时，再归还号源并推送“号源释放”通知
+                try {
+                    scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
+                    logger.info("cancelById -> scheduleId={} 无候补成功，归还号源完成", appointment.getScheduleId());
+
+                    Schedule schedule = scheduleMapper.selectById(appointment.getScheduleId());
+                    if (schedule != null) {
+                        com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
+                        String doctorName = doctor != null ? doctor.getName() : "未知医生";
+                        String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(schedule.getScheduleDate());
+
+                        com.example.springboot.websocket.WaitlistWebSocketServer.pushSlotAvailable(
+                            appointment.getScheduleId(),
+                            doctorName,
+                            dateStr,
+                            schedule.getTimeSlot()
+                        );
                     }
+                } catch (Exception e) {
+                    logger.warn("取消预约归还号源失败: {}", e.getMessage());
                 }
-            
+            }
             // ========== 发送取消预约通知 ==========
             try {
                 Schedule scheduleInfo = scheduleMapper.selectById(appointment.getScheduleId());

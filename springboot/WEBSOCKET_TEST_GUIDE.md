@@ -119,3 +119,4 @@ logger.info("开始处理候补队列: scheduleId={}", scheduleId);
 后端: 候补队列自动创建预约成功: 患者ID=456, 排班ID=789, 订单号=ORDER123, waitlistId=101
 前端: 收到候补成功通知: {doctorName: "张医生", appointmentDate: "2025-11-27", timeSlot: "morning"}
 ```
+

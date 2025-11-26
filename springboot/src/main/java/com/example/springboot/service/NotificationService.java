@@ -6,7 +6,6 @@ import com.example.springboot.entity.WechatSubscribe;
 import com.example.springboot.mapper.NotificationMapper;
 import com.example.springboot.mapper.PatientMapper;
 import com.example.springboot.mapper.WechatSubscribeMapper;
-import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;

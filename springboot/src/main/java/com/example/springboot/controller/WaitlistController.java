@@ -159,6 +159,3 @@ public class WaitlistController {
         return Result.success("已退出候补队列");
     }
 }
-        return Result.success("已退出候补队列");
-    }
-}
