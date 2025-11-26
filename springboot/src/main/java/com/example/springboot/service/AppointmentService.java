@@ -217,7 +217,13 @@ public class AppointmentService {
             }
         }
 
-        // 删除预约（仅做数据清理，不再直接影响号源，避免和业务退号规则冲突）
+        // 如果尚未退号（不是已取消），先执行一次标准退号流程，统一走 cancelById 的候补 / 号源逻辑
+        if (!"cancelled".equalsIgnoreCase(appointment.getStatus())) {
+            // 这里直接调用内部逻辑，避免重复的权限和时间校验
+            cancelById(id);
+        }
+
+        // 删除预约（仅做数据清理，此时状态已经是 cancelled，不再影响号源）
         int result = appointmentMapper.deleteById(id);
         // 号源增减统一走 cancelById 流程；deleteById 只做物理删除，避免多次“归还号源”导致 available_slots 跳变
 
