@@ -8,20 +8,20 @@
 				</view>
 				<view class="doctor-info">
 					<view class="doctor-name-row">
-						<text class="doctor-name">{{ doctorInfo.name || '张医生' }}</text>
-						<text class="doctor-title">{{ doctorInfo.title || '主任医师' }}</text>
+						<text class="doctor-name">{{ displayValue(doctorInfo.name) }}</text>
+						<text class="doctor-title">{{ displayValue(doctorInfo.title) }}</text>
 					</view>
-					<text class="doctor-clinic">{{ doctorInfo.clinicName || '消化内科' }}</text>
+					<text class="doctor-clinic">{{ displayValue(doctorInfo.clinicName) }}</text>
 				</view>
 			</view>
 			<view class="appointment-info">
 				<view class="info-item">
 					<text class="info-label">就诊日期</text>
-					<text class="info-value">{{ scheduleInfo.date || '2025-11-15' }}</text>
+					<text class="info-value">{{ displayValue(scheduleInfo.date) }}</text>
 				</view>
 				<view class="info-item">
 					<text class="info-label">时间段</text>
-					<text class="info-value">{{ scheduleInfo.timeSlotDisplay || '上午' }}</text>
+					<text class="info-value">{{ displayValue(scheduleInfo.timeSlotDisplay) }}</text>
 				</view>
 			</view>
 		</view>
@@ -111,6 +111,7 @@ import { getMyWaitlist, cancelWaitlist, joinWaitlist } from '@/api/waitlist.js'
 import { searchAvailable } from '@/api/appointment.js'
 import { getScheduleDetailsById } from '@/api/schedule.js'
 import request from '@/utils/request.js'
+import webSocketManager from '@/utils/websocket.js'
 
 export default {
 	name: 'Waitlist',
@@ -167,6 +168,7 @@ export default {
 		
 		if (options.scheduleId) {
 			this.scheduleId = parseInt(options.scheduleId);
+			console.log('排班ID:', this.scheduleId);
 		}
 		
 		if (options.doctorId) {
@@ -176,6 +178,7 @@ export default {
 		if (options.scheduleDate) {
 			this.scheduleDate = options.scheduleDate;
 			this.scheduleInfo.date = options.scheduleDate;
+			console.log('传入的排班日期:', this.scheduleInfo.date);
 		}
 		
 		if (options.timeSlot) {
@@ -189,6 +192,7 @@ export default {
 				'evening': '晚上'
 			};
 			this.scheduleInfo.timeSlotDisplay = timeSlotMap[options.timeSlot] || options.timeSlot;
+			console.log('传入的时间段:', this.scheduleInfo.timeSlotDisplay);
 		}
 		
 		// 加载候补信息
@@ -196,6 +200,13 @@ export default {
 		
 		// 启动定时刷新（每30秒刷新一次）
 		this.startAutoRefresh();
+		
+		// 设置WebSocket事件监听
+		uni.$on('waitlist-rank-update', this.handleRankUpdate);
+		uni.$on('waitlist-success', this.handleWaitlistSuccessEvent);
+		
+		// 确保WebSocket连接
+		this.ensureWebSocketConnection();
 	},
 	onUnload() {
 		// 清除所有定时器
@@ -207,8 +218,15 @@ export default {
 			clearInterval(this.checkAppointmentTimer);
 			this.checkAppointmentTimer = null;
 		}
+		
+		// 移除WebSocket事件监听
+		uni.$off('waitlist-rank-update', this.handleRankUpdate);
+		uni.$off('waitlist-success', this.handleWaitlistSuccessEvent);
 	},
 	methods: {
+		displayValue(value, fallback = '--') {
+			return value === undefined || value === null || value === '' ? fallback : value;
+		},
 		// 加载候补信息
 		async loadWaitlistInfo(silent = false) {
 			if (!silent) {
@@ -226,6 +244,9 @@ export default {
 					if (currentWaitlist) {
 						this.waitlistInfo.rank = currentWaitlist.rank;
 						this.waitlistInfo.queueSize = currentWaitlist.queueSize;
+						// 设置候补可视化统计数据
+						this.waitlistInfo.successRate = currentWaitlist.successRate;
+						this.waitlistInfo.avgWaitTime = currentWaitlist.avgWaitTime;
 					}
 				}
 
@@ -237,6 +258,8 @@ export default {
 					try {
 						const scheduleDetails = await getScheduleDetailsById(this.scheduleId);
 						console.log('排班详细信息:', scheduleDetails);
+						console.log('当前前端日期:', this.scheduleInfo.date);
+						console.log('后端返回日期:', scheduleDetails?.scheduleDate);
 
 						if (scheduleDetails) {
 							// 设置医生信息
@@ -245,9 +268,27 @@ export default {
 							this.doctorInfo.title = ''; // 排班信息中没有职称，需要时可以额外查询
 							this.doctorInfo.clinicName = scheduleDetails.departmentName || '未知科室';
 
-							// 设置排班信息
-							this.scheduleInfo.date = this.formatDate(scheduleDetails.scheduleDate);
-							this.scheduleInfo.timeSlot = scheduleDetails.timeSlot;
+							// 设置排班信息 - 优先使用前端传入的日期，避免后端返回错误日期覆盖
+							// 只有在没有传入日期时才使用后端返回的日期
+							if (!this.scheduleInfo.date || this.scheduleInfo.date === '') {
+								this.scheduleInfo.date = this.formatDate(scheduleDetails.scheduleDate);
+							}
+							
+							// 如果传入的日期和后端返回的日期不一致，使用传入的日期并记录警告
+							const backendDate = this.formatDate(scheduleDetails.scheduleDate);
+							if (this.scheduleInfo.date && backendDate && this.scheduleInfo.date !== backendDate) {
+								console.warn('日期不一致警告:', {
+									前端传入: this.scheduleInfo.date,
+									后端返回: backendDate,
+									排班ID: this.scheduleId
+								});
+								// 保持使用前端传入的日期
+							}
+							
+							// 时间段信息
+							if (scheduleDetails.timeSlot) {
+								this.scheduleInfo.timeSlot = scheduleDetails.timeSlot;
+							}
 
 							// 设置时间段显示文本
 							const timeSlotMap = {
@@ -387,9 +428,17 @@ export default {
 		},
 
 		// 处理候补成功
-		handleWaitlistSuccess() {
+		async handleWaitlistSuccess() {
 			// 写入消息中心
 			this.addSuccessMessage();
+
+			// 请求订阅消息授权（候补成功通知）
+			try {
+				const { requestWaitlistSubscribe } = require('@/utils/wechat-subscribe')
+				await requestWaitlistSubscribe()
+			} catch (e) {
+				console.log('订阅消息授权失败（不影响候补）:', e)
+			}
 
 			// 显示成功弹窗
 			this.showSuccessModal();
@@ -517,14 +566,159 @@ export default {
 			}
 		},
 
-		// 格式化日期
+		// 格式化日期 - 避免时区问题
 		formatDate(dateStr) {
 			if (!dateStr) return '';
-			const date = new Date(dateStr);
-			const year = date.getFullYear();
-			const month = String(date.getMonth() + 1).padStart(2, '0');
-			const day = String(date.getDate()).padStart(2, '0');
-			return `${year}-${month}-${day}`;
+			
+			// 如果已经是 YYYY-MM-DD 格式，直接返回
+			if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+				return dateStr;
+			}
+			
+			// 如果是 YYYY-MM-DDTHH:mm:ss 格式，只取日期部分
+			if (typeof dateStr === 'string' && dateStr.length >= 10) {
+				const datePart = dateStr.substring(0, 10);
+				if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+					return datePart;
+				}
+			}
+			
+			// 其他情况，尝试解析日期（使用本地时区）
+			try {
+				const date = new Date(dateStr);
+				if (isNaN(date.getTime())) {
+					return '';
+				}
+				// 使用本地时区的年月日，避免UTC转换
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				return `${year}-${month}-${day}`;
+			} catch (e) {
+				console.error('日期格式化失败:', dateStr, e);
+				return '';
+			}
+		},
+		// 格式化成功率
+		formatSuccessRate(rate) {
+			if (rate === null || rate === undefined) return '--';
+			return rate.toFixed(0);
+		},
+		// 格式化等待时长
+		formatWaitTime(hours) {
+			if (hours === null || hours === undefined) return '--';
+			if (hours < 1) {
+				return `${Math.round(hours * 60)}分钟`;
+			} else if (hours < 24) {
+				return `${hours.toFixed(1)}小时`;
+			} else {
+				const days = Math.floor(hours / 24);
+				const remainingHours = hours % 24;
+				if (remainingHours < 1) {
+					return `${days}天`;
+				}
+				return `${days}天${remainingHours.toFixed(1)}小时`;
+			}
+		},
+		// 获取成功率样式类
+		getSuccessRateClass(rate) {
+			if (rate === null || rate === undefined) return '';
+			if (rate >= 70) return 'high';
+		},
+		
+		// ========== WebSocket实时事件处理 ==========
+		
+		// 处理排队位次更新
+		handleRankUpdate(data) {
+			console.log('收到排队位次更新:', data);
+			
+			// 更新排队位次
+			if (this.waitlistInfo.rank !== undefined) {
+				const oldRank = this.waitlistInfo.rank;
+				this.waitlistInfo.rank = data.rank;
+				this.waitlistInfo.queueSize = data.queueSize;
+				
+				// 显示更新提示
+				const rankText = `第${data.rank + 1}位`;
+				if (oldRank !== data.rank) {
+					uni.showToast({
+						title: `位次更新：${rankText}`,
+						icon: 'none',
+						duration: 2000
+					});
+				}
+				
+				// 如果排名靠前，可以订阅候补状态
+				if (data.rank < 3 && this.scheduleId) {
+					webSocketManager.subscribeWaitlist(this.scheduleId);
+				}
+			}
+		},
+		
+		// 处理候补成功事件
+		handleWaitlistSuccessEvent(data) {
+			console.log('收到候补成功通知:', data);
+			
+			// [修复] 验证通知中的scheduleId是否与当前页面的scheduleId匹配
+			if (data.scheduleId && this.scheduleId && data.scheduleId !== this.scheduleId) {
+				console.warn('候补成功通知的scheduleId不匹配:', {
+					通知中的scheduleId: data.scheduleId,
+					当前页面的scheduleId: this.scheduleId
+				});
+				// 如果不是当前页面的候补，不处理
+				return;
+			}
+			
+			// 保存当前正确的日期信息，避免被后端返回的错误日期覆盖
+			const savedDate = this.scheduleInfo.date;
+			const savedTimeSlot = this.scheduleInfo.timeSlot;
+			
+			// 刷新页面数据
+			this.loadWaitlistInfo();
+			
+			// 恢复正确的日期信息（如果后端返回的日期错误）
+			if (savedDate && this.scheduleInfo.date !== savedDate) {
+				console.warn('检测到日期被错误覆盖，恢复正确日期:', {
+					保存的日期: savedDate,
+					后端返回: this.scheduleInfo.date
+				});
+				this.scheduleInfo.date = savedDate;
+			}
+			if (savedTimeSlot && this.scheduleInfo.timeSlot !== savedTimeSlot) {
+				this.scheduleInfo.timeSlot = savedTimeSlot;
+			}
+			
+			// 显示成功提示
+			uni.showModal({
+				title: '🎉 候补成功',
+				content: `恭喜您！候补已成功转为预约\n医生：${data.doctorName}\n时间：${data.appointmentDate} ${data.timeSlot}`,
+				confirmText: '查看预约',
+				cancelText: '知道了',
+				success: (res) => {
+					if (res.confirm) {
+						// 跳转到预约记录页面
+						uni.switchTab({
+							url: '/pages/records/records'
+						});
+					}
+				}
+			});
+		},
+		
+		// 确保WebSocket连接
+		ensureWebSocketConnection() {
+			console.log('检查WebSocket连接状态');
+			
+			if (!webSocketManager.isConnected()) {
+				console.log('WebSocket未连接，尝试连接');
+				webSocketManager.connect();
+			} else {
+				console.log('WebSocket已连接');
+				// 如果已连接且有scheduleId，订阅候补状态
+				if (this.scheduleId) {
+					webSocketManager.subscribeWaitlist(this.scheduleId);
+				}
+			}
 		}
 	}
 };
@@ -681,6 +875,68 @@ export default {
 	opacity: 0.9;
 	text-align: center;
 	line-height: 1.6;
+}
+
+/* 候补可视化统计卡片 */
+.stats-card {
+	background: #fff;
+	margin: 0 30rpx 20rpx;
+	border-radius: 16rpx;
+	padding: 30rpx;
+}
+
+.stats-content {
+	display: flex;
+	flex-direction: column;
+	gap: 24rpx;
+}
+
+.stat-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 20rpx 0;
+	border-bottom: 1rpx solid #f5f5f5;
+}
+
+.stat-row:last-child {
+	border-bottom: none;
+}
+
+.stat-left {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+
+.stat-label {
+	font-size: 28rpx;
+	color: #333;
+	font-weight: 500;
+}
+
+.stat-desc {
+	font-size: 22rpx;
+	color: #999;
+}
+
+.stat-value {
+	font-size: 32rpx;
+	font-weight: 600;
+	color: #333;
+}
+
+.stat-value.high {
+	color: #4caf50;
+}
+
+.stat-value.medium {
+	color: #ff9800;
+}
+
+.stat-value.low {
+	color: #f44336;
 }
 
 /* 队列信息卡片 */

@@ -146,7 +146,7 @@
 
 <script>
 import { getDoctorById, getDoctorSchedules } from '@/api/doctor.js';
-import { joinWaitlist } from '@/api/waitlist.js';
+import { joinWaitlist, createWaitlistPrepayment, payWaitlistOrder } from '@/api/waitlist.js';
 import { promptLogin } from '@/utils/auth.js';
 
 export default {
@@ -372,28 +372,60 @@ export default {
 				}, 1000);
 				return;
 			}
-			uni.showModal({
-				title: '候补排队',
-				content: `确定要加入"${this.doctorInfo.name}"医生${this.formatDate(slot.date)}${this.getPeriodName(slot.period)}的候补队列吗？`,
-				confirmText: '确认加入',
-				success: async (res) => {
-					if (res.confirm) {
-						try {
-							await joinWaitlist({ scheduleId: slot.id });
-							uni.showToast({
-								title: '已加入候补队列',
-								icon: 'success',
-								success: () => {
-									uni.navigateTo({
-										url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${this.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
-									});
-								}
-							});
-						} catch (e) {
-							uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
-						}
+			const confirmQueue = await this.showConfirmModal(`确定要加入"${this.doctorInfo.name}"医生${this.formatDate(slot.date)}${this.getPeriodName(slot.period)}的候补队列吗？`);
+			if (!confirmQueue) return;
+
+			try {
+				uni.showLoading({ title: '创建预支付...' });
+				const order = await createWaitlistPrepayment({ scheduleId: slot.id });
+				uni.hideLoading();
+
+				const payConfirm = await this.confirmPayment(order.actualFee);
+				if (!payConfirm) return;
+
+				await payWaitlistOrder({
+					orderNo: order.orderNo,
+					paymentMethod: 'WECHAT',
+					paidAmount: order.actualFee
+				});
+
+				await joinWaitlist({ scheduleId: slot.id, waitlistId: order.waitlistId });
+
+				uni.showToast({
+					title: '已加入候补队列',
+					icon: 'success',
+					success: () => {
+						uni.navigateTo({
+							url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${this.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
+						});
 					}
-				}
+				});
+			} catch (e) {
+				uni.hideLoading();
+				uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
+			}
+		},
+		showConfirmModal(message) {
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '候补排队',
+					content: message,
+					confirmText: '确认',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
+			});
+		},
+		confirmPayment(amount) {
+			const displayAmount = (Number(amount) || 0).toFixed(2);
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '预支付确认',
+					content: `加入候补需预支付挂号费 ${displayAmount} 元，候补成功将自动消耗，未成功或取消将退款，是否继续？`,
+					confirmText: '立即支付',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
 			});
 		},
 

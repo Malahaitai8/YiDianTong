@@ -242,7 +242,12 @@ export default {
 
 			try {
 				const data = await getMyWaitlist({ silent: true });
-				this.waitlists = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				const rawWaitlists = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				// 只保留仍在候补中的记录，避免同一号源同时显示预约和候补
+				this.waitlists = rawWaitlists.filter(item => {
+					const status = (item.status || '').toUpperCase();
+					return status === '' || status === 'WAITING';
+				});
 				if (!silent) {
 					console.log('候补记录加载完成:', this.waitlists.length, '条');
 				}

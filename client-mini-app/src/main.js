@@ -2,6 +2,7 @@ import Vue from 'vue'
 import App from './App'
 import store from './store' // 1. 引入 store
 import { promptLogin } from '@/utils/auth.js'
+import webSocketManager from '@/utils/websocket.js'
 
 Vue.config.productionTip = false
 App.mpType = 'app'
@@ -93,5 +94,29 @@ uni.addInterceptor('request', {
 })
 // --- 权限拦截结束 ---
 
+// 监听用户登录状态变化，自动连接/断开WebSocket
+store.watch(
+  (state) => state.user.token,
+  (newToken, oldToken) => {
+    if (newToken && !oldToken) {
+      // 用户刚登录，连接WebSocket
+      console.log('用户登录，连接WebSocket');
+      setTimeout(() => {
+        webSocketManager.connect();
+      }, 1000); // 延迟1秒确保用户信息已加载
+    } else if (!newToken && oldToken) {
+      // 用户退出登录，断开WebSocket
+      console.log('用户退出，断开WebSocket');
+      webSocketManager.close();
+    }
+  }
+);
+
+// 应用启动时，如果已登录则连接WebSocket
+if (store.state.user.token) {
+  setTimeout(() => {
+    webSocketManager.connect();
+  }, 2000); // 延迟2秒确保应用完全启动
+}
 
 app.$mount()

@@ -34,8 +34,8 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.example.springboot.entity
   configuration:
-    # 关闭控制台逐条 SQL 打印，避免日志过多。如果需要排查 SQL，再临时改为 StdOutImpl。
-    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    # 恢复控制台逐条 SQL 打印，便于排查问题
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
 
 # 服务器配置
@@ -47,14 +47,14 @@ jwt:
   secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
   expiration: 604800000 # 7天(毫秒)
 
-# 日志配置（默认 INFO，只对需要的包单独调级）
+# 日志配置（恢复为更详细的输出）
 logging:
   level:
     root: INFO
-    # Spring Security 不再输出 DEBUG 级别的过滤器链日志
-    org.springframework.security: INFO
-    # 业务代码保持 INFO 级别，必要时再打开 DEBUG
-    com.example.springboot: INFO
+    # Spring Security 恢复 DEBUG 级别，看到完整过滤器链等日志
+    org.springframework.security: DEBUG
+    # 业务代码使用 DEBUG，方便排查候补、号源等逻辑
+    com.example.springboot: DEBUG
 
 # 微信小程序配置
 wechat:
