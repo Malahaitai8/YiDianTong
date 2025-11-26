@@ -28,6 +28,10 @@ public class AppointmentWithDoctorDTO {
     private String timeSlot;
     private String slotType;
     
+    // Department/Clinic 信息
+    private String departmentName;
+    private String clinicName;
+    
     public static AppointmentWithDoctorDTO from(Appointment appointment, String doctorName, String doctorTitle, 
                                                Date scheduleDate, String timeSlot, String slotType) {
         AppointmentWithDoctorDTO dto = new AppointmentWithDoctorDTO();

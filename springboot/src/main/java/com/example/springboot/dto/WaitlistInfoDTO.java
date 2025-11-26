@@ -3,6 +3,7 @@ package com.example.springboot.dto;
 
 public class WaitlistInfoDTO {
 
+    private Long waitlistId;
     private Long scheduleId;
     private Long rank; // 您的排名 (从 0 开始)
     private Long queueSize; // 当前总排队人数
@@ -16,10 +17,15 @@ public class WaitlistInfoDTO {
     private String timeSlot;     // morning/afternoon/evening
     private String timeSlotName; // 上午/下午/晚上
 
+    // 候补可视化统计字段
+    private Double successRate;      // 预计候补成功率（0-100）
+    private Double avgWaitTime;      // 历史同类候补平均等待时长（小时）
+
     public WaitlistInfoDTO() {}
 
 
-    public WaitlistInfoDTO(Long scheduleId, Long rank, Long queueSize) {
+    public WaitlistInfoDTO(Long waitlistId, Long scheduleId, Long rank, Long queueSize) {
+        this.waitlistId = waitlistId;
         this.scheduleId = scheduleId;
         this.rank = rank;
         this.queueSize = queueSize;
@@ -44,10 +50,19 @@ public class WaitlistInfoDTO {
 
     // --- 省略 Getter 和 Setter ---
     // (您可以自行添加，或者使用 @Data LOMBOK 注解)
+    public Long getWaitlistId() { return waitlistId; }
+    public void setWaitlistId(Long waitlistId) { this.waitlistId = waitlistId; }
     public Long getScheduleId() { return scheduleId; }
     public void setScheduleId(Long scheduleId) { this.scheduleId = scheduleId; }
     public Long getRank() { return rank; }
     public void setRank(Long rank) { this.rank = rank; }
     public Long getQueueSize() { return queueSize; }
     public void setQueueSize(Long queueSize) { this.queueSize = queueSize; }
+
+    // 候补可视化统计字段的 Getter/Setter
+    public Double getSuccessRate() { return successRate; }
+    public void setSuccessRate(Double successRate) { this.successRate = successRate; }
+
+    public Double getAvgWaitTime() { return avgWaitTime; }
+    public void setAvgWaitTime(Double avgWaitTime) { this.avgWaitTime = avgWaitTime; }
 }

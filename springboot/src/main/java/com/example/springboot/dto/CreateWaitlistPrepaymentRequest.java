@@ -16,8 +16,7 @@ public class CreateWaitlistPrepaymentRequest {
     private Long scheduleId;
     
     /**
-     * 候补记录ID
+     * 候补记录ID（可选，若为空则自动创建）
      */
-    @NotNull(message = "候补记录ID不能为空")
     private Long waitlistId;
 }

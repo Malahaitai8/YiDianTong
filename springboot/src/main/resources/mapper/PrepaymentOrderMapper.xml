@@ -134,7 +134,7 @@
         and id in (
             select po.id from prepayment_order po
             join waitlist w on po.waitlist_id = w.id
-            where w.status in ('EXPIRED', 'CANCELLED')
+            where w.status = 'EXPIRED'
         )
     </select>
 </mapper>

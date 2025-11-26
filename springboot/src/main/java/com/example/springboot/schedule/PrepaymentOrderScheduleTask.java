@@ -35,7 +35,7 @@ public class PrepaymentOrderScheduleTask {
 
     /**
      * 每10分钟处理一次需要退款的订单
-     * 将状态为PAID且对应候补记录状态为EXPIRED或CANCELLED的订单进行退款
+     * 将状态为PAID且对应候补记录状态为EXPIRED的订单进行退款
      */
     @Scheduled(fixedRate = 600000) // 10分钟 = 600000毫秒
     public void processRefundOrders() {

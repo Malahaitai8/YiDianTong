@@ -52,24 +52,11 @@ public class PrepaymentOrderService {
      */
     @Transactional
     public PrepaymentOrder createWaitlistPrepayment(Long patientId, Long scheduleId, Long waitlistId) {
-        // 1. 检查候补记录是否存在
-        Waitlist waitlist = waitlistMapper.selectById(waitlistId);
-        if (waitlist == null) {
-            throw new CustomerException("候补记录不存在");
-        }
-        
-        // 2. 检查患者ID是否匹配
-        if (!waitlist.getPatientId().equals(patientId)) {
-            throw new CustomerException("候补记录与患者不匹配");
-        }
-        
-        // 3. 检查排班ID是否匹配
-        if (!waitlist.getScheduleId().equals(scheduleId)) {
-            throw new CustomerException("候补记录与排班不匹配");
-        }
+        Waitlist waitlist = resolveOrCreateWaitlist(patientId, scheduleId, waitlistId);
+        Long resolvedWaitlistId = waitlist.getId();
         
         // 4. 检查是否已经存在预支付订单
-        PrepaymentOrder existingOrder = prepaymentOrderMapper.selectByWaitlistId(waitlistId);
+        PrepaymentOrder existingOrder = prepaymentOrderMapper.selectByWaitlistId(resolvedWaitlistId);
         if (existingOrder != null) {
             // 如果订单已过期，则可以重新创建
             if ("EXPIRED".equals(existingOrder.getStatus())) {
@@ -102,7 +89,7 @@ public class PrepaymentOrderService {
         order.setOrderNo(orderNo);
         order.setPatientId(patientId);
         order.setScheduleId(scheduleId);
-        order.setWaitlistId(waitlistId);
+        order.setWaitlistId(resolvedWaitlistId);
         order.setOrderType("WAITLIST");
         order.setOriginalFee(originalFee);
         order.setActualFee(actualFee);
@@ -158,6 +145,8 @@ public class PrepaymentOrderService {
             new Date(),
             paidAmount
         );
+
+        waitlistMapper.updateStatus(order.getWaitlistId(), "NOTIFIED");
         
         // 6. 重新查询并返回更新后的订单
         return prepaymentOrderMapper.selectById(order.getId());
@@ -227,6 +216,9 @@ public class PrepaymentOrderService {
         List<PrepaymentOrder> expiredOrders = prepaymentOrderMapper.selectExpiredOrders();
         for (PrepaymentOrder order : expiredOrders) {
             prepaymentOrderMapper.updateStatus(order.getId(), "EXPIRED");
+            try {
+                waitlistMapper.updateStatus(order.getWaitlistId(), "EXPIRED");
+            } catch (Exception ignored) {}
             logger.info("订单已过期: {}", order.getOrderNo());
         }
     }
@@ -334,5 +326,47 @@ public class PrepaymentOrderService {
         String timestamp = String.valueOf(System.currentTimeMillis());
         String random = String.format("%04d", (int)(Math.random() * 10000));
         return "WL" + timestamp + random;
+    }
+
+    private Waitlist resolveOrCreateWaitlist(Long patientId, Long scheduleId, Long waitlistId) {
+        Waitlist waitlist;
+        if (waitlistId != null) {
+            waitlist = waitlistMapper.selectById(waitlistId);
+            if (waitlist == null) {
+                throw new CustomerException("候补记录不存在，请刷新后重试");
+            }
+            if (!waitlist.getPatientId().equals(patientId)) {
+                throw new CustomerException("候补记录与患者不匹配");
+            }
+            if (!waitlist.getScheduleId().equals(scheduleId)) {
+                throw new CustomerException("候补记录与排班不匹配");
+            }
+        } else {
+            waitlist = waitlistMapper.selectByScheduleAndPatient(scheduleId, patientId);
+            if (waitlist == null) {
+                // 首次候补，创建一条记录（先标记为 NOTIFIED，支付完成后才能进入 WAITING）
+                waitlist = new Waitlist();
+                waitlist.setPatientId(patientId);
+                waitlist.setScheduleId(scheduleId);
+                waitlist.setStatus("NOTIFIED");
+                waitlist.setJoinTime(new Date());
+                waitlistMapper.insert(waitlist);
+            } else {
+                String status = waitlist.getStatus() == null ? "WAITING" : waitlist.getStatus().toUpperCase();
+                if ("WAITING".equals(status)) {
+                    throw new CustomerException("已在候补队列中，请勿重复提交");
+                }
+                if ("GRANTED".equals(status)) {
+                    throw new CustomerException("候补已成功，请在预约记录中查看结果");
+                }
+                // 其他状态（NOTIFIED/EXPIRED/CANCELLED）允许重新走预支付流程
+            }
+        }
+
+        // 统一将状态切换为 NOTIFIED，表示已完成预支付，等待正式加入队列
+        waitlist.setStatus("NOTIFIED");
+        waitlist.setJoinTime(new Date());
+        waitlistMapper.update(waitlist);
+        return waitlist;
     }
 }

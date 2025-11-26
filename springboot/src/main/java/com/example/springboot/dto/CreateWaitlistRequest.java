@@ -11,4 +11,7 @@ import lombok.Data;
 public class CreateWaitlistRequest {
     @NotNull(message = "scheduleId不能为空")
     private Long scheduleId;
+
+    @NotNull(message = "waitlistId不能为空")
+    private Long waitlistId;
 }
