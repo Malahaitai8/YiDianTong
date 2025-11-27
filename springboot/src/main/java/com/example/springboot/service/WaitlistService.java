@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class WaitlistService {
@@ -364,6 +366,21 @@ public class WaitlistService {
             case "evening": return "晚上";
             default: return timeSlot;
         }
+    }
+
+    /** 获取多个排班的候补队列人数 */
+    public Map<Long, Long> getQueueSizes(List<Long> scheduleIds) {
+        Map<Long, Long> result = new HashMap<>();
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return result;
+        }
+        for (Long scheduleId : scheduleIds) {
+            if (scheduleId == null) continue;
+            String key = WAITLIST_KEY_PREFIX + scheduleId;
+            Long size = redisTemplate.opsForZSet().size(key);
+            result.put(scheduleId, size != null ? size : 0L);
+        }
+        return result;
     }
 
 }

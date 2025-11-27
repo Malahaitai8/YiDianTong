@@ -28,6 +28,9 @@ public class AdminScheduleController {
 
     @Resource
     private ScheduleService scheduleService;
+    
+    @Resource
+    private com.example.springboot.service.WaitlistService waitlistService;
 
     /**
      * 创建单个排班
@@ -165,6 +168,12 @@ public class AdminScheduleController {
         } catch (Exception e) {
             return Result.error("加号失败: " + e.getMessage());
         }
+    }
+
+    @Operation(summary = "批量查询候补人数", description = "返回多个排班的候补队列人数")
+    @GetMapping("/waitlist-count")
+    public Result getWaitlistCounts(@RequestParam("scheduleIds") List<Long> scheduleIds) {
+        return Result.success(waitlistService.getQueueSizes(scheduleIds));
     }
 }
 

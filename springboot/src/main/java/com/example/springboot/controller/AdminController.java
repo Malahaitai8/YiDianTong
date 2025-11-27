@@ -127,14 +127,14 @@ public class AdminController {
     }
 
     /**
-     * 管理员将所有用户密码重置为 123456
+     * 管理员将所有医生密码重置为 123456
      */
-    @Operation(summary = "重置所有用户密码", description = "管理员一键重置所有用户密码为123456")
-    @PostMapping("/users/reset-all-passwords")
-    public Result resetAllPasswords() {
+    @Operation(summary = "重置所有医生密码", description = "管理员一键重置所有医生密码为123456")
+    @PostMapping("/doctor/reset-all-passwords")
+    public Result resetAllDoctorPasswords() {
         String encoded = passwordEncoder.encode("123456");
-        int affected = userMapper.updateAllPasswords(encoded);
-        return Result.success("已重置密码的用户数量: " + affected);
+        int affected = userMapper.updatePasswordsByRole(RoleConstants.DB_ROLE_DOCTOR, encoded);
+        return Result.success("已重置密码的医生账号数量: " + affected);
     }
 
     // ==================== 白名单管理接口 ====================

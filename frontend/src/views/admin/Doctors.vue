@@ -2,7 +2,7 @@
   <div class="doctors-management">
     <!-- 搜索和操作栏 -->
     <el-card class="search-card">
-      <el-row :gutter="16">
+      <el-row :gutter="16" class="doctor-search-row">
         <el-col :span="6">
           <el-input
             v-model="searchForm.keyword"
@@ -15,7 +15,7 @@
             </template>
           </el-input>
         </el-col>
-        <el-col :span="5">
+        <el-col :span="4">
           <el-select
             v-model="searchForm.department"
             placeholder="选择科室"
@@ -32,7 +32,7 @@
             />
           </el-select>
         </el-col>
-        <el-col :span="5">
+        <el-col :span="4">
           <el-select
             v-model="searchForm.status"
             placeholder="选择状态"
@@ -48,10 +48,21 @@
         <el-col :span="3">
           <el-button @click="resetSearch" style="width: 100%">重置</el-button>
         </el-col>
-        <el-col :span="5">
+        <el-col :span="3">
           <el-button type="primary" @click="openAddDialog" style="width: 100%">
             <el-icon><Plus /></el-icon>
             添加医生
+          </el-button>
+        </el-col>
+        <el-col :span="4">
+          <el-button
+            type="danger"
+            plain
+            @click="handleResetAllDoctorPasswords"
+            style="width: 100%"
+          >
+            <el-icon><Key /></el-icon>
+            重置所有医生密码
           </el-button>
         </el-col>
       </el-row>
@@ -181,6 +192,17 @@
                 >
                   <el-icon><Edit /></el-icon>
                   编辑
+                </el-button>
+
+                <el-button
+                  v-if="row.user?.id"
+                  type="info"
+                  plain
+                  size="small"
+                  @click="handleResetPassword(row)"
+                >
+                  <el-icon><Key /></el-icon>
+                  重置密码
                 </el-button>
 
                 <el-button
@@ -469,7 +491,8 @@ import {
   deleteDoctor,
   createDoctorAccount,
   resetDoctorPassword,
-  disableDoctor
+  disableDoctor,
+  resetAllDoctorPasswords
 } from '@/api/doctor'
 import { getNextUserId, createUserAndDoctor } from '@/api/auth'
 import { getDepartmentList } from '@/api/department'
@@ -951,6 +974,28 @@ const handleBatchResetPassword = async () => {
     if (error !== 'cancel') {
       console.error('批量重置密码失败:', error)
       ElMessage.error('批量重置密码失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+const handleResetAllDoctorPasswords = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '该操作会将所有医生账号的密码重置为 123456，是否继续？',
+      '重置所有医生密码',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    const resp = await resetAllDoctorPasswords()
+    ElMessage.success(resp?.data || resp?.msg || '已重置所有医生密码')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('重置所有医生密码失败:', error)
+      ElMessage.error(error?.response?.data?.msg || '重置失败')
     }
   }
 }

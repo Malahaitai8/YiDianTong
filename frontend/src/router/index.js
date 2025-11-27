@@ -22,6 +22,9 @@ import AdminReports from '@/views/admin/Reports.vue'
 import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
 import AdminPatients from '@/views/admin/Patients.vue'
 import AdminAppointments from '@/views/admin/Appointments.vue'
+import AdminUsers from '@/views/admin/AdminUsers.vue'
+import AdminWhitelist from '@/views/admin/Whitelist.vue'
+import AdminDoctorChangeRequests from '@/views/admin/DoctorChangeRequests.vue'
 
 const routes = [
   {
@@ -102,6 +105,24 @@ const routes = [
         name: 'AdminAppointments',
         component: AdminAppointments,
         meta: { title: '预约管理' }
+      },
+      {
+        path: 'admins',
+        name: 'AdminUsers',
+        component: AdminUsers,
+        meta: { title: '管理员信息' }
+      },
+      {
+        path: 'whitelist',
+        name: 'AdminWhitelist',
+        component: AdminWhitelist,
+        meta: { title: '白名单管理' }
+      },
+      {
+        path: 'doctor-change',
+        name: 'AdminDoctorChangeRequests',
+        component: AdminDoctorChangeRequests,
+        meta: { title: '医生变更审核' }
       },
       {
         path: 'departments',

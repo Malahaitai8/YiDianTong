@@ -166,6 +166,7 @@
             </el-button>
           </div>
         </div>
+
             </div>
 
       </el-card>
@@ -246,6 +247,18 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
+                            <el-button
+                              v-if="canPopWaitlist(schedule)"
+                              class="pop-waitlist-btn"
+                              type="danger"
+                              plain
+                              size="small"
+                              :loading="waitlistPopLoadingId === schedule.id"
+                              @click.stop="handlePopWaitlistClick(schedule)"
+                            >
+                              弹出候补
+                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -274,6 +287,18 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
+                            <el-button
+                              v-if="canPopWaitlist(schedule)"
+                              class="pop-waitlist-btn"
+                              type="danger"
+                              plain
+                              size="small"
+                              :loading="waitlistPopLoadingId === schedule.id"
+                              @click.stop="handlePopWaitlistClick(schedule)"
+                            >
+                              弹出候补
+                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -337,6 +362,18 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
+                            <el-button
+                              v-if="canPopWaitlist(schedule)"
+                              class="pop-waitlist-btn"
+                              type="danger"
+                              plain
+                              size="small"
+                              :loading="waitlistPopLoadingId === schedule.id"
+                              @click.stop="handlePopWaitlistClick(schedule)"
+                            >
+                              弹出候补
+                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -365,6 +402,18 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
+                            <el-button
+                              v-if="canPopWaitlist(schedule)"
+                              class="pop-waitlist-btn"
+                              type="danger"
+                              plain
+                              size="small"
+                              :loading="waitlistPopLoadingId === schedule.id"
+                              @click.stop="handlePopWaitlistClick(schedule)"
+                            >
+                              弹出候补
+                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                 </div>
@@ -415,6 +464,18 @@
             <div class="schedule-item-info">
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
               <span>剩余：{{ schedule.availableSlots || 0 }}</span>
+              <span v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
+              <el-button
+                v-if="canPopWaitlist(schedule)"
+                class="pop-waitlist-btn"
+                type="danger"
+                plain
+                size="small"
+                :loading="waitlistPopLoadingId === schedule.id"
+                @click.stop="handlePopWaitlistClick(schedule)"
+              >
+                弹出候补
+              </el-button>
               <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
             </div>
           </div>
@@ -495,10 +556,20 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="210" fixed="right">
+            <el-table-column label="操作" width="280" fixed="right">
               <template #default="scope">
                 <el-button type="success" size="small" @click="openAddSlotsDialog(scope.row)">
                   加号
+                </el-button>
+                <el-button
+                  v-if="canPopWaitlist(scope.row)"
+                  type="danger"
+                  plain
+                  size="small"
+                  :loading="waitlistPopLoadingId === scope.row.id"
+                  @click="handlePopWaitlistClick(scope.row)"
+                >
+                  弹出候补
                 </el-button>
                 <el-button type="primary" size="small" @click="handleEdit(scope.row)">
                   编辑
@@ -721,7 +792,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
-  Search, Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
+  Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
   ArrowLeft, ArrowRight, Download, WarningFilled 
 } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
@@ -738,6 +809,7 @@ import {
 import { getDoctorList } from '@/api/doctor'
 import { getDepartmentList } from '@/api/department'
 import { getClinicList } from '@/api/clinic'
+import { popNextWaitlist, getWaitlistCounts } from '@/api/waitlist'
 
 // 响应式数据
 const loading = ref(false)
@@ -772,6 +844,9 @@ const filters = reactive({
   dateRange: null,
   timeSlot: null // 时间段筛选：morning/afternoon
 })
+
+const waitlistPopLoadingId = ref(null)
+const waitlistCountMap = ref(new Map())
 
 // 分页
 const pagination = reactive({
@@ -901,6 +976,65 @@ const sortedScheduleList = computed(() => {
 const onSortChange = ({ prop, order }) => {
   sortState.prop = prop
   sortState.order = order
+}
+
+const waitlistKeys = ['waitlistQueueSize', 'waitlistCount', 'waitlistSize', 'waitlistPending', 'waitlistPendingCount']
+
+const getWaitlistCount = (schedule) => {
+  if (!schedule) return 0
+  if (schedule.id && waitlistCountMap.value instanceof Map) {
+    const fromMap = waitlistCountMap.value.get(schedule.id)
+    if (typeof fromMap === 'number') {
+      return fromMap
+    }
+  }
+  for (const key of waitlistKeys) {
+    const val = schedule[key]
+    if (val === undefined || val === null) continue
+    if (Array.isArray(val)) return val.length
+    const num = Number(val)
+    if (!Number.isNaN(num)) return num
+    if (typeof val === 'object') {
+      if (typeof val.count === 'number') return val.count
+      if (Array.isArray(val.list)) return val.list.length
+    }
+  }
+  if (Array.isArray(schedule.waitlist)) return schedule.waitlist.length
+  return 0
+}
+
+const buildScheduleDateTime = (schedule) => {
+  if (!schedule?.scheduleDate) return null
+  let dateObj
+  if (typeof schedule.scheduleDate === 'string') {
+    if (schedule.scheduleDate.includes('T')) {
+      dateObj = new Date(schedule.scheduleDate)
+    } else {
+      dateObj = new Date(`${schedule.scheduleDate}T00:00:00`)
+    }
+  } else {
+    dateObj = new Date(schedule.scheduleDate)
+  }
+  if (Number.isNaN(dateObj.getTime())) return null
+  const slot = String(schedule.timeSlot || '').toLowerCase()
+  if (slot === 'afternoon') {
+    dateObj.setHours(17, 0, 0, 0)
+  } else if (slot === 'evening') {
+    dateObj.setHours(21, 0, 0, 0)
+  } else {
+    dateObj.setHours(12, 0, 0, 0)
+  }
+  return dateObj
+}
+
+const isScheduleUpcoming = (schedule) => {
+  const dt = buildScheduleDateTime(schedule)
+  if (!dt) return false
+  return dt.getTime() >= Date.now()
+}
+
+const canPopWaitlist = (schedule) => {
+  return getWaitlistCount(schedule) > 0 && isScheduleUpcoming(schedule)
 }
 
 // 计算属性
@@ -1160,6 +1294,7 @@ const loadScheduleList = async () => {
     
     scheduleList.value = data
     pagination.total = response?.data?.total || data.length
+    await refreshWaitlistCounts(data)
     
     selectedRows.value = []
   } catch (error) {
@@ -1341,6 +1476,70 @@ const resetFilters = () => {
   })
   pagination.page = 1
   loadScheduleList()
+}
+
+const refreshWaitlistCounts = async (list = scheduleList.value) => {
+  const idsSet = new Set()
+  ;(list || []).forEach(item => {
+    if (item?.id) idsSet.add(item.id)
+  })
+  ;(allSchedules.value || []).forEach(item => {
+    if (item?.id) idsSet.add(item.id)
+  })
+  const ids = Array.from(idsSet)
+  if (!ids.length) {
+    waitlistCountMap.value = new Map()
+    return
+  }
+  try {
+    const resp = await getWaitlistCounts(ids)
+    const map = new Map()
+    const payload = resp?.data || {}
+    Object.keys(payload).forEach(key => {
+      const id = Number(key)
+      if (!Number.isNaN(id)) {
+        const val = Number(payload[key])
+        map.set(id, Number.isNaN(val) ? 0 : val)
+      }
+    })
+    waitlistCountMap.value = map
+  } catch (error) {
+    console.error('获取候补人数失败', error)
+    waitlistCountMap.value = new Map()
+  }
+}
+
+const handlePopWaitlistClick = async (schedule) => {
+  if (!schedule) return
+  if (!isScheduleUpcoming(schedule)) {
+    ElMessage.warning('只能对未开始的排班弹出候补')
+    return
+  }
+  if (getWaitlistCount(schedule) <= 0) {
+    ElMessage.warning('该排班暂无线上线候补数据')
+    return
+  }
+  try {
+    waitlistPopLoadingId.value = schedule.id
+    const response = await popNextWaitlist(schedule.id)
+    const patientId = response?.data
+    if (patientId) {
+      ElMessage.success(`已弹出患者 ID ${patientId}`)
+    } else {
+      ElMessage.warning(response?.msg || '候补队列暂无可用记录')
+    }
+    await loadScheduleList()
+    await loadAllSchedules()
+  } catch (error) {
+    const msg = error?.response?.data?.msg || error?.message || '弹出失败'
+    if (msg.includes('队列为空')) {
+      ElMessage.warning(msg)
+    } else {
+      ElMessage.error(msg)
+    }
+  } finally {
+    waitlistPopLoadingId.value = null
+  }
 }
 
 // 视图切换
@@ -2536,6 +2735,8 @@ onMounted(async () => {
 /* 徽章悬停时显示加号按钮 */
 .schedule-badge .add-slots-btn { display: none; }
 .schedule-badge:hover .add-slots-btn { display: inline-flex; }
+.schedule-badge .pop-waitlist-btn { display: none; }
+.schedule-badge:hover .pop-waitlist-btn { display: inline-flex; }
 
 /* 缩小加号按钮尺寸以减少视觉占用 */
 .add-slots-btn {
@@ -2544,6 +2745,18 @@ onMounted(async () => {
   line-height: 18px;
   font-size: 12px;
   border-radius: 10px;
+}
+.pop-waitlist-btn {
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+.waitlist-info {
+  font-size: 11px;
+  color: #f56c6c;
 }
 
 /* 让 Alert 描述支持换行 */

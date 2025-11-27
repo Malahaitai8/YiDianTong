@@ -68,6 +68,14 @@ export const disableDoctor = (id) => {
   })
 }
 
+// 一键重置所有医生密码
+export const resetAllDoctorPasswords = () => {
+  return request({
+    url: '/admin/doctor/reset-all-passwords',
+    method: 'post'
+  })
+}
+
 // 提交医生信息变更申请
 export const submitDoctorChangeRequest = (data) => {
   return request({

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 // [删除] import org.springframework.web.bind.annotation.PutMapping; // 未使用
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Date;
 import java.util.List;
@@ -123,6 +124,13 @@ public class WaitlistController {
             return Result.error("队列为空");
         }
         return Result.success(waitlist.getPatientId());
+    }
+
+    @Operation(summary = "查询多个排班的候补人数", description = "返回每个排班的候补队列数量，需管理员权限")
+    @GetMapping("/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result getQueueSizes(@RequestParam("scheduleIds") List<Long> scheduleIds) {
+        return Result.success(waitlistService.getQueueSizes(scheduleIds));
     }
 
     /** 退出候补队列（患者） */

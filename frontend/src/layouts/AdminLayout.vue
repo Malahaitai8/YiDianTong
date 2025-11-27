@@ -3,7 +3,7 @@
     <!-- 侧边栏 -->
     <div class="sidebar">
       <div class="logo">
-        <h2>管理员后台</h2>
+        <h2>管理员信息</h2>
       </div>
       
       <nav class="nav-menu">
@@ -63,8 +63,11 @@ const userStore = useUserStore()
 const menuItems = ref([
   { path: '/admin/dashboard', name: '数据概览' },
   { path: '/admin/doctors', name: '医生管理' },
+  { path: '/admin/doctor-change', name: '医生变更审核' },
   { path: '/admin/patients', name: '患者管理' },
   { path: '/admin/appointments', name: '预约管理' },
+  { path: '/admin/admins', name: '管理员信息' },
+  { path: '/admin/whitelist', name: '白名单管理' },
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
   { path: '/admin/schedule-rules', name: '排班规则' },
