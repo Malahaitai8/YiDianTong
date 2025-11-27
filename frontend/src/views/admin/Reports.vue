@@ -69,7 +69,7 @@
               <div class="stat-label">总预约数</div>
               <div class="stat-change positive">
                 <el-icon><TrendCharts /></el-icon>
-                完成率 {{ completionRatePercent }}%
+                +{{ overview.appointmentGrowth }}%
               </div>
             </div>
           </div>
@@ -84,10 +84,10 @@
             </div>
             <div class="stat-info">
               <div class="stat-number">{{ overview.completedAppointments }}</div>
-              <div class="stat-label">已完成预约</div>
+              <div class="stat-label">已完成</div>
               <div class="stat-change positive">
                 <el-icon><TrendCharts /></el-icon>
-                取消 {{ overview.cancelledAppointments }} · 爽约 {{ overview.noShowAppointments }}
+                +{{ overview.completedGrowth }}%
               </div>
             </div>
           </div>
@@ -101,11 +101,11 @@
               <el-icon><Money /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">{{ utilizationPercent }}%</div>
-              <div class="stat-label">号源利用率</div>
+              <div class="stat-number">¥{{ overview.totalRevenue }}</div>
+              <div class="stat-label">总收入</div>
               <div class="stat-change positive">
                 <el-icon><TrendCharts /></el-icon>
-                已用 {{ overview.usedSlots }}/{{ overview.totalSlots }} 号源
+                +{{ overview.revenueGrowth }}%
               </div>
             </div>
           </div>
@@ -119,11 +119,11 @@
               <el-icon><StarFilled /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">{{ overview.availableSlots }}</div>
-              <div class="stat-label">剩余可用号源</div>
+              <div class="stat-number">{{ overview.satisfaction }}%</div>
+              <div class="stat-label">满意度</div>
               <div class="stat-change positive">
                 <el-icon><TrendCharts /></el-icon>
-                总号源 {{ overview.totalSlots }}
+                +{{ overview.satisfactionGrowth }}%
               </div>
             </div>
           </div>
@@ -133,25 +133,27 @@
 
     <!-- 图表区域 -->
     <el-row :gutter="20" class="charts-row">
-      <!-- 预约趋势图（最近一段时间折线视图，占位实现） -->
+      <!-- 预约趋势图 -->
       <el-col :span="12">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
               <span>预约趋势</span>
-              <div class="card-actions">
-                <span class="sub-label">最近 {{ trendDays }} 天</span>
-              </div>
+              <el-select v-model="trendPeriod" size="small" style="width: 100px">
+                <el-option label="日" value="day" />
+                <el-option label="周" value="week" />
+                <el-option label="月" value="month" />
+              </el-select>
             </div>
           </template>
           <div class="chart-container">
             <div class="chart-placeholder">
               <el-icon size="60" color="#dcdfe6"><TrendCharts /></el-icon>
-              <p>预约趋势（按天统计总预约数）</p>
+              <p>预约趋势图表</p>
               <div class="trend-data">
                 <div class="trend-item" v-for="item in trendData" :key="item.date">
                   <span class="trend-date">{{ item.date }}</span>
-                  <span class="trend-value">{{ item.totalAppointments }}</span>
+                  <span class="trend-value">{{ item.value }}</span>
                 </div>
               </div>
             </div>
@@ -331,13 +333,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAdminOverview, getWeeklyAppointmentsStats } from '@/api/stats'
 
 const loading = ref(false)
 const dateRange = ref(['2024-01-01', '2024-01-31'])
 const selectedDepartment = ref('')
 const reportType = ref('appointment')
-const trendDays = ref(7)
+const trendPeriod = ref('day')
 
 // 分页
 const pagination = reactive({
@@ -346,29 +347,28 @@ const pagination = reactive({
   total: 0
 })
 
-// 统计概览数据（后台概览接口）
+// 统计概览数据
 const overview = reactive({
-  totalAppointments: 0,
-  completedAppointments: 0,
-  cancelledAppointments: 0,
-  noShowAppointments: 0,
-  totalSlots: 0,
-  availableSlots: 0,
-  usedSlots: 0,
-  completionRate: 0, // 0-1
-  utilization: 0 // 0-1
+  totalAppointments: 1256,
+  appointmentGrowth: 12.5,
+  completedAppointments: 1089,
+  completedGrowth: 8.3,
+  totalRevenue: '125,680',
+  revenueGrowth: 15.2,
+  satisfaction: 94.5,
+  satisfactionGrowth: 2.1
 })
 
-const completionRatePercent = computed(() =>
-  (Number(overview.completionRate || 0) * 100).toFixed(1)
-)
-
-const utilizationPercent = computed(() =>
-  (Number(overview.utilization || 0) * 100).toFixed(1)
-)
-
-// 趋势数据（从后台获取）
-const trendData = ref([])
+// 趋势数据
+const trendData = ref([
+  { date: '01-01', value: 45 },
+  { date: '01-02', value: 52 },
+  { date: '01-03', value: 38 },
+  { date: '01-04', value: 67 },
+  { date: '01-05', value: 59 },
+  { date: '01-06', value: 73 },
+  { date: '01-07', value: 81 }
+])
 
 // 科室分布数据
 const departmentData = ref([
@@ -544,28 +544,6 @@ const getRevenueSummary = (param) => {
   return sums
 }
 
-const loadTrendData = async () => {
-  try {
-    const params = {
-      days: trendDays.value || 7
-    }
-    if (selectedDepartment.value) {
-      params.departmentId = selectedDepartment.value
-    }
-    const resp = await getWeeklyAppointmentsStats(params)
-    const list = Array.isArray(resp?.data) ? resp.data : []
-    trendData.value = list.map((item) => ({
-      date: item.date,
-      totalAppointments: item.totalAppointments,
-      completedAppointments: item.completedAppointments,
-      cancelledAppointments: item.cancelledAppointments,
-      noShowAppointments: item.noShowAppointments
-    }))
-  } catch (error) {
-    console.error('获取预约趋势失败', error)
-  }
-}
-
 const handleDateChange = () => {
   generateReport()
 }
@@ -627,34 +605,7 @@ const handleCurrentChange = (page) => {
   generateReport()
 }
 
-const loadOverviewStats = async () => {
-  try {
-    const resp = await getAdminOverview()
-    const data = resp?.data || {}
-    Object.assign(overview, {
-      totalAppointments: data.totalAppointments ?? 0,
-      completedAppointments: data.completedAppointments ?? 0,
-      cancelledAppointments: data.cancelledAppointments ?? 0,
-      noShowAppointments: data.noShowAppointments ?? 0,
-      totalSlots: data.totalSlots ?? 0,
-      availableSlots: data.availableSlots ?? 0,
-      usedSlots: data.usedSlots ?? 0,
-      completionRate: data.completionRate ?? 0,
-      utilization: data.utilization ?? 0
-    })
-  } catch (error) {
-    console.error('获取概览统计失败', error)
-    const msg =
-      error?.response?.status === 403
-        ? '没有权限获取统计数据，请使用管理员账号登录'
-        : error?.response?.data?.msg || '获取统计数据失败'
-    ElMessage.error(msg)
-  }
-}
-
 onMounted(() => {
-  loadOverviewStats()
-  loadTrendData()
   generateReport()
 })
 </script>

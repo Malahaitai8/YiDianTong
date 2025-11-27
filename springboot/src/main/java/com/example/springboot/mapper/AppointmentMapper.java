@@ -2,7 +2,6 @@ package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.dto.AppointmentWithDoctorDTO;
-import com.example.springboot.dto.DailyAppointmentStatsDTO;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -55,21 +54,4 @@ public interface AppointmentMapper {
      * 统计总预约数量
      */
     int countTotal();
-<<<<<<< Updated upstream
-    
-    /**
-     * 根据时间范围查询预约（用于就诊提醒）
-     */
-    List<Appointment> selectByTimeRange(@Param("startTime") java.util.Date startTime,
-                                        @Param("endTime") java.util.Date endTime);
-=======
-
-    /**
-     * 按天统计预约数据（可选按科室过滤）
-     */
-    java.util.List<DailyAppointmentStatsDTO> selectDailyAppointmentStats(
-            @Param("startDate") java.util.Date startDate,
-            @Param("endDate") java.util.Date endDate,
-            @Param("departmentId") Long departmentId);
->>>>>>> Stashed changes
 }

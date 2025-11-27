@@ -133,6 +133,13 @@ public class WaitlistController {
         return Result.success(waitlistService.getQueueSizes(scheduleIds));
     }
 
+    @Operation(summary = "查询多个排班的候补人数", description = "返回每个排班的候补队列数量，需管理员权限")
+    @GetMapping("/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result getQueueSizes(@RequestParam("scheduleIds") List<Long> scheduleIds) {
+        return Result.success(waitlistService.getQueueSizes(scheduleIds));
+    }
+
     /** 退出候补队列（患者） */
     @Operation(summary = "退出候补队列", description = "患者从指定排班的候补队列中移除自身")
     @DeleteMapping("/{scheduleId}")
