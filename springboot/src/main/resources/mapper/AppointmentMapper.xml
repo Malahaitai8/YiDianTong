@@ -107,6 +107,7 @@
         SELECT count(*) FROM appointment
     </select>
 
+<<<<<<< Updated upstream
     <!-- 根据时间范围查询预约（用于就诊提醒） -->
     <select id="selectByTimeRange" resultType="com.example.springboot.entity.Appointment">
         SELECT * FROM appointment
@@ -114,6 +115,28 @@
           AND appointment_time &lt;= #{endTime}
           AND status = 'scheduled'
         ORDER BY appointment_time ASC
+=======
+    <!-- 按天统计预约数据（可选按科室过滤） -->
+    <select id="selectDailyAppointmentStats" resultType="com.example.springboot.dto.DailyAppointmentStatsDTO">
+        SELECT
+            DATE(a.appointment_time) AS date,
+            COUNT(*) AS totalAppointments,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedAppointments,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledAppointments,
+            SUM(CASE WHEN a.status = 'NO_SHOW' THEN 1 ELSE 0 END) AS noShowAppointments
+        FROM appointment a
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN doctor d ON s.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time &gt;= #{startDate}
+          AND a.appointment_time &lt; #{endDate}
+        <if test="departmentId != null">
+          AND dept.id = #{departmentId}
+        </if>
+        GROUP BY DATE(a.appointment_time)
+        ORDER BY DATE(a.appointment_time)
+>>>>>>> Stashed changes
     </select>
 
 </mapper>
