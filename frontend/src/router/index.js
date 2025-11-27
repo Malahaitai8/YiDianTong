@@ -24,7 +24,8 @@ import AdminPatients from '@/views/admin/Patients.vue'
 import AdminAppointments from '@/views/admin/Appointments.vue'
 import AdminUsers from '@/views/admin/AdminUsers.vue'
 import AdminWhitelist from '@/views/admin/Whitelist.vue'
-import AdminDoctorChangeRequests from '@/views/admin/DoctorChangeRequests.vue'
+import AdminApplicationRequests from '@/views/admin/ApplicationRequests.vue'
+import DoctorApplicationRequests from '@/views/doctor/ApplicationRequests.vue'
 
 const routes = [
   {
@@ -70,6 +71,12 @@ const routes = [
         name: 'DoctorProfile',
         component: DoctorProfile,
         meta: { title: '个人信息' }
+      },
+      {
+        path: 'applications',
+        name: 'DoctorApplicationRequests',
+        component: DoctorApplicationRequests,
+        meta: { title: '我的申请' }
       }
     ]
   },
@@ -121,8 +128,8 @@ const routes = [
       {
         path: 'doctor-change',
         name: 'AdminDoctorChangeRequests',
-        component: AdminDoctorChangeRequests,
-        meta: { title: '医生变更审核' }
+        component: AdminApplicationRequests,
+        meta: { title: '申请管理' }
       },
       {
         path: 'departments',
@@ -159,7 +166,7 @@ const routes = [
         name: 'AdminReports',
         component: AdminReports,
         meta: { title: '统计报表' }
-      }
+      },
     ]
   },
   {

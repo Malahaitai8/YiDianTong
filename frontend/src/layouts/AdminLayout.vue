@@ -63,7 +63,7 @@ const userStore = useUserStore()
 const menuItems = ref([
   { path: '/admin/dashboard', name: '数据概览' },
   { path: '/admin/doctors', name: '医生管理' },
-  { path: '/admin/doctor-change', name: '医生变更审核' },
+  { path: '/admin/doctor-change', name: '申请管理' },
   { path: '/admin/patients', name: '患者管理' },
   { path: '/admin/appointments', name: '预约管理' },
   { path: '/admin/admins', name: '管理员信息' },
@@ -141,6 +141,7 @@ const handleCommand = async (command) => {
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
 }
 
 .logo {
@@ -160,6 +161,7 @@ const handleCommand = async (command) => {
 .nav-menu {
   flex: 1;
   padding: 0 15px;
+  overflow-y: auto;
 }
 
 .nav-item {
