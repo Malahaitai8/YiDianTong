@@ -12,6 +12,14 @@
         select * from waitlist where id = #{id}
     </select>
 
+    <select id="selectByScheduleAndPatient" resultType="com.example.springboot.entity.Waitlist">
+        select *
+        from waitlist
+        where schedule_id = #{scheduleId}
+          and patient_id = #{patientId}
+        limit 1
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into waitlist(schedule_id, patient_id, join_time, status)
         values(#{scheduleId}, #{patientId}, #{joinTime}, #{status})
@@ -63,6 +71,49 @@
         from waitlist
         where patient_id = #{patientId}
           and schedule_id = #{scheduleId}
+    </select>
+
+    <!-- 统计同类时段的历史候补成功率 -->
+    <select id="calculateSuccessRate" resultType="java.lang.Double">
+        SELECT
+            CASE
+                WHEN total_count = 0 THEN 0.0
+                ELSE ROUND((success_count * 100.0 / total_count), 2)
+            END AS success_rate
+        FROM (
+            SELECT
+                COUNT(DISTINCT w.id) AS total_count,
+                COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN w.id END) AS success_count
+            FROM waitlist w
+            INNER JOIN schedule s ON w.schedule_id = s.id
+            LEFT JOIN appointment a ON a.schedule_id = w.schedule_id
+                AND a.patient_id = w.patient_id
+                AND a.source_type = 'WAITLIST'
+                AND a.created_at >= w.join_time
+                AND TIMESTAMPDIFF(HOUR, w.join_time, a.created_at) &lt;= 24
+            WHERE s.doctor_id = #{doctorId}
+                AND s.time_slot = #{timeSlot}
+                AND w.join_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        ) AS stats
+    </select>
+
+    <!-- 计算历史同类候补的平均等待时长（小时） -->
+    <select id="calculateAvgWaitTime" resultType="java.lang.Double">
+        SELECT
+            CASE
+                WHEN COUNT(*) = 0 THEN NULL
+                ELSE ROUND(AVG(TIMESTAMPDIFF(HOUR, w.join_time, a.created_at)), 2)
+            END AS avg_wait_time
+        FROM waitlist w
+        INNER JOIN schedule s ON w.schedule_id = s.id
+        INNER JOIN appointment a ON a.schedule_id = w.schedule_id
+            AND a.patient_id = w.patient_id
+            AND a.source_type = 'WAITLIST'
+            AND a.created_at >= w.join_time
+            AND TIMESTAMPDIFF(HOUR, w.join_time, a.created_at) &lt;= 24
+        WHERE s.doctor_id = #{doctorId}
+            AND s.time_slot = #{timeSlot}
+            AND w.join_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
     </select>
 
 </mapper>

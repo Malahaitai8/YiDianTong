@@ -60,7 +60,18 @@
 					</view>
 					<view class="row">
 						<text class="label">状态</text>
-						<text class="value status" :class="String(item.status||'').toLowerCase()">{{ statusName(item.status) }}</text>
+						<text
+							class="value status"
+							:class="{
+								pending: item.status === 'PENDING' || item.status === 'scheduled',
+								confirmed: item.status === 'CONFIRMED',
+								completed: item.status === 'COMPLETED' || item.status === 'completed',
+								waitlist: item.type === 'waitlist' || item.status === 'WAITLIST',
+								cancelled: item.status === 'CANCELLED' || item.status === 'cancelled'
+							}"
+						>
+							{{ statusName(item.status) }}
+						</text>
 					</view>
 					<view class="row" v-if="item.fee !== undefined || item.actualFee !== undefined">
 						<text class="label">费用</text>
@@ -95,7 +106,12 @@ export default {
 		return {
 			appointments: [],
 			waitlists: [],
-			currentFilter: 'all' // 默认显示全部记录
+			currentFilter: 'all', // 默认显示全部记录
+			fromWaitlistSuccess: false, // 是否从候补成功跳转过来
+			targetScheduleId: null, // 目标排班ID
+			pollTimer: null, // 轮询定时器
+			pollCount: 0, // 轮询次数
+			maxPollCount: 6 // 最大轮询次数（3秒*6=18秒）
 		};
 	},
 	computed: {
@@ -167,49 +183,157 @@ export default {
 			return this.allRecords;
 		}
 	},
-	onLoad() {
+	onLoad(options) {
+		// 检查是否从候补成功跳转过来（URL参数方式）
+		if (options.from === 'waitlist_success') {
+			this.fromWaitlistSuccess = true;
+			this.targetScheduleId = options.scheduleId ? parseInt(options.scheduleId) : null;
+			this.currentFilter = 'appointment'; // 直接切换到预约筛选
+		}
+
 		// 从全局状态获取筛选条件
 		const filter = getApp().globalData.recordFilter;
-		if (filter) {
+		if (filter && !this.fromWaitlistSuccess) {
 			this.currentFilter = filter;
 			// 清除全局状态
 			getApp().globalData.recordFilter = null;
 		}
 	},
 	onShow() {
+		// 检查全局数据中是否有候补成功标记（switchTab方式传递）
+		const waitlistSuccess = getApp().globalData.waitlistSuccess;
+		if (waitlistSuccess && waitlistSuccess.from === 'waitlist_success') {
+			console.log('检测到候补成功标记（全局数据）:', waitlistSuccess);
+			this.fromWaitlistSuccess = true;
+			this.targetScheduleId = waitlistSuccess.scheduleId ? parseInt(waitlistSuccess.scheduleId) : null;
+			this.currentFilter = 'appointment'; // 直接切换到预约筛选
+			// 清除全局标记
+			getApp().globalData.waitlistSuccess = null;
+		}
+
 		this.loadData();
+
+		// 如果是从候补成功跳转过来，启动短期轮询
+		if (this.fromWaitlistSuccess) {
+			console.log('启动候补成功轮询...');
+			this.startSuccessPolling();
+		}
+	},
+	onUnload() {
+		// 清理轮询定时器
+		if (this.pollTimer) {
+			clearTimeout(this.pollTimer);
+			this.pollTimer = null;
+		}
 	},
 	methods: {
-			onCardClick(item) {
-				// 卡片区域点击：根据类型跳转到正确的详情页
-				if (item && item.type === 'waitlist') {
-					this.viewWaitlistDetail(item);
-				} else {
-					this.viewDetail(item);
-				}
-			},
+		onCardClick(item) {
+			// 卡片区域点击：根据类型跳转到正确的详情页
+			if (item && item.type === 'waitlist') {
+				this.viewWaitlistDetail(item);
+			} else {
+				this.viewDetail(item);
+			}
+		},
 
-		async loadData() {
+		async loadData(silent = false) {
 			// 分开加载，避免一个失败导致另一个也无法加载，特别是预约记录为空时
-			request({ url: '/appointment/me', method: 'GET', silent: true })
-				.then(data => {
-					this.appointments = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
-				})
-				.catch(err => {
-					// 没有预约记录时静默处理，不弹toast
-					console.log('加载预约记录失败（可能无记录）:', err);
-					this.appointments = [];
-				});
+			try {
+				const data = await request({ url: '/appointment/me', method: 'GET', silent: true });
+				this.appointments = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				if (!silent) {
+					console.log('预约记录加载完成:', this.appointments.length, '条');
+					console.log('预约记录详情:', this.appointments);
+				}
+			} catch (err) {
+				// 没有预约记录时静默处理，不弹toast
+				console.log('加载预约记录失败（可能无记录）:', err);
+				this.appointments = [];
+			}
 
-			getMyWaitlist()
-				.then(data => {
-					this.waitlists = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
-				})
-				.catch(err => {
-					console.error('加载候补记录失败:', err);
-					uni.showToast({ title: err.msg || '加载候补记录失败', icon: 'none' });
-					this.waitlists = []; // 确保清空
+			try {
+				const data = await getMyWaitlist({ silent: true });
+				const rawWaitlists = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				// 只保留仍在候补中的记录，避免同一号源同时显示预约和候补
+				this.waitlists = rawWaitlists.filter(item => {
+					const status = (item.status || '').toUpperCase();
+					return status === '' || status === 'WAITING';
 				});
+				if (!silent) {
+					console.log('候补记录加载完成:', this.waitlists.length, '条');
+				}
+			} catch (err) {
+				console.error('加载候补记录失败:', err);
+				if (!silent) {
+					uni.showToast({ title: err.msg || '加载候补记录失败', icon: 'none' });
+				}
+				this.waitlists = []; // 确保清空
+			}
+		},
+
+		// 启动候补成功后的短期轮询
+		startSuccessPolling() {
+			console.log('启动候补成功轮询，查找新预约，目标scheduleId:', this.targetScheduleId);
+
+			const pollOnce = async () => {
+				this.pollCount++;
+				console.log(`轮询第 ${this.pollCount} 次...`);
+
+				try {
+					// 重新加载数据
+					await this.loadData(true);
+
+					console.log('当前预约列表:', this.appointments);
+					console.log('查找条件 - scheduleId:', this.targetScheduleId);
+
+					// 查找匹配的预约（必须是从候补转换来的新预约）
+					const foundAppointment = this.appointments.find(apt => {
+						console.log('检查预约:', apt.scheduleId, apt.sourceType, apt.status);
+						// 必须满足：1. scheduleId匹配 2. 来源是候补 3. 状态是待就诊
+						return apt.scheduleId === this.targetScheduleId &&
+							   apt.sourceType === 'WAITLIST' &&
+							   apt.status === 'PENDING';
+					});
+
+					if (foundAppointment) {
+						console.log('找到候补转换的新预约！', foundAppointment);
+						uni.showToast({
+							title: '已获取到新预约',
+							icon: 'success',
+							duration: 2000
+						});
+						// 停止轮询
+						this.fromWaitlistSuccess = false;
+						return;
+					}
+
+					// 如果未达到最大次数，继续轮询
+					if (this.pollCount < this.maxPollCount) {
+						console.log(`未找到新预约，${5}秒后进行第${this.pollCount + 1}次轮询...`);
+						this.pollTimer = setTimeout(pollOnce, 5000); // 5秒后再次轮询
+					} else {
+						console.log('轮询达到最大次数，停止轮询');
+						uni.showToast({
+							title: '预约正在生成中，请稍后刷新或到消息查看',
+							icon: 'none',
+							duration: 3000
+						});
+						this.fromWaitlistSuccess = false;
+					}
+				} catch (error) {
+					console.error('轮询过程中出错:', error);
+					// 继续轮询，不因为单次错误而停止
+					if (this.pollCount < this.maxPollCount) {
+						this.pollTimer = setTimeout(pollOnce, 5000);
+					} else {
+						this.fromWaitlistSuccess = false;
+					}
+				}
+			};
+
+			// 延迟2秒后开始第一次轮询，给后端处理时间
+			console.log('2秒后开始轮询...');
+			this.pollTimer = setTimeout(pollOnce, 2000);
 		},
 		// 筛选记录
 		filterRecords(type) {

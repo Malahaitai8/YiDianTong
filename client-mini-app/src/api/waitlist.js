@@ -16,6 +16,7 @@ export function getMyWaitlist() {
  * POST /waitlist
  * @param {Object} body
  * @param {number} body.scheduleId
+ * @param {number} body.waitlistId
  */
 export function joinWaitlist(body) {
 	return request({
@@ -34,5 +35,29 @@ export function cancelWaitlist(scheduleId) {
 	return request({
 		url: `/waitlist/${scheduleId}`,
 		method: 'DELETE'
+	})
+}
+
+/**
+ * 创建候补预支付订单
+ * POST /prepayment/waitlist
+ */
+export function createWaitlistPrepayment(data) {
+	return request({
+		url: '/prepayment/waitlist',
+		method: 'POST',
+		data
+	})
+}
+
+/**
+ * 支付候补预支付订单
+ * POST /prepayment/pay
+ */
+export function payWaitlistOrder(data) {
+	return request({
+		url: '/prepayment/pay',
+		method: 'POST',
+		data
 	})
 }

@@ -66,13 +66,13 @@
 		</view>
 
 		<!-- 就诊提醒 -->
-		<view class="reminder-card" v-if="hasReminder">
+		<view class="reminder-card" v-if="reminderInfo">
 			<view class="reminder-header">
 				<text class="reminder-icon">🔔</text>
 				<text class="reminder-title">就诊提醒</text>
 			</view>
 			<view class="reminder-content">
-				<text class="reminder-text">您有一条预约，明天上午9:00 呼吸内科 李文华医生</text>
+				<text class="reminder-text">{{ reminderText }}</text>
 			</view>
 		</view>
 
@@ -94,16 +94,30 @@
 
 <script>
 import { promptLogin } from '@/utils/auth.js';
+import { getMyAppointments } from '@/api/appointment.js';
 
 export default {
 	data() {
 		return {
-			hasReminder: false,
+			reminderInfo: null,
+			loadingReminder: false,
 			faqList: [
-				{ question: '如何预约挂号？', answer: '...' },
-				{ question: '挂号费用如何计算？', answer: '...' },
-				{ question: '可以取消预约吗？', answer: '...' },
-				{ question: '候补功能怎么使用？', answer: '...' }
+				{
+					question: '如何预约挂号？',
+					answer: '在“线上挂号预约”中选择科室或门诊，挑选医生与时间段后提交即可。提交成功会收到预约凭证。'
+				},
+				{
+					question: '挂号费用如何计算？',
+					answer: '费用与医生职称、号别相关，学生报销95%、教师报销90%，报销后差额自动抵扣。'
+				},
+				{
+					question: '可以取消预约吗？',
+					answer: '就诊前2小时内可以在“我的-就诊记录”里退号，费用原路退回。就诊后或已取号无法退。'
+				},
+				{
+					question: '候补功能怎么使用？',
+					answer: '号源满时可点击“候补排队”，支付预付金后排队。放号成功会自动为您预约并通知。'
+				}
 			]
 		};
 	},
@@ -123,10 +137,19 @@ export default {
 			if (hour < 12) return '早上好';
 			if (hour < 18) return '下午好';
 			return '晚上好';
+		},
+		reminderText() {
+			if (!this.reminderInfo) return '';
+			const parts = ['您有一条预约', this.reminderInfo.dateText, this.reminderInfo.slotText, this.reminderInfo.clinicName, this.reminderInfo.doctorName]
+				.filter(Boolean);
+			return parts.join(' ');
 		}
 	},
 	onLoad() {
 		// 不强制弹窗，允许浏览
+	},
+	onShow() {
+		this.loadReminder();
 	},
 	methods: {
 		guardedNavigate(url) {
@@ -183,6 +206,74 @@ export default {
 		},
 		goToLogin() {
 			uni.navigateTo({ url: '/pages/login/login' });
+		},
+		async loadReminder() {
+			if (!this.isLoggedIn) {
+				this.reminderInfo = null;
+				return;
+			}
+			this.loadingReminder = true;
+			try {
+				const data = await getMyAppointments();
+				const list = Array.isArray(data) ? data : ((data && data.list) ? data.list : []);
+				const upcoming = list
+					.filter(item => this.isUpcomingStatus(item.status))
+					.map(item => {
+						const date = this.parseDate(item.appointmentTime || item.scheduleDate);
+						return {
+							raw: item,
+							date
+						};
+					})
+					.filter(item => item.date && item.date.getTime() >= Date.now())
+					.sort((a, b) => a.date - b.date)[0];
+				if (!upcoming) {
+					this.reminderInfo = null;
+					return;
+				}
+				const appointment = upcoming.raw;
+				const dateText = this.formatReminderDate(upcoming.date);
+				const slotText = appointment.timeSlotName || this.mapTimeSlot(appointment.timeSlot);
+				const clinicName = appointment.clinicName || appointment.departmentName || appointment.department?.name || '';
+				const doctorName = appointment.doctorName || '';
+				this.reminderInfo = {
+					dateText,
+					slotText,
+					clinicName,
+					doctorName
+				};
+			} catch (error) {
+				console.error('加载预约提醒失败:', error);
+				this.reminderInfo = null;
+			} finally {
+				this.loadingReminder = false;
+			}
+		},
+		isUpcomingStatus(status) {
+			const normalized = String(status || '').toUpperCase();
+			return normalized === 'PENDING' || normalized === 'CONFIRMED' || normalized === 'SCHEDULED';
+		},
+		parseDate(value) {
+			if (!value) return null;
+			const date = new Date(value);
+			return Number.isNaN(date.getTime()) ? null : date;
+		},
+		formatReminderDate(date) {
+			if (!date) return '';
+			const weekNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hour = String(date.getHours()).padStart(2, '0');
+			const minute = String(date.getMinutes()).padStart(2, '0');
+			return `${month}月${day}日 ${weekNames[date.getDay()]} ${hour}:${minute}`;
+		},
+		mapTimeSlot(slot) {
+			if (!slot) return '';
+			const lower = String(slot).toLowerCase();
+			if (lower.includes('morning') || lower.includes('上午')) return '上午';
+			if (lower.includes('afternoon') || lower.includes('下午')) return '下午';
+			if (lower.includes('evening') || lower.includes('晚上')) return '晚上';
+			return slot;
 		}
 	}
 };

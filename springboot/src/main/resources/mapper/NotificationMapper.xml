@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.NotificationMapper">
+
+    <resultMap id="NotificationResult" type="com.example.springboot.entity.Notification">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="patientId" column="patient_id"/>
+        <result property="notificationType" column="notification_type"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="relatedType" column="related_type"/>
+        <result property="relatedId" column="related_id"/>
+        <result property="channel" column="channel"/>
+        <result property="status" column="status"/>
+        <result property="sendTime" column="send_time"/>
+        <result property="readTime" column="read_time"/>
+        <result property="isRead" column="is_read"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="templateId" column="template_id"/>
+        <result property="templateData" column="template_data"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.Notification" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notification (
+            user_id, patient_id, notification_type, title, content,
+            related_type, related_id, channel, status,
+            template_id, template_data, is_read, created_at, updated_at
+        ) VALUES (
+            #{userId}, #{patientId}, #{notificationType}, #{title}, #{content},
+            #{relatedType}, #{relatedId}, #{channel}, #{status},
+            #{templateId}, #{templateData}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE notification
+        SET status = #{status},
+            send_time = CASE WHEN #{time} IS NOT NULL THEN #{time} ELSE send_time END,
+            error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectByUserId" resultMap="NotificationResult">
+        SELECT *
+        FROM notification
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="countUnreadByUserId" resultType="long">
+        SELECT COUNT(*)
+        FROM notification
+        WHERE user_id = #{userId}
+          AND (is_read = 0 OR is_read IS NULL)
+    </select>
+
+    <update id="markAsRead">
+        UPDATE notification
+        SET is_read = 1,
+            read_time = #{readTime},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markAllAsRead">
+        UPDATE notification
+        SET is_read = 1,
+            read_time = #{readTime},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND (is_read = 0 OR is_read IS NULL)
+    </update>
+
+</mapper>
+
+
+
+

@@ -106,7 +106,7 @@ import { getDoctorById } from '@/api/doctor.js'
 import { createAppointment } from '@/api/appointment.js'
 import { getPatientProfile } from '@/api/patient.js'
 import { getScheduleById } from '@/api/schedule.js'
-import { joinWaitlist } from '@/api/waitlist.js'
+import { joinWaitlist, createWaitlistPrepayment, payWaitlistOrder } from '@/api/waitlist.js'
 
 export default {
 	name: 'OrderConfirm',
@@ -179,9 +179,16 @@ export default {
 			return 0;
 		},
 		
-		// 原价
+		// 原价 —— 优先使用后端排班返回的 fee/price，若没有则按号别简单映射
 		originalFee() {
-			const fee = this.schedule.fee || this.estimateFee();
+			const raw = this.schedule.fee ?? this.schedule.price;
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 后端未返回费用字段时的兜底：
+			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			const fee = this.estimateFeeBySlotType(this.schedule.slotType);
 			return Number(fee).toFixed(2);
 		},
 		
@@ -320,20 +327,13 @@ export default {
 			}
 		},
 		
-		// 估算费用（根据医生职称）
-		estimateFee() {
-			const title = this.doctorInfo.title || '';
-			if (title.includes('主任')) return 50;
-			if (title.includes('副主任')) return 30;
-			if (title.includes('主治')) return 20;
-			return 15;
-		},
-		
-		// 根据号别类型估算费用
+		// 根据号别类型估算费用（仅在后端未返回 fee 时作为兜底使用）
 		estimateFeeBySlotType(slotType) {
-			if (slotType === 'vip' || slotType === 'VIP') return 100;
-			if (slotType === 'expert' || slotType === '专家') return 50;
-			return 15; // normal/普通
+			const s = String(slotType || '').toUpperCase();
+			if (s === 'VIP') return 100;                 // VIP 号
+			if (s === 'EXPERT' || s === '专家') return 30; // 专家号
+			// 默认普通号
+			return 15;
 		},
 		
 		// 格式化显示日期
@@ -488,6 +488,14 @@ export default {
 				
 				await createAppointment(requestData);
 				
+				// 请求订阅消息授权（预约成功通知）
+				try {
+					const { requestAppointmentSubscribe } = require('@/utils/wechat-subscribe')
+					await requestAppointmentSubscribe()
+				} catch (e) {
+					console.log('订阅消息授权失败（不影响预约）:', e)
+				}
+				
 				uni.showToast({ 
 					title: '预约成功', 
 					icon: 'success',
@@ -530,21 +538,61 @@ export default {
 				return;
 			}
 			
+			const confirmQueue = await this.showConfirmModal(`确认加入候补队列吗？候补成功后将自动为您预约。`);
+			if (!confirmQueue) return;
+
 			try {
-				await joinWaitlist({ scheduleId: this.scheduleId });
+				uni.showLoading({ title: '创建预支付...' });
+				const order = await createWaitlistPrepayment({ scheduleId: this.scheduleId });
+				uni.hideLoading();
+
+				const payConfirmed = await this.confirmPayment(order.actualFee);
+				if (!payConfirmed) return;
+
+				await payWaitlistOrder({
+					orderNo: order.orderNo,
+					paymentMethod: 'WECHAT',
+					paidAmount: order.actualFee
+				});
+
+				await joinWaitlist({ scheduleId: this.scheduleId, waitlistId: order.waitlistId });
+
 				uni.showToast({ 
 					title: '已加入候补队列', 
 					icon: 'success',
 					success: () => {
-						// 跳转到候补详情页面
 						uni.navigateTo({
 							url: `/pages/waitlist/waitlist?scheduleId=${this.scheduleId}&doctorId=${this.doctorId}&scheduleDate=${this.schedule.scheduleDate}&timeSlot=${this.schedule.timeSlot}`
 						});
 					}
 				});
 			} catch (e) {
+				uni.hideLoading();
 				uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
 			}
+		},
+		showConfirmModal(message) {
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '候补排队',
+					content: message,
+					confirmText: '确认',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
+			});
+		},
+		confirmPayment(amount) {
+			const displayAmount = (Number(amount) || 0).toFixed(2);
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '预支付确认',
+					content: `加入候补需预支付挂号费 ${displayAmount} 元，候补成功将自动消耗，未成功或取消将退款，是否继续？`,
+					confirmText: '立即支付',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
+			});
 		}
 	}
 };

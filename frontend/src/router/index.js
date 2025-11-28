@@ -20,8 +20,13 @@ import AdminSourceManagement from '@/views/admin/SourceManagement.vue'
 import AdminQAManagement from '@/views/admin/QAManagement.vue'
 import AdminReports from '@/views/admin/Reports.vue'
 import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
+import AdminScheduleSettings from '@/views/admin/ScheduleSettings.vue'
 import AdminPatients from '@/views/admin/Patients.vue'
 import AdminAppointments from '@/views/admin/Appointments.vue'
+import AdminUsers from '@/views/admin/AdminUsers.vue'
+import AdminWhitelist from '@/views/admin/Whitelist.vue'
+import AdminApplicationRequests from '@/views/admin/ApplicationRequests.vue'
+import DoctorApplicationRequests from '@/views/doctor/ApplicationRequests.vue'
 
 const routes = [
   {
@@ -67,6 +72,12 @@ const routes = [
         name: 'DoctorProfile',
         component: DoctorProfile,
         meta: { title: '个人信息' }
+      },
+      {
+        path: 'applications',
+        name: 'DoctorApplicationRequests',
+        component: DoctorApplicationRequests,
+        meta: { title: '我的申请' }
       }
     ]
   },
@@ -104,6 +115,24 @@ const routes = [
         meta: { title: '预约管理' }
       },
       {
+        path: 'admins',
+        name: 'AdminUsers',
+        component: AdminUsers,
+        meta: { title: '管理员信息' }
+      },
+      {
+        path: 'whitelist',
+        name: 'AdminWhitelist',
+        component: AdminWhitelist,
+        meta: { title: '白名单管理' }
+      },
+      {
+        path: 'doctor-change',
+        name: 'AdminDoctorChangeRequests',
+        component: AdminApplicationRequests,
+        meta: { title: '申请管理' }
+      },
+      {
         path: 'departments',
         name: 'AdminDepartments',
         component: AdminDepartments,
@@ -122,9 +151,9 @@ const routes = [
         meta: { title: '排班规则' }
       },
       {
-        path: 'source-management',
-        name: 'AdminSourceManagement',
-        component: AdminSourceManagement,
+        path: 'schedule-settings',
+        name: 'AdminScheduleSettings',
+        component: AdminScheduleSettings,
         meta: { title: '号源管理' }
       },
       {
@@ -138,7 +167,7 @@ const routes = [
         name: 'AdminReports',
         component: AdminReports,
         meta: { title: '统计报表' }
-      }
+      },
     ]
   },
   {

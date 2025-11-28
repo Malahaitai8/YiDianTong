@@ -38,10 +38,10 @@ public class AvailableSlotDTO {
     
     /** 总号源数 */
     private Integer totalSlots;
-    
-    /** 挂号费 */
+
+    /** 号别类型：NORMAL/EXPERT/VIP（用于在 Service 中按 system_config 计算费用） */
+    private String slotType;
+
+    /** 挂号费（由 Service 根据 slotType 和 system_config 计算填充） */
     private Double fee;
-    
-    /** 优惠后费用 */
-    private Double discountedFee;
 }

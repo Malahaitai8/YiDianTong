@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.WechatSubscribeMapper">
+
+    <resultMap id="WechatSubscribeResult" type="com.example.springboot.entity.WechatSubscribe">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="patientId" column="patient_id"/>
+        <result property="openid" column="openid"/>
+        <result property="templateId" column="template_id"/>
+        <result property="templateName" column="template_name"/>
+        <result property="authorized" column="authorized"/>
+        <result property="authorizedAt" column="authorized_at"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.WechatSubscribe" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wechat_subscribe (
+            user_id, patient_id, openid, template_id, template_name,
+            authorized, authorized_at, expires_at, created_at, updated_at
+        ) VALUES (
+            #{userId}, #{patientId}, #{openid}, #{templateId}, #{templateName},
+            #{authorized}, #{authorizedAt}, #{expiresAt}, NOW(), NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            authorized = VALUES(authorized),
+            authorized_at = VALUES(authorized_at),
+            expires_at = VALUES(expires_at),
+            template_name = VALUES(template_name),
+            updated_at = NOW()
+    </insert>
+
+    <select id="selectValidAuth" resultMap="WechatSubscribeResult">
+        SELECT *
+        FROM wechat_subscribe
+        WHERE user_id = #{userId}
+          AND template_id = #{templateId}
+          AND authorized = 1
+          AND (expires_at IS NULL OR expires_at > #{now})
+        LIMIT 1
+    </select>
+
+    <select id="selectByUserId" resultMap="WechatSubscribeResult">
+        SELECT *
+        FROM wechat_subscribe
+        WHERE user_id = #{userId}
+    </select>
+
+</mapper>
+
+
+
+

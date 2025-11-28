@@ -34,7 +34,9 @@
         WHERE s.id = #{id}
     </select>
 
-    <!-- 搜索可预约时段 -->
+    <!-- 搜索可预约时段
+         说明：fee 字段不再写死，而是返回 slot_type；由 Service 层根据 system_config 中
+         的 FEE_NORMAL/FEE_EXPERT/FEE_VIP 计算真实挂号费并填充到 DTO 中，确保与结算一致。 -->
     <select id="searchAvailableSlots" resultType="com.example.springboot.dto.AvailableSlotDTO">
         SELECT 
             s.id as scheduleId,
@@ -56,8 +58,7 @@
             END as endTime,
             s.available_slots as availableSlots,
             s.total_slots as totalSlots,
-            50.0 as fee,
-            5.0 as discountedFee
+            s.slot_type as slotType
         FROM schedule s
         LEFT JOIN doctor d ON s.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id

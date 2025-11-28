@@ -41,7 +41,10 @@
 						class="slot-card"
 						v-for="s in getSlotsByPeriod(p)"
 						:key="s.id"
-						:class="slotCardClass(s)"
+						:class="{
+							active: selectedSlot && selectedSlot.id === s.id,
+							'no-slots': s.availableSlots === 0
+						}"
 						@click="selectSlot(s)"
 					>
 						<view class="slot-top">
@@ -68,7 +71,7 @@
 		</view>
 
 		<!-- 空状态 -->
-		<view class="empty-all" v-if="!loading && periods.every(p => getSlotsByPeriod(p).length === 0)">
+		<view class="empty-all" v-if="isAllEmpty">
 			<text class="empty-icon">📅</text>
 			<text class="empty-tip">该日期暂无科室号源</text>
 		</view>
@@ -96,7 +99,7 @@
 <script>
 import { getDoctorsByDepartment } from '@/api/department.js';
 import { getDoctorSchedules } from '@/api/doctor.js';
-import { joinWaitlist } from '@/api/waitlist.js';
+import { joinWaitlist, createWaitlistPrepayment, payWaitlistOrder } from '@/api/waitlist.js';
 
 export default {
 	data() {
@@ -115,6 +118,12 @@ export default {
 		periods() {
 			// 仅展示上午/下午
 			return ['morning', 'afternoon'];
+		},
+		isAllEmpty() {
+			if (this.loading) {
+				return false;
+			}
+			return this.periods.every(p => this.getSlotsByPeriod(p).length === 0);
 		}
 	},
 	onLoad(query) {
@@ -216,25 +225,27 @@ export default {
 			return t || '普通号';
 		},
 		getSlotPrice(s) {
-			// 若后端有价格字段，优先；否则根据医生职称给出默认价
-			const raw = s.price ?? s.fee ?? s.amount;
-			if (typeof raw === 'number') return raw.toFixed(2);
-			const fee = this.calcFeeByTitle(s.doctorTitle);
-			return fee.toFixed(2);
-		},
-		mapDoctorTitleToSlotType(title) {
-			if (!title) return '普通号';
-			if (title.includes('主任')) return '专家号';
-			if (title.includes('副主任')) return '副专家号';
-			if (title.includes('主治')) return '普通号';
-			return '普通号';
-		},
-		calcFeeByTitle(title) {
-			if (!title) return 15;
-			if (title.includes('主任')) return 50;
-			if (title.includes('副主任')) return 30;
-			if (title.includes('主治')) return 20;
-			return 15;
+			// 1) 若后端直接给了价格字段，优先使用（与后端保持完全一致）
+			const raw = s.fee ?? s.price ?? s.amount;
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 2) 若没有费用字段，则根据 slotType 做映射（与当前 system_config 配置保持一致）
+			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			const slotType = (s.slotType || '').toString().trim().toUpperCase();
+			if (slotType === 'VIP') {
+				return '100.00';
+			}
+			if (slotType === 'EXPERT') {
+				return '30.00';
+			}
+
+			// 3) 兜底：根据职称简化区分专家/普通
+			if (s.doctorTitle && s.doctorTitle.includes('主任')) {
+				return '30.00';
+			}
+			return '15.00';
 		},
 		selectSlot(s) {
 			// 即使号源为0也可以选择，用于候补
@@ -260,29 +271,60 @@ export default {
 				return;
 			}
 			
-			uni.showModal({
-				title: '候补排队',
-				content: `确定要加入"${slot.doctorName}"医生${this.formatDate(slot.date)}${this.periodName(slot.period)}的候补队列吗？`,
-				confirmText: '确认加入',
-				success: async (res) => {
-					if (res.confirm) {
-						try {
-							await joinWaitlist({ scheduleId: slot.id });
-							uni.showToast({ 
-								title: '已加入候补队列', 
-								icon: 'success',
-								success: () => {
-									// 跳转到候补详情页面
-									uni.navigateTo({
-										url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${slot.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
-									});
-								}
-							});
-						} catch (e) {
-							uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
-						}
+			const confirmQueue = await this.showConfirmModal(`确定要加入"${slot.doctorName}"医生${this.formatDate(slot.date)}${this.periodName(slot.period)}的候补队列吗？`);
+			if (!confirmQueue) return;
+
+			try {
+				uni.showLoading({ title: '创建预支付...' });
+				const order = await createWaitlistPrepayment({ scheduleId: slot.id });
+				uni.hideLoading();
+
+				const payConfirmed = await this.confirmPayment(order.actualFee);
+				if (!payConfirmed) return;
+
+				await payWaitlistOrder({
+					orderNo: order.orderNo,
+					paymentMethod: 'WECHAT',
+					paidAmount: order.actualFee
+				});
+
+				await joinWaitlist({ scheduleId: slot.id, waitlistId: order.waitlistId });
+
+				uni.showToast({ 
+					title: '已加入候补队列', 
+					icon: 'success',
+					success: () => {
+						uni.navigateTo({
+							url: `/pages/waitlist/waitlist?scheduleId=${slot.id}&doctorId=${slot.doctorId}&scheduleDate=${slot.date}&timeSlot=${slot.period}`
+						});
 					}
-				}
+				});
+			} catch (e) {
+				uni.hideLoading();
+				uni.showToast({ title: e.msg || '加入失败', icon: 'none' });
+			}
+		},
+		showConfirmModal(message) {
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '候补排队',
+					content: message,
+					confirmText: '确认',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
+			});
+		},
+		confirmPayment(amount) {
+			const displayAmount = (Number(amount) || 0).toFixed(2);
+			return new Promise((resolve) => {
+				uni.showModal({
+					title: '预支付确认',
+					content: `加入候补需预支付挂号费 ${displayAmount} 元，候补成功将自动消耗，未成功或取消将退款，是否继续？`,
+					confirmText: '立即支付',
+					success: (res) => resolve(res.confirm === true),
+					fail: () => resolve(false)
+				});
 			});
 		},
 		// 格式化日期显示

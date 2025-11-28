@@ -24,6 +24,9 @@ public class ScheduleService {
     @Resource
     private AppointmentService appointmentService;
 
+    @Resource
+    private SystemConfigService systemConfigService;
+
     private final String[] DAYS_OF_WEEK = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
 
     public List<ScheduleDTO> getWeekSchedule() {
@@ -249,6 +252,26 @@ public class ScheduleService {
         if (schedule == null) {
             throw new RuntimeException("排班不存在");
         }
+
+        // 基于 slotType 和 system_config 计算该排班的挂号费，供前端展示使用
+        String normalized = schedule.getSlotType() == null
+                ? "NORMAL"
+                : schedule.getSlotType().trim().toUpperCase();
+        String key;
+        switch (normalized) {
+            case "EXPERT":
+                key = "FEE_EXPERT";
+                break;
+            case "VIP":
+                key = "FEE_VIP";
+                break;
+            default:
+                key = "FEE_NORMAL";
+        }
+
+        java.math.BigDecimal fee = systemConfigService.getDecimalOrDefault(key, java.math.BigDecimal.ZERO);
+        schedule.setFee(fee);
+
         return schedule;
     }
 

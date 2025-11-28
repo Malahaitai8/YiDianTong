@@ -157,6 +157,36 @@ CREATE TABLE `system_config` (
     UNIQUE KEY `uk_config_key` (`key`)
 ) COMMENT='系统全局配置与规则表';
 
+-- 12. 创建预支付订单表 (prepayment_order)
+CREATE TABLE `prepayment_order` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '预支付订单唯一ID',
+    `order_no` VARCHAR(64) NOT NULL COMMENT '订单号（唯一）',
+    `patient_id` BIGINT NOT NULL COMMENT '患者ID',
+    `schedule_id` BIGINT NOT NULL COMMENT '排班ID',
+    `waitlist_id` BIGINT NOT NULL COMMENT '候补记录ID',
+    `order_type` VARCHAR(20) NOT NULL DEFAULT 'WAITLIST' COMMENT '订单类型 (WAITLIST-候补预支付)',
+    `original_fee` DECIMAL(10,2) NOT NULL COMMENT '原始挂号费',
+    `actual_fee` DECIMAL(10,2) NOT NULL COMMENT '实际支付费用（报销后）',
+    `paid_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '已支付金额',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态 (PENDING-待支付, PAID-已支付, REFUNDED-已退款, CONSUMED-已消费, EXPIRED-已过期)',
+    `payment_method` VARCHAR(20) NULL COMMENT '支付方式 (ALIPAY, WECHAT, BALANCE等)',
+    `payment_time` DATETIME NULL COMMENT '支付时间',
+    `refund_time` DATETIME NULL COMMENT '退款时间',
+    `refund_reason` VARCHAR(255) NULL COMMENT '退款原因',
+    `expire_time` DATETIME NOT NULL COMMENT '订单过期时间',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_order_no` (`order_no`),
+    FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`schedule_id`) REFERENCES `schedule`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (`waitlist_id`) REFERENCES `waitlist`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX `idx_patient_status` (`patient_id`, `status`),
+    INDEX `idx_waitlist_status` (`waitlist_id`, `status`),
+    INDEX `idx_expire_time` (`expire_time`)
+) COMMENT='候补预支付订单表';
+
 -- 12. 插入系统配置初始数据
 INSERT INTO `system_config` (`key`, `value`, `description`) VALUES
 ('STUDENT_REIMBURSEMENT_RATE', '0.95', '学生挂号费报销比例'),
@@ -267,3 +297,164 @@ CREATE TABLE `question_log` (
     PRIMARY KEY (`id`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='用户问题记录表 - 用于统计高频问题';
+ -- =================
+补丁1：
+-- ========================================
+-- 审计日志表 (audit_log)
+-- ========================================
+DROP TABLE IF EXISTS `audit_log`;
+
+CREATE TABLE `audit_log` (
+                             `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '审计日志唯一ID',
+                             `user_id` BIGINT NULL COMMENT '操作用户ID',
+                             `username` VARCHAR(50) NULL COMMENT '操作用户名（冗余字段，便于查询）',
+                             `user_role` VARCHAR(20) NULL COMMENT '用户角色 (patient/doctor/admin)',
+                             `operation_type` VARCHAR(50) NOT NULL COMMENT '操作类型 (LOGIN/LOGOUT/CREATE/UPDATE/DELETE/QUERY/APPROVE/REJECT等)',
+                             `operation_module` VARCHAR(50) NOT NULL COMMENT '操作模块 (AUTH/APPOINTMENT/WAITLIST/SCHEDULE/DOCTOR/PATIENT等)',
+                             `operation_desc` VARCHAR(255) NULL COMMENT '操作描述',
+                             `target_type` VARCHAR(50) NULL COMMENT '目标对象类型 (APPOINTMENT/WAITLIST/SCHEDULE等)',
+                             `target_id` BIGINT NULL COMMENT '目标对象ID',
+                             `request_method` VARCHAR(10) NULL COMMENT 'HTTP请求方法 (GET/POST/PUT/DELETE)',
+                             `request_url` VARCHAR(500) NULL COMMENT '请求URL',
+                             `request_params` TEXT NULL COMMENT '请求参数（JSON格式）',
+                             `response_code` VARCHAR(10) NULL COMMENT '响应状态码',
+                             `response_msg` TEXT NULL COMMENT '响应消息',
+                             `ip_address` VARCHAR(50) NULL COMMENT '客户端IP地址',
+                             `user_agent` VARCHAR(500) NULL COMMENT '用户代理（浏览器/客户端信息）',
+                             `execution_time` BIGINT NULL COMMENT '执行耗时（毫秒）',
+                             `status` VARCHAR(20) NOT NULL DEFAULT 'SUCCESS' COMMENT '操作状态 (SUCCESS/FAILURE)',
+                             `error_message` TEXT NULL COMMENT '错误信息（失败时记录）',
+                             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+                             PRIMARY KEY (`id`),
+                             INDEX `idx_user_id` (`user_id`),
+                             INDEX `idx_operation_type` (`operation_type`),
+                             INDEX `idx_operation_module` (`operation_module`),
+                             INDEX `idx_target_type_id` (`target_type`, `target_id`),
+                             INDEX `idx_created_at` (`created_at`),
+                             INDEX `idx_user_role` (`user_role`)
+) COMMENT='系统审计日志表 - 记录所有关键操作';
+-- ========================================
+-- 消息通知记录表 (notification)
+-- ========================================
+CREATE TABLE `notification` (
+                                `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知记录唯一ID',
+                                `user_id` BIGINT NOT NULL COMMENT '接收用户ID',
+                                `patient_id` BIGINT NULL COMMENT '患者ID（冗余字段，便于查询）',
+                                `notification_type` VARCHAR(50) NOT NULL COMMENT '通知类型 (WAITLIST_SUCCESS/APPOINTMENT_SUCCESS/APPOINTMENT_REMINDER/CANCEL等)',
+                                `title` VARCHAR(200) NOT NULL COMMENT '通知标题',
+                                `content` TEXT NOT NULL COMMENT '通知内容',
+                                `related_type` VARCHAR(50) NULL COMMENT '关联对象类型 (APPOINTMENT/WAITLIST等)',
+                                `related_id` BIGINT NULL COMMENT '关联对象ID',
+                                `channel` VARCHAR(20) NOT NULL DEFAULT 'WECHAT' COMMENT '通知渠道 (WECHAT/SMS/EMAIL/APP)',
+                                `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '通知状态 (PENDING/SENT/FAILED)',
+                                `send_time` DATETIME NULL COMMENT '发送时间',
+                                `read_time` DATETIME NULL COMMENT '阅读时间',
+                                `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读',
+                                `error_message` TEXT NULL COMMENT '发送失败原因',
+                                `template_id` VARCHAR(100) NULL COMMENT '微信模板ID',
+                                `template_data` TEXT NULL COMMENT '模板数据（JSON格式）',
+                                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+                                PRIMARY KEY (`id`),
+                                INDEX `idx_user_id` (`user_id`),
+                                INDEX `idx_patient_id` (`patient_id`),
+                                INDEX `idx_notification_type` (`notification_type`),
+                                INDEX `idx_status` (`status`),
+                                INDEX `idx_created_at` (`created_at`),
+                                INDEX `idx_is_read` (`is_read`),
+                                FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+                                FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) COMMENT='消息通知记录表 - 记录所有通知发送记录';
+
+-- ========================================
+-- 微信订阅消息授权表 (wechat_subscribe)
+-- ========================================
+CREATE TABLE `wechat_subscribe` (
+                                    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '授权记录唯一ID',
+                                    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+                                    `patient_id` BIGINT NULL COMMENT '患者ID',
+                                    `openid` VARCHAR(100) NOT NULL COMMENT '微信OpenID',
+                                    `template_id` VARCHAR(100) NOT NULL COMMENT '模板ID',
+                                    `template_name` VARCHAR(100) NULL COMMENT '模板名称（便于管理）',
+                                    `authorized` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否已授权',
+                                    `authorized_at` DATETIME NULL COMMENT '授权时间',
+                                    `expires_at` DATETIME NULL COMMENT '授权过期时间（订阅消息授权有效期）',
+                                    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+                                    PRIMARY KEY (`id`),
+                                    UNIQUE KEY `uk_user_template` (`user_id`, `template_id`),
+                                    INDEX `idx_openid` (`openid`),
+                                    INDEX `idx_patient_id` (`patient_id`),
+                                    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+                                    FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) COMMENT='微信订阅消息授权表 - 记录用户订阅消息授权状态';
+
+--
+
+
+--
+
+
+
+
+
+-- ========================================
+-- 消息通知记录表 (notification)
+-- ========================================
+CREATE TABLE IF NOT EXISTS `notification` (
+                                              `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知记录唯一ID',
+                                              `user_id` BIGINT NOT NULL COMMENT '接收用户ID',
+                                              `patient_id` BIGINT NULL COMMENT '患者ID（冗余字段，便于查询）',
+                                              `notification_type` VARCHAR(50) NOT NULL COMMENT '通知类型 (WAITLIST_SUCCESS/APPOINTMENT_SUCCESS/APPOINTMENT_REMINDER/CANCEL等)',
+                                              `title` VARCHAR(200) NOT NULL COMMENT '通知标题',
+                                              `content` TEXT NOT NULL COMMENT '通知内容',
+                                              `related_type` VARCHAR(50) NULL COMMENT '关联对象类型 (APPOINTMENT/WAITLIST等)',
+                                              `related_id` BIGINT NULL COMMENT '关联对象ID',
+                                              `channel` VARCHAR(20) NOT NULL DEFAULT 'WECHAT' COMMENT '通知渠道 (WECHAT/SMS/EMAIL/APP)',
+                                              `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '通知状态 (PENDING/SENT/FAILED)',
+                                              `send_time` DATETIME NULL COMMENT '发送时间',
+                                              `read_time` DATETIME NULL COMMENT '阅读时间',
+                                              `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读',
+                                              `error_message` TEXT NULL COMMENT '发送失败原因',
+                                              `template_id` VARCHAR(100) NULL COMMENT '微信模板ID',
+                                              `template_data` TEXT NULL COMMENT '模板数据（JSON格式）',
+                                              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                              `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+                                              PRIMARY KEY (`id`),
+                                              INDEX `idx_user_id` (`user_id`),
+                                              INDEX `idx_patient_id` (`patient_id`),
+                                              INDEX `idx_notification_type` (`notification_type`),
+                                              INDEX `idx_status` (`status`),
+                                              INDEX `idx_created_at` (`created_at`),
+                                              INDEX `idx_is_read` (`is_read`),
+                                              FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+                                              FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) COMMENT='消息通知记录表 - 记录所有通知发送记录';
+
+-- ========================================
+-- 微信订阅消息授权表 (wechat_subscribe)
+-- ========================================
+CREATE TABLE IF NOT EXISTS `wechat_subscribe` (
+                                                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '授权记录唯一ID',
+                                                  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+                                                  `patient_id` BIGINT NULL COMMENT '患者ID',
+                                                  `openid` VARCHAR(100) NOT NULL COMMENT '微信OpenID',
+                                                  `template_id` VARCHAR(100) NOT NULL COMMENT '模板ID',
+                                                  `template_name` VARCHAR(100) NULL COMMENT '模板名称（便于管理）',
+                                                  `authorized` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否已授权',
+                                                  `authorized_at` DATETIME NULL COMMENT '授权时间',
+                                                  `expires_at` DATETIME NULL COMMENT '授权过期时间（订阅消息授权有效期）',
+                                                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+                                                  PRIMARY KEY (`id`),
+                                                  UNIQUE KEY `uk_user_template` (`user_id`, `template_id`),
+                                                  INDEX `idx_openid` (`openid`),
+                                                  INDEX `idx_patient_id` (`patient_id`),
+                                                  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+                                                  FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) COMMENT='微信订阅消息授权表 - 记录用户订阅消息授权状态';
+

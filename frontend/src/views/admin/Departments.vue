@@ -38,12 +38,26 @@
         <el-form :model="searchForm" inline class="search-form">
           <el-form-item>
             <el-input
+              v-model="searchForm.departmentId"
+              placeholder="输入科室ID精确查询"
+              clearable
+              style="width: 200px;"
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item>
+            <el-input
               v-model="searchForm.keyword"
               placeholder="搜索科室名称"
               clearable
               @clear="handleSearch"
               @keyup.enter="handleSearch"
-              style="width: 300px;"
+              style="width: 260px;"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -729,7 +743,8 @@ const departmentStats = reactive({
 
 // 搜索表单
 const searchForm = reactive({
-  keyword: ''
+  keyword: '',
+  departmentId: ''
 })
 
 // 分页
@@ -926,12 +941,13 @@ const fetchDepartments = async () => {
     let filteredData = response.data || []
     
     // 应用搜索过滤
-      if (searchForm.name) {
-        filteredData = filteredData.filter(dept => 
-          dept.name.includes(searchForm.name) || 
-          dept.description.includes(searchForm.name)
-        )
-      }
+    if (searchForm.keyword) {
+      const keyword = searchForm.keyword.toLowerCase()
+      filteredData = filteredData.filter(dept =>
+        (dept.name && dept.name.toLowerCase().includes(keyword)) ||
+        (dept.description && dept.description.toLowerCase().includes(keyword))
+      )
+    }
     
     // 分页处理
     const start = (pagination.currentPage - 1) * pagination.pageSize
@@ -946,15 +962,21 @@ const fetchDepartments = async () => {
   }
 }
 
-const handleSearch = () => {
+const handleSearch = async () => {
   pagination.currentPage = 1
-  fetchDepartments()
+  const id = String(searchForm.departmentId || '').trim()
+  if (id) {
+    await handleDepartmentIdSearch(id)
+    return
+  }
+  await fetchDepartments()
 }
 
-const resetSearch = () => {
+const resetSearch = async () => {
   searchForm.keyword = ''
+  searchForm.departmentId = ''
   pagination.currentPage = 1
-  fetchDepartments()
+  await fetchDepartments()
 }
 
 const handleSelectionChange = (selection) => {
@@ -970,6 +992,37 @@ const handleSizeChange = (size) => {
 const handleCurrentChange = (page) => {
   pagination.currentPage = page
   fetchDepartments()
+}
+
+const handleDepartmentIdSearch = async (inputId) => {
+  const rawId = (inputId ?? searchForm.departmentId ?? '').toString()
+  const id = rawId.trim()
+  if (!id) {
+    await fetchDepartments()
+    return
+  }
+  if (!/^\d+$/.test(id)) {
+    ElMessage.warning('科室ID需为数字')
+    return
+  }
+  try {
+    loading.value = true
+    const response = await getDepartmentById(id)
+    if (response?.data) {
+      departments.value = [response.data]
+      pagination.total = 1
+      pagination.currentPage = 1
+    } else {
+      departments.value = []
+      pagination.total = 0
+      ElMessage.warning('未找到相关科室')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.msg || '查询科室失败'
+    ElMessage.error(msg)
+  } finally {
+    loading.value = false
+  }
 }
 
 const viewDepartment = async (department) => {

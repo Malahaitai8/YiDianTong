@@ -51,9 +51,30 @@
 						<text class="label">排队位次</text>
 						<text class="value">{{ (item.rank !== null ? (item.rank + 1) : '未知') }} / {{ item.queueSize || '未知' }}</text>
 					</view>
+					<!-- 候补可视化统计信息 -->
+					<view v-if="item.status === 'WAITING'" class="stats-section">
+						<view class="stat-item" v-if="item.successRate !== null && item.successRate !== undefined">
+							<text class="stat-label">预计成功率</text>
+							<text
+								class="stat-value"
+								:class="item.successRate >= 70 ? 'high' : (item.successRate >= 40 ? 'medium' : 'low')"
+							>
+								{{ formatSuccessRate(item.successRate) }}%
+							</text>
+						</view>
+						<view class="stat-item" v-if="item.avgWaitTime !== null && item.avgWaitTime !== undefined">
+							<text class="stat-label">平均等待时长</text>
+							<text class="stat-value">{{ formatWaitTime(item.avgWaitTime) }}</text>
+						</view>
+					</view>
 					<view class="row">
 						<text class="label">状态</text>
-						<text class="value status" :class="getStatusClass(item.status)">{{ getStatusText(item.status) }}</text>
+						<text
+							class="value status"
+							:class="item.status === 'WAITING' ? 'waiting' : (item.status === 'SUCCESS' ? 'success' : (item.status === 'CANCELLED' ? 'cancelled' : ''))"
+						>
+							{{ getStatusText(item.status) }}
+						</text>
 					</view>
 					<view class="actions" @click.stop>
 						<button v-if="item.status === 'WAITING'" class="btn cancel" @click.stop="cancelWaitlist(item)">退出候补</button>
@@ -243,6 +264,34 @@ export default {
 				'evening': '晚上'
 			};
 			return timeSlotMap[lowerCaseTimeSlot] || timeSlot || '';
+		},
+		// 格式化成功率
+		formatSuccessRate(rate) {
+			if (rate === null || rate === undefined) return '--';
+			return rate.toFixed(0);
+		},
+		// 格式化等待时长
+		formatWaitTime(hours) {
+			if (hours === null || hours === undefined) return '--';
+			if (hours < 1) {
+				return `${Math.round(hours * 60)}分钟`;
+			} else if (hours < 24) {
+				return `${hours.toFixed(1)}小时`;
+			} else {
+				const days = Math.floor(hours / 24);
+				const remainingHours = hours % 24;
+				if (remainingHours < 1) {
+					return `${days}天`;
+				}
+				return `${days}天${remainingHours.toFixed(1)}小时`;
+			}
+		},
+		// 获取成功率样式类
+		getSuccessRateClass(rate) {
+			if (rate === null || rate === undefined) return '';
+			if (rate >= 70) return 'high';
+			if (rate >= 40) return 'medium';
+			return 'low';
 		}
 	}
 };
@@ -335,6 +384,33 @@ export default {
 .status.waiting{ color:#ff9800; }
 .status.success{ color:#4caf50; }
 .status.cancelled{ color:#999; }
+/* 候补统计信息样式 */
+.stats-section{
+	background:#f8f9fa;
+	border-radius:8rpx;
+	padding:16rpx;
+	margin:12rpx 0;
+	display:flex;
+	flex-direction:column;
+	gap:12rpx;
+}
+.stat-item{
+	display:flex;
+	justify-content:space-between;
+	align-items:center;
+}
+.stat-label{
+	color:#666;
+	font-size:24rpx;
+}
+.stat-value{
+	color:#333;
+	font-size:26rpx;
+	font-weight:600;
+}
+.stat-value.high{ color:#4caf50; }
+.stat-value.medium{ color:#ff9800; }
+.stat-value.low{ color:#f44336; }
 .actions{
 	display:flex;
 	justify-content:flex-end;

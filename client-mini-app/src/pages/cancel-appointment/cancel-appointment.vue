@@ -6,23 +6,23 @@
 			
 			<view class="info-row">
 				<text class="info-label">预约编号</text>
-				<text class="info-value">{{ appointmentInfo.appointmentNo || 'APT20251115001' }}</text>
+				<text class="info-value">{{ displayValue(appointmentInfo.appointmentNo) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">就诊医生</text>
-				<text class="info-value">{{ appointmentInfo.doctorName || '张医生' }}</text>
+				<text class="info-value">{{ displayValue(appointmentInfo.doctorName) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">就诊日期</text>
-				<text class="info-value">{{ appointmentInfo.appointmentDate || '2025-11-15' }}</text>
+				<text class="info-value">{{ displayValue(appointmentInfo.appointmentDate) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">就诊时间</text>
-				<text class="info-value">{{ appointmentInfo.appointmentTime || '08:00-12:00' }}</text>
+				<text class="info-value">{{ displayValue(appointmentInfo.appointmentTime) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">挂号费（已付）</text>
-				<text class="info-value price">¥{{ appointmentInfo.actualFee || '2.50' }}</text>
+				<text class="info-value price">¥{{ formatMoney(appointmentInfo.actualFee) }}</text>
 			</view>
 		</view>
 
@@ -80,7 +80,7 @@
 				<text class="refund-value">¥{{ calculateRefund() }}</text>
 			</view>
 			<view class="refund-tip" v-if="refundRate < 1">
-				<text class="tip-text">扣除手续费：¥{{ (appointmentInfo.actualFee * (1 - refundRate)).toFixed(2) }}</text>
+				<text class="tip-text">扣除手续费：¥{{ refundDeduction }}</text>
 			</view>
 		</view>
 
@@ -99,8 +99,7 @@
 </template>
 
 <script>
-// TODO: 引入API
-// import { cancelAppointment, getAppointmentDetail } from '@/api/appointment.js'
+import { cancelAppointment, getMyAppointments } from '@/api/appointment.js'
 
 export default {
 	name: 'CancelAppointment',
@@ -110,15 +109,17 @@ export default {
 			submitting: false,
 			selectedReason: '',
 			customReason: '',
-			// 硬编码的挂号信息（实际应从API获取）
 			appointmentInfo: {
-				id: 1,
-				appointmentNo: 'APT20251115001',
-				doctorName: '张医生',
-				appointmentDate: '2025-11-15',
-				appointmentTime: '08:00-12:00',
-				actualFee: 2.50,
-				createdAt: '2025-11-14 10:30:00'
+				id: null,
+				appointmentNo: '',
+				doctorName: '',
+				appointmentDate: '',
+				appointmentTime: '',
+				actualFee: 0,
+				createdAt: '',
+				timeSlot: '',
+				rawVisitTime: null,
+				scheduleId: null
 			},
 			// 退号原因列表
 			reasonList: [
@@ -133,38 +134,119 @@ export default {
 	computed: {
 		// 计算退款比例（根据距离就诊时间）
 		refundRate() {
-			// TODO: 实际应根据当前时间与就诊时间的差值计算
-			// 这里硬编码为示例：假设距离就诊时间超过24小时
-			const appointmentTime = new Date(this.appointmentInfo.appointmentDate + ' ' + this.appointmentInfo.appointmentTime.split('-')[0]);
-			const now = new Date();
-			const hoursDiff = (appointmentTime - now) / (1000 * 60 * 60);
-			
-			if (hoursDiff > 24) {
-				return 1.0; // 全额退款
-			} else if (hoursDiff > 2) {
-				return 0.8; // 退款80%
-			} else {
-				return 0.5; // 退款50%
+			const visitTime = this.getVisitDate();
+			if (!visitTime) {
+				return 1;
 			}
+			const now = new Date();
+			const hoursDiff = (visitTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+			if (hoursDiff > 24) {
+				return 1;
+			}
+			if (hoursDiff > 2) {
+				return 0.8;
+			}
+			if (hoursDiff > 0) {
+				return 0.5;
+			}
+			return 0;
+		},
+		refundDeduction() {
+			const fee = Number(this.appointmentInfo.actualFee);
+			if (!Number.isFinite(fee) || fee <= 0) {
+				return '0.00';
+			}
+			const deduction = fee * (1 - this.refundRate);
+			if (deduction <= 0) {
+				return '0.00';
+			}
+			return deduction.toFixed(2);
 		}
 	},
 	onLoad(options) {
 		if (options.id) {
 			this.appointmentId = options.id;
-			// TODO: 调用API获取挂号详情
-			// this.loadAppointmentInfo();
+			this.loadAppointmentInfo();
 		}
 	},
 	methods: {
-		// TODO: 加载挂号信息
-		// async loadAppointmentInfo() {
-		// 	try {
-		// 		const data = await getAppointmentDetail(this.appointmentId);
-		// 		this.appointmentInfo = data;
-		// 	} catch (e) {
-		// 		uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
-		// 	}
-		// },
+		displayValue(value, fallback = '--') {
+			return value === undefined || value === null || value === '' ? fallback : value;
+		},
+		formatMoney(value, fallback = '--') {
+			const num = Number(value);
+			if (!Number.isFinite(num)) {
+				return fallback;
+			}
+			return num.toFixed(2);
+		},
+		async loadAppointmentInfo() {
+			try {
+				const data = await getMyAppointments();
+				const list = Array.isArray(data) ? data : (data && data.list ? data.list : []);
+				const targetId = Number(this.appointmentId);
+				const appointment = list.find(item => Number(item.id) === targetId);
+				if (!appointment) {
+					uni.showToast({ title: '未找到挂号信息', icon: 'none' });
+					setTimeout(() => uni.navigateBack(), 1500);
+					return;
+				}
+				const feeValue = appointment.actualFee != null ? appointment.actualFee
+					: (appointment.fee != null ? appointment.fee : 0);
+				this.appointmentInfo = {
+					...this.appointmentInfo,
+					...appointment,
+					id: appointment.id,
+					appointmentNo: appointment.appointmentNo || appointment.id,
+					doctorName: appointment.doctorName || appointment.doctorTitle || '',
+					actualFee: Number(feeValue),
+					timeSlot: appointment.timeSlot,
+					rawVisitTime: appointment.appointmentTime || appointment.scheduleDate || null,
+					appointmentDate: this.formatDate(appointment.appointmentTime || appointment.scheduleDate) || '',
+					appointmentTime: appointment.timeSlotName || this.getTimeSlotDisplay(appointment.timeSlot) || this.formatTime(appointment.appointmentTime)
+				};
+			} catch (e) {
+				console.error('加载挂号信息失败', e);
+				uni.showToast({ title: e.msg || '加载失败', icon: 'none' });
+			}
+		},
+
+		getVisitDate() {
+			if (!this.appointmentInfo.rawVisitTime) {
+				return null;
+			}
+			const dt = new Date(this.appointmentInfo.rawVisitTime);
+			return isNaN(dt.getTime()) ? null : dt;
+		},
+		getTimeSlotDisplay(slot) {
+			const map = { morning: '上午', afternoon: '下午', evening: '晚上' };
+			return map[slot] || slot || '';
+		},
+		formatDate(value) {
+			if (!value) {
+				return '';
+			}
+			const dt = new Date(value);
+			if (isNaN(dt.getTime())) {
+				return value;
+			}
+			const y = dt.getFullYear();
+			const m = String(dt.getMonth() + 1).padStart(2, '0');
+			const d = String(dt.getDate()).padStart(2, '0');
+			return `${y}-${m}-${d}`;
+		},
+		formatTime(value) {
+			if (!value) {
+				return '';
+			}
+			const dt = new Date(value);
+			if (isNaN(dt.getTime())) {
+				return '';
+			}
+			const hh = String(dt.getHours()).padStart(2, '0');
+			const mm = String(dt.getMinutes()).padStart(2, '0');
+			return `${hh}:${mm}`;
+		},
 
 		// 选择退号原因
 		selectReason(value) {
@@ -176,7 +258,7 @@ export default {
 
 		// 计算退款金额
 		calculateRefund() {
-			const fee = parseFloat(this.appointmentInfo.actualFee) || 0;
+			const fee = Number(this.appointmentInfo.actualFee) || 0;
 			return (fee * this.refundRate).toFixed(2);
 		},
 
@@ -198,24 +280,24 @@ export default {
 
 		// 提交退号
 		async submitCancel() {
+			if (!this.appointmentInfo.id) {
+				uni.showToast({ title: '挂号信息未加载', icon: 'none' });
+				return;
+			}
 			this.submitting = true;
 			try {
-				// TODO: 调用退号API
-				// const reason = this.selectedReason === 'other' ? this.customReason : this.reasonList.find(r => r.value === this.selectedReason)?.label;
-				// await cancelAppointment(this.appointmentId, { reason });
-				
-				// 模拟API调用
-				await new Promise(resolve => setTimeout(resolve, 1000));
-				
+				await cancelAppointment(this.appointmentInfo.id);
 				uni.showToast({
 					title: '退号成功',
 					icon: 'success'
 				});
 				
 				setTimeout(() => {
-					// 返回上一页或跳转到记录页
-					uni.navigateBack();
-					// 或者：uni.switchTab({ url: '/pages/records/records' });
+					if (getCurrentPages().length > 1) {
+						uni.navigateBack();
+					} else {
+						uni.switchTab({ url: '/pages/records/records' });
+					}
 				}, 1500);
 			} catch (e) {
 				uni.showToast({

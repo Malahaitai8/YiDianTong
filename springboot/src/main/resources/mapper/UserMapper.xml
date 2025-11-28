@@ -67,4 +67,10 @@
     <update id="updateAllPasswords">
         update user set password = #{password}
     </update>
+
+    <update id="updatePasswordsByRole">
+        update user
+        set password = #{password}
+        where role = #{role}
+    </update>
 </mapper>

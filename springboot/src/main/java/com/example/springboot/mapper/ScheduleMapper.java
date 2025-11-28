@@ -33,9 +33,13 @@ public interface ScheduleMapper {
     int decreaseAvailableSlots(@Param("id") Long id);
 
     /**
-     * 归还号源 (取消或删除时)
+     * 归还号源 (取消或删除时)，并保证不超过总号源数
      */
-    @Update("UPDATE schedule SET available_slots = available_slots + 1 WHERE id = #{id}")
+    @Update("UPDATE schedule SET available_slots = CASE " +
+            "WHEN total_slots IS NULL THEN available_slots + 1 " +
+            "WHEN available_slots < total_slots THEN available_slots + 1 " +
+            "ELSE total_slots END " +
+            "WHERE id = #{id}")
     int increaseAvailableSlots(@Param("id") Long id);
 
     /**
@@ -161,4 +165,5 @@ public interface ScheduleMapper {
      */
     @Select("SELECT SUM(available_slots) FROM schedule")
     Integer sumAvailableSlots();
+
 }

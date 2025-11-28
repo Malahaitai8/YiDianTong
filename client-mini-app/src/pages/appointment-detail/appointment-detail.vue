@@ -1,9 +1,9 @@
 <template>
 	<view class="appointment-detail-page">
 		<!-- 状态卡片 -->
-		<view class="status-card" :class="getStatusClass(appointmentDetail.status)">
-			<view class="status-icon">{{ getStatusIcon(appointmentDetail.status) }}</view>
-			<text class="status-text">{{ getStatusText(appointmentDetail.status) }}</text>
+		<view class="status-card" :class="statusClass">
+			<view class="status-icon">{{ statusIcon }}</view>
+			<text class="status-text">{{ statusText }}</text>
 		</view>
 
 		<!-- 就诊信息卡片 -->
@@ -15,27 +15,27 @@
 			
 			<view class="info-row">
 				<text class="info-label">就诊医生</text>
-				<text class="info-value">{{ appointmentDetail.doctorName || '张医生' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.doctorName) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">医生职称</text>
-				<text class="info-value">{{ appointmentDetail.doctorTitle || '主任医师' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.doctorTitle) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">科室/门诊</text>
-				<text class="info-value">{{ appointmentDetail.clinicName || '消化内科' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.clinicName) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">就诊日期</text>
-				<text class="info-value">{{ appointmentDetail.appointmentDate || '2025-11-15' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.appointmentDate) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">就诊时间</text>
-				<text class="info-value">{{ appointmentDetail.appointmentTime || '08:00-12:00' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.appointmentTime) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">时间段</text>
-				<text class="info-value">{{ appointmentDetail.timeSlotDisplay || '上午' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.timeSlotDisplay) }}</text>
 			</view>
 		</view>
 
@@ -48,15 +48,15 @@
 			
 			<view class="info-row">
 				<text class="info-label">挂号费（原价）</text>
-				<text class="info-value original-price">¥{{ appointmentDetail.originalFee || '50.00' }}</text>
+				<text class="info-value original-price">¥{{ formatMoney(appointmentDetail.originalFee) }}</text>
 			</view>
 			<view class="info-row" v-if="appointmentDetail.reimbursementRate">
 				<text class="info-label">报销比例</text>
-				<text class="info-value">{{ appointmentDetail.reimbursementRate || '95%' }}</text>
+				<text class="info-value">{{ formatPercent(appointmentDetail.reimbursementRate) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">实付金额</text>
-				<text class="info-value actual-price">¥{{ appointmentDetail.actualFee || '2.50' }}</text>
+				<text class="info-value actual-price">¥{{ formatMoney(appointmentDetail.actualFee) }}</text>
 			</view>
 		</view>
 
@@ -69,15 +69,15 @@
 			
 			<view class="info-row">
 				<text class="info-label">预约编号</text>
-				<text class="info-value">{{ appointmentDetail.appointmentNo || 'APT20251115001' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.appointmentNo) }}</text>
 			</view>
 			<view class="info-row">
 				<text class="info-label">预约时间</text>
-				<text class="info-value">{{ appointmentDetail.createdAt || '2025-11-14 10:30:00' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.createdAt) }}</text>
 			</view>
 			<view class="info-row" v-if="appointmentDetail.reminderTime">
 				<text class="info-label">提醒时间</text>
-				<text class="info-value">{{ appointmentDetail.reminderTime || '就诊前一天 18:00' }}</text>
+				<text class="info-value">{{ displayValue(appointmentDetail.reminderTime) }}</text>
 			</view>
 		</view>
 
@@ -143,6 +143,18 @@ export default {
 			return status === 'PENDING' || status === 'pending' || 
 				   status === 'CONFIRMED' || status === 'confirmed' ||
 				   status === 'SCHEDULED' || status === 'scheduled';
+		},
+		// 状态样式（用于小程序端，避免在模板中直接调用方法）
+		statusClass() {
+			return this.getStatusClass(this.appointmentDetail.status);
+		},
+		// 状态图标
+		statusIcon() {
+			return this.getStatusIcon(this.appointmentDetail.status);
+		},
+		// 状态文案
+		statusText() {
+			return this.getStatusText(this.appointmentDetail.status);
 		}
 	},
 	onLoad(options) {
@@ -160,6 +172,95 @@ export default {
 		}
 	},
 	methods: {
+		displayValue(value, fallback = '--') {
+			return value === undefined || value === null || value === '' ? fallback : value;
+		},
+		formatMoney(value, fallback = '--') {
+			const num = Number(value);
+			if (!Number.isFinite(num)) {
+				return fallback;
+			}
+			return num.toFixed(2);
+		},
+		formatPercent(value, fallback = '--') {
+			if (value === undefined || value === null || value === '') {
+				return fallback;
+			}
+			const str = String(value).trim();
+			if (str.endsWith('%')) {
+				return str;
+			}
+			const num = Number(str);
+			return Number.isFinite(num) ? `${num}%` : str || fallback;
+		},
+		// 格式化日期 YYYY-MM-DD
+		formatDate(dateStr) {
+			if (!dateStr) return '--';
+			try {
+				const date = new Date(dateStr);
+				if (isNaN(date.getTime())) {
+					// 如果是字符串格式，尝试直接提取日期部分
+					if (typeof dateStr === 'string' && dateStr.length >= 10) {
+						return dateStr.substring(0, 10);
+					}
+					return '--';
+				}
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				return `${year}-${month}-${day}`;
+			} catch (e) {
+				console.error('日期格式化失败:', dateStr, e);
+				return '--';
+			}
+		},
+		// 格式化预约时间（根据日期和时间段）
+		formatAppointmentTime(scheduleDate, timeSlot) {
+			if (!scheduleDate) return '--';
+			try {
+				const date = new Date(scheduleDate);
+				if (isNaN(date.getTime())) return '--';
+				
+				// 根据时间段设置默认时间
+				const timeSlotMap = {
+					'morning': '08:00-12:00',
+					'afternoon': '14:00-18:00',
+					'evening': '18:00-22:00'
+				};
+				
+				const timeRange = timeSlotMap[timeSlot?.toLowerCase()] || '--';
+				return timeRange;
+			} catch (e) {
+				console.error('预约时间格式化失败:', scheduleDate, timeSlot, e);
+				return '--';
+			}
+		},
+		// 格式化日期时间 YYYY-MM-DD HH:mm:ss
+		formatDateTime(dateStr) {
+			if (!dateStr) return '--';
+			try {
+				const date = new Date(dateStr);
+				if (isNaN(date.getTime())) return '--';
+				
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				const hours = String(date.getHours()).padStart(2, '0');
+				const minutes = String(date.getMinutes()).padStart(2, '0');
+				const seconds = String(date.getSeconds()).padStart(2, '0');
+				
+				return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+			} catch (e) {
+				console.error('日期时间格式化失败:', dateStr, e);
+				return '--';
+			}
+		},
+		// 生成预约编号
+		formatAppointmentNo(id) {
+			if (!id) return '--';
+			// 格式：APT + 8位数字（不足补0）
+			return 'APT' + String(id).padStart(8, '0');
+		},
 		// 加载挂号详情
 		async loadAppointmentDetail() {
 			try {
@@ -170,18 +271,37 @@ export default {
 				// 查找当前预约
 				const appointment = appointments.find(item => item.id === this.appointmentId);
 				if (appointment) {
-					this.appointmentDetail = {
-						...this.appointmentDetail,
-						...appointment
-					};
-					
 					// 处理时间段显示
 					const timeSlotMap = {
 						'morning': '上午',
 						'afternoon': '下午',
 						'evening': '晚上'
 					};
-					this.appointmentDetail.timeSlotDisplay = timeSlotMap[appointment.timeSlot] || appointment.timeSlot;
+					
+					// [修复] 正确映射字段
+					this.appointmentDetail = {
+						...this.appointmentDetail,
+						id: appointment.id,
+						appointmentNo: this.formatAppointmentNo(appointment.id), // 生成预约编号
+						doctorId: appointment.doctorId,
+						doctorName: appointment.doctorName || '--',
+						doctorTitle: appointment.doctorTitle || '--',
+						clinicName: appointment.clinicName || appointment.departmentName || '--',
+						// [修复] 就诊日期应该使用scheduleDate，而不是appointmentTime
+						appointmentDate: this.formatDate(appointment.scheduleDate || appointment.appointmentTime),
+						// [修复] 就诊时间根据scheduleDate和timeSlot计算
+						appointmentTime: this.formatAppointmentTime(appointment.scheduleDate, appointment.timeSlot),
+						timeSlot: appointment.timeSlot,
+						timeSlotDisplay: timeSlotMap[appointment.timeSlot?.toLowerCase()] || appointment.timeSlot || '--',
+						status: appointment.status,
+						originalFee: appointment.fee || 0,
+						actualFee: appointment.actualFee || 0,
+						// [修复] 预约时间使用createdAt
+						createdAt: this.formatDateTime(appointment.createdAt),
+						sourceType: appointment.sourceType
+					};
+					
+					console.log('处理后的预约详情:', this.appointmentDetail);
 				} else {
 					uni.showToast({ title: '未找到预约信息', icon: 'none' });
 				}
