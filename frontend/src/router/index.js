@@ -20,6 +20,7 @@ import AdminSourceManagement from '@/views/admin/SourceManagement.vue'
 import AdminQAManagement from '@/views/admin/QAManagement.vue'
 import AdminReports from '@/views/admin/Reports.vue'
 import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
+import AdminScheduleSettings from '@/views/admin/ScheduleSettings.vue'
 import AdminPatients from '@/views/admin/Patients.vue'
 import AdminAppointments from '@/views/admin/Appointments.vue'
 import AdminUsers from '@/views/admin/AdminUsers.vue'
@@ -150,9 +151,9 @@ const routes = [
         meta: { title: '排班规则' }
       },
       {
-        path: 'source-management',
-        name: 'AdminSourceManagement',
-        component: AdminSourceManagement,
+        path: 'schedule-settings',
+        name: 'AdminScheduleSettings',
+        component: AdminScheduleSettings,
         meta: { title: '号源管理' }
       },
       {

@@ -67,10 +67,6 @@
             <div class="stat-info">
               <div class="stat-number">{{ overview.totalAppointments }}</div>
               <div class="stat-label">总预约数</div>
-              <div class="stat-change positive">
-                <el-icon><TrendCharts /></el-icon>
-                +{{ overview.appointmentGrowth }}%
-              </div>
             </div>
           </div>
         </el-card>
@@ -85,10 +81,6 @@
             <div class="stat-info">
               <div class="stat-number">{{ overview.completedAppointments }}</div>
               <div class="stat-label">已完成</div>
-              <div class="stat-change positive">
-                <el-icon><TrendCharts /></el-icon>
-                +{{ overview.completedGrowth }}%
-              </div>
             </div>
           </div>
         </el-card>
@@ -97,16 +89,12 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-icon revenue">
-              <el-icon><Money /></el-icon>
+            <div class="stat-icon cancelled">
+              <el-icon><CloseBold /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">¥{{ overview.totalRevenue }}</div>
-              <div class="stat-label">总收入</div>
-              <div class="stat-change positive">
-                <el-icon><TrendCharts /></el-icon>
-                +{{ overview.revenueGrowth }}%
-              </div>
+              <div class="stat-number">{{ overview.cancelledAppointments }}</div>
+              <div class="stat-label">已取消</div>
             </div>
           </div>
         </el-card>
@@ -115,15 +103,73 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
-            <div class="stat-icon satisfaction">
-              <el-icon><StarFilled /></el-icon>
+            <div class="stat-icon noShow">
+              <el-icon><WarningFilled /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">{{ overview.satisfaction }}%</div>
-              <div class="stat-label">满意度</div>
-              <div class="stat-change positive">
-                <el-icon><TrendCharts /></el-icon>
-                +{{ overview.satisfactionGrowth }}%
+              <div class="stat-number">{{ overview.noShowAppointments }}</div>
+              <div class="stat-label">爽约</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 号源统计 -->
+    <el-row :gutter="20" class="overview-row">
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon slots">
+              <el-icon><Document /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ overview.totalSlots }}</div>
+              <div class="stat-label">总号源数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon available">
+              <el-icon><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ overview.availableSlots }}</div>
+              <div class="stat-label">可用号源</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon used">
+              <el-icon><UserFilled /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ overview.usedSlots }}</div>
+              <div class="stat-label">已用号源</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon rate">
+              <el-icon><TrendCharts /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ formatRate(overview.completionRate) }}%</div>
+              <div class="stat-label">完成率</div>
+              <div class="stat-sub-info">
+                利用率: {{ formatRate(overview.utilization) }}%
               </div>
             </div>
           </div>
@@ -333,6 +379,20 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import {
+  Calendar,
+  CircleCheckFilled,
+  CloseBold,
+  WarningFilled,
+  Document,
+  CircleCheck,
+  UserFilled,
+  TrendCharts,
+  Search,
+  Download,
+  Refresh
+} from '@element-plus/icons-vue'
+import { getOverviewStats } from '@/api/statistics'
 
 const loading = ref(false)
 const dateRange = ref(['2024-01-01', '2024-01-31'])
@@ -349,14 +409,15 @@ const pagination = reactive({
 
 // 统计概览数据
 const overview = reactive({
-  totalAppointments: 1256,
-  appointmentGrowth: 12.5,
-  completedAppointments: 1089,
-  completedGrowth: 8.3,
-  totalRevenue: '125,680',
-  revenueGrowth: 15.2,
-  satisfaction: 94.5,
-  satisfactionGrowth: 2.1
+  totalAppointments: 0,
+  completedAppointments: 0,
+  cancelledAppointments: 0,
+  noShowAppointments: 0,
+  totalSlots: 0,
+  availableSlots: 0,
+  usedSlots: 0,
+  completionRate: 0,
+  utilization: 0
 })
 
 // 趋势数据
@@ -556,6 +617,32 @@ const handleReportTypeChange = () => {
   generateReport()
 }
 
+// 加载全局概览统计
+const loadOverviewStats = async () => {
+  try {
+    const res = await getOverviewStats()
+    const data = res?.data || {}
+    overview.totalAppointments = data.totalAppointments || 0
+    overview.completedAppointments = data.completedAppointments || 0
+    overview.cancelledAppointments = data.cancelledAppointments || 0
+    overview.noShowAppointments = data.noShowAppointments || 0
+    overview.totalSlots = data.totalSlots || 0
+    overview.availableSlots = data.availableSlots || 0
+    overview.usedSlots = data.usedSlots || 0
+    overview.completionRate = data.completionRate || 0
+    overview.utilization = data.utilization || 0
+  } catch (error) {
+    console.error('加载概览统计失败:', error)
+    ElMessage.error('加载统计数据失败')
+  }
+}
+
+// 格式化百分比
+const formatRate = (rate) => {
+  if (rate === null || rate === undefined) return '0.00'
+  return (rate * 100).toFixed(2)
+}
+
 const generateReport = async () => {
   loading.value = true
   try {
@@ -591,6 +678,7 @@ const resetFilters = () => {
 }
 
 const refreshData = () => {
+  loadOverviewStats()
   generateReport()
 }
 
@@ -606,6 +694,7 @@ const handleCurrentChange = (page) => {
 }
 
 onMounted(() => {
+  loadOverviewStats()
   generateReport()
 })
 </script>
@@ -659,6 +748,36 @@ onMounted(() => {
 
 .stat-icon.satisfaction {
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.stat-icon.cancelled {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-icon.noShow {
+  background: linear-gradient(135deg, #ffd86f 0%, #fc6262 100%);
+}
+
+.stat-icon.slots {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-icon.available {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-icon.used {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.stat-icon.rate {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.stat-sub-info {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 
 .stat-info {

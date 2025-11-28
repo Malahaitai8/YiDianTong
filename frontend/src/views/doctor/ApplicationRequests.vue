@@ -366,7 +366,8 @@ import { getMyInfo, getMySchedules } from '@/api/doctor'
 import { ChatLineRound } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
-const doctorId = computed(() => userStore.user?.doctorId || userStore.user?.id)
+// 获取医生ID：优先从doctorId字段，其次从userId字段，最后从id字段
+const doctorId = computed(() => userStore.user?.doctorId || userStore.user?.userId || userStore.user?.id)
 
 const activeTab = ref('SCHEDULE_CHANGE')
 const scheduleFormRef = ref()
@@ -515,10 +516,13 @@ const filteredRequests = computed(() => {
 const loadSchedules = async () => {
   try {
     const resp = await getMySchedules()
-    scheduleOptions.value = Array.isArray(resp?.data) ? resp.data : []
+    // 后端返回的数据结构是 { schedules: [...], total: ... }
+    const schedules = resp?.data?.schedules || resp?.data || []
+    scheduleOptions.value = Array.isArray(schedules) ? schedules : []
   } catch (error) {
     scheduleOptions.value = []
     console.error('获取排班失败', error)
+    ElMessage.error('获取排班列表失败，请检查网络连接或联系管理员')
   }
 }
 
@@ -588,8 +592,10 @@ const resetInfoForm = () => {
 
 const submitScheduleRequest = async () => {
   if (!scheduleFormRef.value) return
-  if (!doctorId.value) {
-    ElMessage.error('无法获取医生身份，请重新登录')
+  // 调班申请不需要前端传doctorId，后端会从排班记录中获取
+  // 但需要验证用户已登录
+  if (!userStore.user) {
+    ElMessage.error('无法获取用户信息，请重新登录')
     return
   }
   try {
@@ -626,9 +632,14 @@ const submitScheduleRequest = async () => {
 
 const submitInfoRequest = async () => {
   if (!infoFormRef.value) return
-  if (!doctorId.value) {
-    ElMessage.error('无法获取医生身份，请重新登录')
-    return
+  // 信息修改申请需要doctorId，从doctorProfile中获取
+  if (!doctorProfile.value?.id) {
+    ElMessage.error('无法获取医生信息，请先刷新数据')
+    await loadDoctorProfile()
+    if (!doctorProfile.value?.id) {
+      ElMessage.error('无法获取医生身份，请重新登录')
+      return
+    }
   }
   try {
     const valid = await infoFormRef.value.validate()
@@ -636,7 +647,7 @@ const submitInfoRequest = async () => {
     infoSubmitting.value = true
     const payload = {
       requestType: 'INFO_UPDATE',
-      doctorId: doctorId.value,
+      doctorId: doctorProfile.value.id,
       fieldName: infoForm.fieldName,
       oldValue: infoForm.oldValue || undefined,
       newValue: infoForm.newValue,
