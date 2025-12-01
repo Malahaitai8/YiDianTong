@@ -178,3 +178,11 @@ export const getTodayPatients = (params) => {
     params
   })
 }
+
+// 医生端：获取Dashboard数据
+export const getDoctorDashboard = () => {
+  return request({
+    url: '/doctor/dashboard',
+    method: 'get'
+  })
+}

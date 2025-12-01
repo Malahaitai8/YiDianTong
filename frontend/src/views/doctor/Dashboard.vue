@@ -4,7 +4,7 @@
     <el-card class="welcome-card" shadow="never">
       <div class="welcome-content">
         <div class="welcome-text">
-          <h2>欢迎回来，{{ userStore.user?.username || '医生' }}！</h2>
+          <h2>欢迎回来，{{ doctorName || '医生' }}！</h2>
           <p>今天是 {{ formatDate(new Date(), 'YYYY年MM月DD日') }}，祝您工作愉快！</p>
         </div>
         <div class="welcome-icon">
@@ -16,7 +16,7 @@
     <!-- 医生工作台 -->
     <div class="dashboard-content">
       <!-- 数据统计卡片 -->
-      <el-row :gutter="20" class="stats-row">
+      <el-row :gutter="20" class="stats-row" v-loading="dashboardLoading">
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
@@ -98,11 +98,11 @@
                 :key="schedule.id"
                 class="schedule-item"
               >
-                <div class="schedule-time">{{ schedule.time }}</div>
+                <div class="schedule-time">{{ formatScheduleTime(schedule) }}</div>
                 <div class="schedule-info">
-                  <div class="schedule-clinic">{{ schedule.clinic }}</div>
-                  <div class="schedule-status" :class="schedule.status">
-                    {{ getStatusText(schedule.status) }}
+                  <div class="schedule-clinic">{{ schedule.clinicName || schedule.clinic || '门诊' }}</div>
+                  <div class="schedule-status" :class="getScheduleStatusClass(schedule)">
+                    {{ getScheduleStatusText(schedule) }}
                   </div>
                 </div>
               </div>
@@ -133,8 +133,8 @@
                 class="patient-item"
               >
                 <div class="patient-info">
-                  <div class="patient-name">{{ patient.name }}</div>
-                  <div class="patient-time">预约时间：{{ patient.appointmentTime }}</div>
+                  <div class="patient-name">{{ patient.patientName || patient.name }}</div>
+                  <div class="patient-time">预约时间：{{ formatAppointmentTime(patient) }}</div>
                 </div>
                 <el-button
                   type="primary"
@@ -166,11 +166,15 @@ import {
 } from '@element-plus/icons-vue'
 import { formatDate } from '@/utils'
 import { ElMessage } from 'element-plus'
-import { submitDoctorChangeRequest } from '@/api/doctor'
+import { submitDoctorChangeRequest, getMyInfo, getDoctorDashboard, getTodayPatients, getMySchedules } from '@/api/doctor'
 import { getClinicList } from '@/api/clinic'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 医生信息
+const doctorName = ref('')
+const doctorInfo = ref(null)
 
 // 医生信息表单
 const doctorFormRef = ref()
@@ -206,49 +210,22 @@ const clinicList = ref([])
 
 // 统计数据
 const todayStats = reactive({
-  appointments: 8,
-  completed: 5,
-  waiting: 3
+  appointments: 0,
+  completed: 0,
+  waiting: 0
 })
 
 const monthStats = reactive({
-  total: 156
+  total: 0
 })
 
+const dashboardLoading = ref(false)
+
 // 今日排班数据
-const todaySchedule = ref([
-  {
-    id: 1,
-    time: '08:00-12:00',
-    clinic: '内科门诊',
-    status: 'active'
-  },
-  {
-    id: 2,
-    time: '14:00-18:00',
-    clinic: '专家门诊',
-    status: 'upcoming'
-  }
-])
+const todaySchedule = ref([])
 
 // 待就诊患者数据
-const waitingPatients = ref([
-  {
-    id: 1,
-    name: '张三',
-    appointmentTime: '09:30'
-  },
-  {
-    id: 2,
-    name: '李四',
-    appointmentTime: '10:00'
-  },
-  {
-    id: 3,
-    name: '王五',
-    appointmentTime: '10:30'
-  }
-])
+const waitingPatients = ref([])
 
 // 加载门诊列表
 const loadClinicList = async () => {
@@ -308,14 +285,58 @@ const resubmitApplication = () => {
   resetForm()
 }
 
-// 获取状态文本
-const getStatusText = (status) => {
+// 格式化排班时间显示
+const formatScheduleTime = (schedule) => {
+  if (!schedule?.timeSlot) return '-'
+  const slot = schedule.timeSlot.toUpperCase()
+  const labelMap = {
+    'MORNING': '上午',
+    '上午': '上午',
+    'AFTERNOON': '下午',
+    '下午': '下午',
+    'EVENING': '晚上',
+    '晚间': '晚上',
+    '晚上': '晚上'
+  }
+  if (labelMap[slot]) return labelMap[slot]
+  return labelMap[schedule.timeSlot] || schedule.timeSlot || '-'
+}
+
+// 获取排班状态类名
+const getScheduleStatusClass = (schedule) => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  
+  // 判断时间段是否已开始或结束
+  const timeSlot = schedule.timeSlot?.toUpperCase() || ''
+  const hour = now.getHours()
+  
+  if (timeSlot.includes('MORNING') || timeSlot === '上午') {
+    if (hour >= 8 && hour < 12) return 'active'
+    if (hour < 8) return 'upcoming'
+    return 'completed'
+  } else if (timeSlot.includes('AFTERNOON') || timeSlot === '下午') {
+    if (hour >= 14 && hour < 18) return 'active'
+    if (hour < 14) return 'upcoming'
+    return 'completed'
+  } else if (timeSlot.includes('EVENING') || timeSlot === '晚间' || timeSlot === '晚上') {
+    if (hour >= 18 && hour < 22) return 'active'
+    if (hour < 18) return 'upcoming'
+    return 'completed'
+  }
+  
+  return 'upcoming'
+}
+
+// 获取排班状态文本
+const getScheduleStatusText = (schedule) => {
+  const statusClass = getScheduleStatusClass(schedule)
   const statusMap = {
     active: '进行中',
     upcoming: '即将开始',
     completed: '已完成'
   }
-  return statusMap[status] || status
+  return statusMap[statusClass] || '即将开始'
 }
 
 // 查看排班
@@ -328,14 +349,182 @@ const viewPatients = () => {
   router.push('/doctor/patients')
 }
 
+// 格式化预约时间显示
+const formatAppointmentTime = (patient) => {
+  if (!patient) return '-'
+  const timeStr = patient.appointmentTime
+  const scheduleDate = patient.scheduleDate
+  if (timeStr) {
+    // 完整时间戳，保留日期和到分钟
+    if (timeStr.includes(' ')) {
+      return timeStr.slice(0, 16)
+    }
+    if (scheduleDate) {
+      return `${scheduleDate} ${timeStr}`
+    }
+    return timeStr
+  }
+  return scheduleDate || '-'
+}
+
 // 开始就诊
 const startConsultation = (patient) => {
-  ElMessage.success(`开始为患者 ${patient.name} 就诊`)
+  const patientName = patient.patientName || patient.name
+  ElMessage.success(`开始为患者 ${patientName} 就诊`)
   // TODO: 跳转到就诊页面
 }
 
-onMounted(() => {
-  // 组件挂载时的初始化逻辑
+// 加载医生信息
+const loadDoctorInfo = async () => {
+  try {
+    const resp = await getMyInfo()
+    doctorInfo.value = resp?.data || null
+    doctorName.value = doctorInfo.value?.name || userStore.user?.username || '医生'
+  } catch (error) {
+    console.error('获取医生信息失败:', error)
+    doctorName.value = userStore.user?.username || '医生'
+  }
+}
+
+// 加载今日排班
+const loadTodaySchedule = async () => {
+  try {
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    
+    const resp = await getMySchedules({
+      startDate: todayStr,
+      endDate: todayStr
+    })
+    
+    const schedules = resp?.data?.schedules || resp?.data || []
+    
+    // 获取医生信息中的门诊名称
+    const clinicName = doctorInfo.value?.clinic?.name || doctorInfo.value?.clinicName || '门诊'
+    
+    // 格式化今日排班数据
+    todaySchedule.value = schedules.map(schedule => ({
+      id: schedule.id,
+      scheduleDate: schedule.scheduleDate,
+      timeSlot: schedule.timeSlot,
+      slotType: schedule.slotType,
+      totalSlots: schedule.totalSlots,
+      availableSlots: schedule.availableSlots,
+      clinicName: clinicName
+    }))
+    
+    // 按时间段排序
+    todaySchedule.value.sort((a, b) => {
+      const orderMap = { 'MORNING': 1, 'morning': 1, '上午': 1, 'AFTERNOON': 2, 'afternoon': 2, '下午': 2, 'EVENING': 3, 'evening': 3, '晚间': 3, '晚上': 3 }
+      const orderA = orderMap[a.timeSlot] || 99
+      const orderB = orderMap[b.timeSlot] || 99
+      return orderA - orderB
+    })
+  } catch (error) {
+    console.error('加载今日排班失败:', error)
+    todaySchedule.value = []
+  }
+}
+
+// 加载待就诊患者
+const loadWaitingPatients = async () => {
+  try {
+    // 获取今日患者列表，筛选出待就诊的患者（状态为 scheduled）
+    const todayPatientsResp = await getTodayPatients()
+    const todayPatientsData = todayPatientsResp?.data || {}
+    const todayPatientsList = todayPatientsData.patients || todayPatientsData.data || []
+    
+    // 筛选待就诊患者（状态为 scheduled 或 SCHEDULED）
+    const waitingList = Array.isArray(todayPatientsList) 
+      ? todayPatientsList.filter(p => 
+          p.status === 'scheduled' || p.status === 'SCHEDULED'
+        )
+      : []
+    
+    // 格式化待就诊患者数据
+    waitingPatients.value = waitingList.map(patient => ({
+      id: patient.appointmentId || patient.id,
+      patientId: patient.patientId,
+      patientName: patient.patientName || patient.name,
+      appointmentTime: patient.appointmentTime,
+      scheduleDate: patient.scheduleDate,
+      status: patient.status
+    }))
+    
+    // 按预约时间排序（最早在前）
+    waitingPatients.value.sort((a, b) => {
+      const parseTime = (item) => {
+        if (!item) return 0
+        const raw = item.appointmentTime
+        const datePart = item.scheduleDate
+        let dateTimeStr = ''
+        if (raw) {
+          dateTimeStr = raw.includes(' ') ? raw : (datePart ? `${datePart} ${raw}` : raw)
+        } else if (datePart) {
+          dateTimeStr = `${datePart} 00:00`
+        } else {
+          return 0
+        }
+        const timestamp = Date.parse(dateTimeStr.replace(/-/g, '/'))
+        return Number.isNaN(timestamp) ? 0 : timestamp
+      }
+      return parseTime(a) - parseTime(b)
+    })
+  } catch (error) {
+    console.error('加载待就诊患者失败:', error)
+    waitingPatients.value = []
+  }
+}
+
+// 加载Dashboard数据
+const loadDashboardData = async () => {
+  dashboardLoading.value = true
+  try {
+    // 获取今日患者列表，用于统计今日预约、已完成、待就诊
+    const todayPatientsResp = await getTodayPatients()
+    const todayPatientsData = todayPatientsResp?.data || {}
+    const todayPatientsList = todayPatientsData.patients || todayPatientsData.data || []
+    
+    // 统计今日预约数据
+    if (Array.isArray(todayPatientsList)) {
+      todayStats.appointments = todayPatientsList.length
+      todayStats.completed = todayPatientsList.filter(p => 
+        p.status === 'completed' || p.status === 'COMPLETED'
+      ).length
+      todayStats.waiting = todayPatientsList.filter(p => 
+        p.status === 'scheduled' || p.status === 'SCHEDULED'
+      ).length
+    } else {
+      // 如果数据格式不对，使用默认值
+      todayStats.appointments = 0
+      todayStats.completed = 0
+      todayStats.waiting = 0
+    }
+    
+    // 获取Dashboard统计数据（本月总计）
+    const dashboardResp = await getDoctorDashboard()
+    const dashboardData = dashboardResp?.data || {}
+    monthStats.total = dashboardData.monthlyTotal || 0
+    
+    // 加载待就诊患者
+    await loadWaitingPatients()
+  } catch (error) {
+    console.error('加载Dashboard数据失败:', error)
+    ElMessage.error('加载数据失败')
+  } finally {
+    dashboardLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  // 先加载医生信息
+  await loadDoctorInfo()
+  // 然后加载Dashboard数据和今日排班
+  await loadDashboardData()
+  // 确保医生信息加载后再加载排班（因为需要门诊名称）
+  if (doctorInfo.value) {
+    await loadTodaySchedule()
+  }
 })
 </script>
 
@@ -518,6 +707,11 @@ onMounted(() => {
   align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.patient-info {
+  flex: 1;
+  text-align: left;
 }
 
 .patient-item:last-child {
