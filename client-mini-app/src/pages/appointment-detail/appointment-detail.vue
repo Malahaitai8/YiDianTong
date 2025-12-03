@@ -1,7 +1,15 @@
 <template>
 	<view class="appointment-detail-page">
 		<!-- 状态卡片 -->
-		<view class="status-card" :class="getStatusClass(appointmentDetail.status)">
+		<view
+			class="status-card"
+			:class="{
+				'status-pending': appointmentDetail.status === 'PENDING' || appointmentDetail.status === 'pending',
+				'status-confirmed': appointmentDetail.status === 'CONFIRMED' || appointmentDetail.status === 'confirmed' || appointmentDetail.status === 'SCHEDULED' || appointmentDetail.status === 'scheduled',
+				'status-completed': appointmentDetail.status === 'COMPLETED' || appointmentDetail.status === 'completed',
+				'status-cancelled': appointmentDetail.status === 'CANCELLED' || appointmentDetail.status === 'cancelled'
+			}"
+		>
 			<view class="status-icon">{{ getStatusIcon(appointmentDetail.status) }}</view>
 			<text class="status-text">{{ getStatusText(appointmentDetail.status) }}</text>
 		</view>

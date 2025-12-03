@@ -151,7 +151,17 @@ export default {
 	onShow() {
 		this.loadReminder();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadReminder();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		guardedNavigate(url) {
 			if (!this.isLoggedIn) {
 				promptLogin();
@@ -160,7 +170,7 @@ export default {
 			uni.navigateTo({ url });
 		},
 		goToQA() {
-			this.guardedNavigate('/pkg-helper/qa-robot/qa-robot');
+			this.guardedNavigate('/pages/ai-chat/ai-chat');
 		},
 		goToSearch() {
 			this.guardedNavigate('/pages/search/search');

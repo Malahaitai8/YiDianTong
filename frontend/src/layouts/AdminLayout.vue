@@ -3,7 +3,7 @@
     <!-- 侧边栏 -->
     <div class="sidebar">
       <div class="logo">
-        <h2>管理员后台</h2>
+        <h2>管理员信息</h2>
       </div>
       
       <nav class="nav-menu">
@@ -63,12 +63,15 @@ const userStore = useUserStore()
 const menuItems = ref([
   { path: '/admin/dashboard', name: '数据概览' },
   { path: '/admin/doctors', name: '医生管理' },
+  { path: '/admin/doctor-change', name: '申请管理' },
   { path: '/admin/patients', name: '患者管理' },
   { path: '/admin/appointments', name: '预约管理' },
+  { path: '/admin/admins', name: '管理员信息' },
+  { path: '/admin/whitelist', name: '白名单管理' },
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
   { path: '/admin/schedule-rules', name: '排班规则' },
-  { path: '/admin/source-management', name: '号源管理' },
+  { path: '/admin/schedule-settings', name: '号源管理' },
   { path: '/admin/qa-management', name: 'QA管理' },
   { path: '/admin/reports', name: '报表统计' }
 ])
@@ -138,6 +141,7 @@ const handleCommand = async (command) => {
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
 }
 
 .logo {
@@ -157,6 +161,7 @@ const handleCommand = async (command) => {
 .nav-menu {
   flex: 1;
   padding: 0 15px;
+  overflow-y: auto;
 }
 
 .nav-item {

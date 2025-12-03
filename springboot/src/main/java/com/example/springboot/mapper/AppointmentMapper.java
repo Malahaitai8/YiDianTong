@@ -54,10 +54,4 @@ public interface AppointmentMapper {
      * 统计总预约数量
      */
     int countTotal();
-    
-    /**
-     * 根据时间范围查询预约（用于就诊提醒）
-     */
-    List<Appointment> selectByTimeRange(@Param("startTime") java.util.Date startTime,
-                                        @Param("endTime") java.util.Date endTime);
 }

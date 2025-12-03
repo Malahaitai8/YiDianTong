@@ -94,20 +94,39 @@ uni.addInterceptor('request', {
 })
 // --- 权限拦截结束 ---
 
+// WebSocket 连接辅助函数
+function connectWaitlistWebSocket() {
+  const userId = store.state.user?.userInfo?.userId;
+  if (!userId) {
+    console.warn('无法连接WebSocket：用户ID不存在');
+    return;
+  }
+  console.log('连接WebSocket，用户ID:', userId);
+  webSocketManager.connect(userId);
+}
+
+function disconnectWaitlistWebSocket() {
+  if (webSocketManager && typeof webSocketManager.disconnect === 'function') {
+    webSocketManager.disconnect();
+  } else if (webSocketManager && typeof webSocketManager.close === 'function') {
+    webSocketManager.close();
+  }
+}
+
 // 监听用户登录状态变化，自动连接/断开WebSocket
 store.watch(
   (state) => state.user.token,
   (newToken, oldToken) => {
     if (newToken && !oldToken) {
       // 用户刚登录，连接WebSocket
-      console.log('用户登录，连接WebSocket');
+      console.log('用户登录，准备连接WebSocket');
       setTimeout(() => {
-        webSocketManager.connect();
+        connectWaitlistWebSocket();
       }, 1000); // 延迟1秒确保用户信息已加载
     } else if (!newToken && oldToken) {
       // 用户退出登录，断开WebSocket
       console.log('用户退出，断开WebSocket');
-      webSocketManager.close();
+      disconnectWaitlistWebSocket();
     }
   }
 );
@@ -115,7 +134,7 @@ store.watch(
 // 应用启动时，如果已登录则连接WebSocket
 if (store.state.user.token) {
   setTimeout(() => {
-    webSocketManager.connect();
+    connectWaitlistWebSocket();
   }, 2000); // 延迟2秒确保应用完全启动
 }
 

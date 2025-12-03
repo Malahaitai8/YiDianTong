@@ -136,6 +136,25 @@ public class AdminQaController {
         }
     }
 
+    @Operation(summary = "获取高频问题统计", description = "返回当前统计数据")
+    @GetMapping("/stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result getStats() {
+        SystemConfig sc = systemConfigService.selectByKey(KEY_STATS);
+        if (sc == null || !StringUtils.hasText(sc.getValue())) {
+            return Result.success(Collections.emptyMap());
+        }
+        try {
+            Map<String, Integer> map = objectMapper.readValue(
+                    sc.getValue(),
+                    new TypeReference<Map<String, Integer>>() {}
+            );
+            return Result.success(map);
+        } catch (Exception e) {
+            return Result.error("解析失败: " + e.getMessage());
+        }
+    }
+
     @Operation(summary = "更新高频问题统计", description = "覆盖式更新统计对象")
     @PutMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")

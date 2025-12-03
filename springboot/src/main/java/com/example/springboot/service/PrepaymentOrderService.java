@@ -58,11 +58,18 @@ public class PrepaymentOrderService {
         // 4. 检查是否已经存在预支付订单
         PrepaymentOrder existingOrder = prepaymentOrderMapper.selectByWaitlistId(resolvedWaitlistId);
         if (existingOrder != null) {
-            // 如果订单已过期，则可以重新创建
-            if ("EXPIRED".equals(existingOrder.getStatus())) {
+            String status = existingOrder.getStatus();
+            // 如果订单已过期、已退款或已取消，删除旧订单，创建新订单
+            if ("EXPIRED".equals(status) || "REFUNDED".equals(status) || "CANCELLED".equals(status)) {
                 prepaymentOrderMapper.delete(existingOrder.getId());
+                logger.info("删除旧订单，创建新订单: orderNo={}, oldStatus={}", existingOrder.getOrderNo(), status);
+            } else if ("PENDING".equals(status) || "PAID".equals(status)) {
+                // 订单状态正常，直接返回已存在的订单
+                return existingOrder;
             } else {
-                return existingOrder; // 返回已存在的订单
+                // 其他状态（如 CONSUMED），也删除旧订单，创建新订单
+                prepaymentOrderMapper.delete(existingOrder.getId());
+                logger.info("删除旧订单（状态异常），创建新订单: orderNo={}, oldStatus={}", existingOrder.getOrderNo(), status);
             }
         }
         

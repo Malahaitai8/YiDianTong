@@ -1,8 +1,21 @@
 <template>
   <div class="patients-management">
     <el-card class="search-card">
-      <el-row :gutter="16">
-        <el-col :span="8">
+      <el-row :gutter="16" class="filter-row" type="flex">
+        <el-col :span="5">
+          <el-input
+            v-model="searchForm.patientId"
+            placeholder="输入患者ID精确查询"
+            clearable
+            @input="handleSearchById"
+            @clear="handleSearchById"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-col>
+        <el-col :span="6">
           <el-input v-model="searchForm.keyword" placeholder="搜索患者姓名或手机号" clearable @input="handleSearch">
             <template #prefix>
               <el-icon><Search /></el-icon>
@@ -24,10 +37,10 @@
             <el-option label="外来人员" value="外来人员" />
           </el-select>
         </el-col>
-        <el-col :span="4">
+        <el-col :span="2">
           <el-button @click="resetSearch" style="width: 100%">重置</el-button>
         </el-col>
-        <el-col :span="4">
+        <el-col :span="3">
           <el-button type="primary" @click="openAddDialog" style="width: 100%">
             <el-icon><Plus /></el-icon>
             添加患者
@@ -189,7 +202,8 @@ const selected = ref([])
 const searchForm = reactive({
   keyword: '',
   idStatus: '',
-  role: ''
+  role: '',
+  patientId: ''
 })
 
 const pagination = reactive({
@@ -246,7 +260,14 @@ const selectedPatient = ref({})
 
 const handleSelectionChange = (rows) => { selected.value = rows }
 const handleSearch = () => { pagination.currentPage = 1 }
-const resetSearch = () => { searchForm.keyword = ''; searchForm.idStatus = ''; searchForm.role = ''; pagination.currentPage = 1 }
+const resetSearch = async () => {
+  searchForm.keyword = ''
+  searchForm.idStatus = ''
+  searchForm.role = ''
+  searchForm.patientId = ''
+  pagination.currentPage = 1
+  await loadPatients()
+}
 
 const loadPatients = async () => {
   try {
@@ -370,6 +391,37 @@ const viewPatient = async (row) => {
   }
 }
 
+const handleSearchById = async () => {
+  const id = String(searchForm.patientId || '').trim()
+  if (!id) {
+    await loadPatients()
+    return
+  }
+  if (!/^\d+$/.test(id)) {
+    ElMessage.warning('患者ID需为数字')
+    return
+  }
+  try {
+    loading.value = true
+    const resp = await getPatientById(id)
+    if (resp?.data) {
+      patients.value = [resp.data]
+      pagination.currentPage = 1
+      pagination.total = 1
+      ElMessage.success(`已找到患者 ID ${id}`)
+    } else {
+      patients.value = []
+      pagination.total = 0
+      ElMessage.warning('未找到该患者')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.msg || '查询失败'
+    ElMessage.error(msg)
+  } finally {
+    loading.value = false
+  }
+}
+
 const resetForm = () => {
   if (!patientFormRef.value) return
   patientFormRef.value.resetFields()
@@ -399,6 +451,10 @@ const specificRoleText = (v) => {
 <style scoped>
 .patients-management {
   padding: 10px;
+}
+.filter-row {
+  flex-wrap: nowrap;
+  align-items: center;
 }
 .search-card { margin-bottom: 16px; }
 .table-card { margin-top: 8px; }

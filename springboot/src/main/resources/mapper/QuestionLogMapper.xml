@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.springboot.mapper.QuestionLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.springboot.entity.QuestionLog">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="question_content" property="questionContent" jdbcType="VARCHAR"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- 插入问题记录 -->
+    <insert id="insert" parameterType="com.example.springboot.mapper.QuestionLogMapper" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO question_log (user_id, question_content)
+        VALUES (#{userId}, #{questionContent})
+    </insert>
+
+    <!-- 获取最近的问题内容（用于高频分析） -->
+    <select id="findRecentQuestions" resultType="java.lang.String">
+        SELECT question_content
+        FROM question_log
+        ORDER BY created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 根据用户ID查询 -->
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, question_content, created_at
+        FROM question_log
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 统计问题出现次数 -->
+    <select id="countByQuestionContent" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM question_log
+        WHERE question_content = #{questionContent}
+    </select>
+
+    <!-- 分页查询所有问题 -->
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT id, user_id, question_content, created_at
+        FROM question_log
+        ORDER BY created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>

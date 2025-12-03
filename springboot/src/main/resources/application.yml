@@ -56,6 +56,28 @@ logging:
     # 业务代码使用 DEBUG，方便排查候补、号源等逻辑
     com.example.springboot: DEBUG
 
+# Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # 本地 Redis 不需要密码
+      password: ""
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+
+# deepseek配置(wzm)
+deepseek:
+  api:
+    key: ${DEEPSEEK_API_KEY:sk-6803552ef4384e0aa49251069fd95bdd}
+    url: https://api.deepseek.com/v1/chat/completions
+    model: deepseek-chat
+    timeout: 30000
 # 微信小程序配置
 wechat:
   appid: ${WECHAT_APPID:}  # 从环境变量读取，或直接配置

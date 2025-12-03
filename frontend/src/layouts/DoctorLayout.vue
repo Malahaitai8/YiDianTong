@@ -35,7 +35,8 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -63,11 +64,15 @@ const menuItems = ref([
   { path: '/doctor', name: '工作台' },
   { path: '/doctor/profile', name: '个人信息' },
   { path: '/doctor/schedule', name: '我的排班' },
+  { path: '/doctor/applications', name: '申请管理' },
   { path: '/doctor/patients', name: '患者查看' }
 ])
 
 const handleCommand = async (command) => {
-  if (command === 'logout') {
+  if (command === 'profile') {
+    // 跳转到个人信息页面
+    router.push('/doctor/profile')
+  } else if (command === 'logout') {
     try {
       await ElMessageBox.confirm(
         '确定要退出登录吗？',

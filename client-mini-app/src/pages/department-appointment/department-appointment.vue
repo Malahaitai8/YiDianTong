@@ -41,7 +41,10 @@
 						class="slot-card"
 						v-for="s in getSlotsByPeriod(p)"
 						:key="s.id"
-						:class="slotCardClass(s)"
+						:class="{
+							active: selectedSlot && selectedSlot.id === s.id,
+							'no-slots': s.availableSlots === 0
+						}"
 						@click="selectSlot(s)"
 					>
 						<view class="slot-top">
@@ -124,7 +127,17 @@ export default {
 		this.initDates();
 		this.loadDoctorsAndSchedules();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadDoctorsAndSchedules();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		initDates() {
 			const list = [];
 			const weeks = ['日', '一', '二', '三', '四', '五', '六'];
@@ -216,9 +229,22 @@ export default {
 			return t || '普通号';
 		},
 		getSlotPrice(s) {
-			// 若后端有价格字段，优先；否则根据医生职称给出默认价
+			// 1) 若后端直接给了价格字段，优先使用（与后端保持完全一致）
 			const raw = s.price ?? s.fee ?? s.amount;
-			if (typeof raw === 'number') return raw.toFixed(2);
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 2) 根据号别类型与后端 SystemConfig 中的 FEE_NORMAL/FEE_EXPERT/FEE_VIP 对齐
+			const slotType = (s.slotType || '').toString().trim().toUpperCase();
+			if (slotType === 'VIP') {
+				return '100.00'; // 对齐 FEE_VIP 默认值
+			}
+			if (slotType === 'EXPERT') {
+				return '50.00'; // 对齐 FEE_EXPERT 默认值
+			}
+
+			// 3) 兜底：根据职称估算，但金额仍然收敛到「普通号 15 元」
 			const fee = this.calcFeeByTitle(s.doctorTitle);
 			return fee.toFixed(2);
 		},
@@ -230,10 +256,10 @@ export default {
 			return '普通号';
 		},
 		calcFeeByTitle(title) {
+			// 与后端 SystemConfig 默认值保持一致：普通号 15，专家号 50
 			if (!title) return 15;
 			if (title.includes('主任')) return 50;
-			if (title.includes('副主任')) return 30;
-			if (title.includes('主治')) return 20;
+			// 其他职称都视为普通号
 			return 15;
 		},
 		selectSlot(s) {

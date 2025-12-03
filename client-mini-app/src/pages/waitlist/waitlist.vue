@@ -223,7 +223,17 @@ export default {
 		uni.$off('waitlist-rank-update', this.handleRankUpdate);
 		uni.$off('waitlist-success', this.handleWaitlistSuccessEvent);
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadWaitlistInfo(false); // 非静默刷新
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		displayValue(value, fallback = '--') {
 			return value === undefined || value === null || value === '' ? fallback : value;
 		},
@@ -708,10 +718,15 @@ export default {
 		// 确保WebSocket连接
 		ensureWebSocketConnection() {
 			console.log('检查WebSocket连接状态');
+			const userId = this.$store.state.user?.userInfo?.userId;
+			if (!userId) {
+				console.warn('无法连接WebSocket：用户ID不存在');
+				return;
+			}
 			
 			if (!webSocketManager.isConnected()) {
 				console.log('WebSocket未连接，尝试连接');
-				webSocketManager.connect();
+				webSocketManager.connect(userId);
 			} else {
 				console.log('WebSocket已连接');
 				// 如果已连接且有scheduleId，订阅候补状态

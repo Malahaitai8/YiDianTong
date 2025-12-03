@@ -610,7 +610,30 @@ public class AppointmentService {
             Date startDate,
             Date endDate,
             String timeSlot) {
-        return scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot);
+        List<AvailableSlotDTO> slots = scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot);
+        if (slots == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 按后端统一收费规则（system_config）计算每个号源的挂号费
+        for (AvailableSlotDTO slot : slots) {
+            String normalized = slot.getSlotType() == null ? "NORMAL" : slot.getSlotType().trim().toUpperCase();
+            String key;
+            switch (normalized) {
+                case "EXPERT":
+                    key = "FEE_EXPERT";
+                    break;
+                case "VIP":
+                    key = "FEE_VIP";
+                    break;
+                default:
+                    key = "FEE_NORMAL";
+            }
+            java.math.BigDecimal fee = systemConfigService.getDecimalOrDefault(key, java.math.BigDecimal.ZERO);
+            slot.setFee(fee.doubleValue());
+        }
+
+        return slots;
     }
 
     // ===== 工具方法 =====

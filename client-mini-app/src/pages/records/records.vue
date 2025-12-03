@@ -45,7 +45,7 @@
 			</view>
 
 			<view v-else>
-				<view class="record-card" v-for="item in filteredList" :key="item.id || item.scheduleId" @click="onCardClick(item)">
+				<view class="record-card" v-for="item in filteredList" :key="item.recordKey" @click="onCardClick(item)">
 					<view class="row" v-if="item.type !== 'waitlist'">
 						<text class="label">就诊医生</text>
 						<text class="value">{{ item.doctorName || item.doctorTitle || ('#' + item.doctorId) || '未知医生' }}</text>
@@ -60,7 +60,18 @@
 					</view>
 					<view class="row">
 						<text class="label">状态</text>
-						<text class="value status" :class="String(item.status||'').toLowerCase()">{{ statusName(item.status) }}</text>
+						<text
+							class="value status"
+							:class="{
+								pending: item.status === 'PENDING' || item.status === 'scheduled',
+								confirmed: item.status === 'CONFIRMED',
+								completed: item.status === 'COMPLETED' || item.status === 'completed',
+								waitlist: item.type === 'waitlist' || item.status === 'WAITLIST',
+								cancelled: item.status === 'CANCELLED' || item.status === 'cancelled'
+							}"
+						>
+							{{ statusName(item.status) }}
+						</text>
 					</view>
 					<view class="row" v-if="item.fee !== undefined || item.actualFee !== undefined">
 						<text class="label">费用</text>
@@ -86,7 +97,7 @@
 </template>
 
 <script>
-import { cancelAppointment, deleteAppointment } from '@/api/appointment.js'
+import { deleteAppointment } from '@/api/appointment.js'
 import { getMyWaitlist, cancelWaitlist } from '@/api/waitlist.js'
 import request from '@/utils/request.js'
 
@@ -107,7 +118,7 @@ export default {
 		// 合并所有记录
 		allRecords() {
 			// 处理预约记录
-			const appointmentRecords = this.appointments.map(item => {
+			const appointmentRecords = this.appointments.map((item, index) => {
 				// 格式化就诊时间
 				let formattedTime = '未知时间';
 				if (item.appointmentTime) {
@@ -122,12 +133,13 @@ export default {
 					...item,
 					type: 'appointment',
 					formattedAppointmentTime: formattedTime,
-					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot)
+					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot),
+					recordKey: item.id != null ? `appointment_${item.id}` : `appointment_idx_${index}`
 				};
 			});
 
 			// 处理候补记录（使用后端返回的医生与排班信息，确保与数据库一致）
-			const waitlistRecords = this.waitlists.map(item => {
+			const waitlistRecords = this.waitlists.map((item, index) => {
 				let formattedTime = '未知日期';
 				if (item.scheduleDate) {
 					const d = new Date(item.scheduleDate);
@@ -144,7 +156,8 @@ export default {
 					id: `waitlist_${item.scheduleId}`,
 					doctorName: item.doctorName || (item.doctorId ? ('#'+item.doctorId) : '未知医生'),
 					formattedAppointmentTime: formattedTime,
-					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot) || item.timeSlotName || ''
+					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot) || item.timeSlotName || '',
+					recordKey: item.scheduleId != null ? `waitlist_${item.scheduleId}` : `waitlist_idx_${index}`
 				};
 			});
 
@@ -211,11 +224,21 @@ export default {
 	onUnload() {
 		// 清理轮询定时器
 		if (this.pollTimer) {
-			clearTimeout(this.pollTimer);
+clearTimeout(this.pollTimer);
 			this.pollTimer = null;
 		}
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadData();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		onCardClick(item) {
 			// 卡片区域点击：根据类型跳转到正确的详情页
 			if (item && item.type === 'waitlist') {
@@ -350,14 +373,14 @@ export default {
 				default: return s || '-';
 			}
 		},
-		async cancel(item) {
-			try {
-				await cancelAppointment(item.id);
-				uni.showToast({ title: '已取消', icon: 'success' });
-				this.loadData();
-			} catch (e) {
-				uni.showToast({ title: e.msg || '取消失败', icon: 'none' });
+		cancel(item) {
+			if (!item.id) {
+				uni.showToast({ title: '缺少预约ID', icon: 'none' });
+				return;
 			}
+			uni.navigateTo({
+				url: `/pages/cancel-appointment/cancel-appointment?id=${item.id}`
+			});
 		},
 		async remove(item) {
 			try {

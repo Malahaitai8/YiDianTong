@@ -15,27 +15,3 @@ public interface AuditLogMapper {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

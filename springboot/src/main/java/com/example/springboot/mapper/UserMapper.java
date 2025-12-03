@@ -17,4 +17,5 @@ public interface UserMapper {
     int updateStatus(@Param("id") Long id, @Param("status") String status);
     int updatePassword(@Param("id") Long id, @Param("password") String password);
     int updateAllPasswords(@Param("password") String password);
+    int updatePasswordsByRole(@Param("role") String role, @Param("password") String password);
 }

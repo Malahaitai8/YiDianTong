@@ -86,32 +86,37 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="applyDialogVisible" title="提交信息修改申请" width="600px">
-      <el-form ref="applyFormRef" :model="applyForm" :rules="applyRules" label-width="120px">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="字段" prop="fieldName">
-              <el-select v-model="applyForm.fieldName" placeholder="请选择要修改的字段" style="width: 100%">
-                <el-option label="姓名" value="name" />
-                <el-option label="职称" value="title" />
-                <el-option label="擅长领域" value="specialty" />
-                <el-option label="个人简介" value="bio" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="新值" prop="newValue">
-              <el-input v-model="applyForm.newValue" placeholder="请输入新的值" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24">
-            <el-form-item label="申请原因" prop="reason">
-              <el-input v-model="applyForm.reason" type="textarea" :rows="3" placeholder="可选，填写申请原因" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+    <el-dialog v-model="applyDialogVisible" title="提交信息修改申请" width="640px" class="apply-dialog">
+      <el-form ref="applyFormRef" :model="applyForm" :rules="applyRules" label-width="80px" class="apply-form">
+        <el-form-item label="字段" prop="fieldName" class="apply-form-item">
+          <el-select v-model="applyForm.fieldName" placeholder="请选择要修改的字段" class="field-select">
+            <el-option label="姓名" value="name" />
+            <el-option label="职称" value="title" />
+            <el-option label="擅长领域" value="specialty" />
+            <el-option label="个人简介" value="bio" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="新值" prop="newValue" class="apply-form-item">
+          <template v-if="isTitleField">
+            <el-select v-model="applyForm.newValue" placeholder="请选择新的职称" class="value-select">
+              <el-option v-for="title in titleOptions" :key="title" :label="title" :value="title" />
+            </el-select>
+          </template>
+          <el-input
+            v-else
+            v-model="applyForm.newValue"
+            placeholder="请输入新的值"
+            class="value-input"
+          />
+        </el-form-item>
+        <el-form-item label="申请原因" prop="reason" class="apply-form-item">
+          <el-input
+            v-model="applyForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="可选，填写申请原因"
+          />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="closeApplyDialog">取消</el-button>
@@ -125,7 +130,11 @@
         <span>我的信息修改申请</span>
       </template>
       <el-table :data="applications" style="width: 100%">
-        <el-table-column prop="fieldName" label="字段" width="120" />
+        <el-table-column label="修改字段" width="140">
+          <template #default="{ row }">
+            {{ fieldNameMap[row.fieldName] || row.fieldName || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="oldValue" label="原值" min-width="150" />
         <el-table-column prop="newValue" label="新值" min-width="150" />
         <el-table-column label="状态" width="120">
@@ -146,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
@@ -225,10 +234,18 @@ onMounted(() => {
 const applyFormRef = ref()
 const applySubmitting = ref(false)
 const applyForm = reactive({ fieldName: '', newValue: '', reason: '' })
+const titleOptions = ['主任医师', '副主任医师', '主治医师', '住院医师']
+const isTitleField = computed(() => applyForm.fieldName === 'title')
 const applyRules = {
   fieldName: [{ required: true, message: '请选择字段', trigger: 'change' }],
-  newValue: [{ required: true, message: '请输入新值', trigger: 'blur' }]
+  newValue: [{ required: true, message: '请输入新值', trigger: ['blur', 'change'] }]
 }
+watch(
+  () => applyForm.fieldName,
+  () => {
+    applyForm.newValue = ''
+  }
+)
 const resetApplyForm = () => {
   applyForm.fieldName = ''
   applyForm.newValue = ''
@@ -266,6 +283,13 @@ const loadMyApplications = async () => {
   } catch (e) {
     applications.value = []
   }
+}
+
+const fieldNameMap = {
+  name: '姓名',
+  title: '职称',
+  specialty: '擅长领域',
+  bio: '个人简介'
 }
 
 const statusText = (s) => {
@@ -407,7 +431,26 @@ const closeApplyDialog = () => {
   text-align: center;
 }
 
- 
+.apply-dialog :deep(.el-dialog__body) {
+  padding-top: 12px;
+}
+
+.apply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.apply-form-item {
+  margin-bottom: 12px;
+}
+
+.field-select,
+.value-select,
+.apply-form-item :deep(.el-input),
+.apply-form-item :deep(.el-select) {
+  width: 100%;
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

@@ -44,7 +44,10 @@
 						class="slot-card"
 						v-for="s in getSlotsByPeriod(p)"
 						:key="s.id"
-						:class="slotCardClass(s)"
+						:class="{
+							active: selectedSlot && selectedSlot.id === s.id,
+							'no-slots': s.availableSlots === 0
+						}"
 						@click="selectSlot(s)"
 					>
 						<view class="slot-top">
@@ -114,7 +117,17 @@ export default {
 		this.initDates();
 		this.loadDoctorsAndSchedules();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadDoctorsAndSchedules();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		initDates() {
 			const list = [];
 			const weeks = ['日', '一', '二', '三', '四', '五', '六'];
@@ -205,12 +218,25 @@ export default {
 			return t || '普通号';
 		},
 		getSlotPrice(s) {
+			// 1) 若后端直接给出价格字段，则以接口为准
 			const raw = s.price ?? s.fee ?? s.amount;
-			if (raw != null) return raw;
-			if (s.doctorTitle === '主任医师') return 50;
-			if (s.doctorTitle === '副主任医师') return 30;
-			if (s.doctorTitle === '主治医师') return 20;
-			return 15;
+			if (raw != null && !Number.isNaN(Number(raw))) {
+				return Number(raw).toFixed(2);
+			}
+
+			// 2) 若有 slotType，则按与后端 SystemConfig 相同的规则映射
+			const slotType = (s.slotType || '').toString().trim().toUpperCase();
+			if (slotType === 'VIP') {
+				return '100.00';
+			}
+			if (slotType === 'EXPERT') {
+				return '50.00';
+			}
+
+			// 3) 兜底：根据职称估价，但金额仍然与普通号 15 元保持一致
+			if (s.doctorTitle === '主任医师') return '50.00';
+			// 其他职称统一按普通号处理
+			return '15.00';
 		},
 		mapDoctorTitleToSlotType(title) {
 			if (title === '主任医师') return '专家号';

@@ -16,14 +16,10 @@
             d.title AS doctorTitle,
             s.schedule_date AS scheduleDate,
             s.time_slot AS timeSlot,
-            s.slot_type AS slotType,
-            dept.name AS departmentName,
-            c.name AS clinicName
+            s.slot_type AS slotType
         FROM appointment a
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN schedule s ON a.schedule_id = s.id
-        LEFT JOIN clinic c ON d.clinic_id = c.id
-        LEFT JOIN department dept ON c.department_id = dept.id
         WHERE a.patient_id = #{patientId}
         ORDER BY a.appointment_time DESC
     </select>
@@ -38,12 +34,9 @@
         select * from appointment where doctor_id = #{doctorId} order by appointment_time desc
     </select>
 
-    <!-- 统计某排班的预约数量（不含已取消） -->
+    <!-- 统计某排班的预约数量 -->
     <select id="countByScheduleId" resultType="int" parameterType="long">
-        select count(*) from appointment 
-        where schedule_id = #{scheduleId} 
-          and status != 'cancelled' 
-          and status != 'CANCELLED'
+        select count(*) from appointment where schedule_id = #{scheduleId}
     </select>
 
     <!-- 新增预约，返回自增 ID -->
@@ -107,13 +100,5 @@
         SELECT count(*) FROM appointment
     </select>
 
-    <!-- 根据时间范围查询预约（用于就诊提醒） -->
-    <select id="selectByTimeRange" resultType="com.example.springboot.entity.Appointment">
-        SELECT * FROM appointment
-        WHERE appointment_time >= #{startTime}
-          AND appointment_time &lt;= #{endTime}
-          AND status = 'scheduled'
-        ORDER BY appointment_time ASC
-    </select>
 
 </mapper>

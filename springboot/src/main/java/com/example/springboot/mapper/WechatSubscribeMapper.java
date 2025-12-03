@@ -26,27 +26,3 @@ public interface WechatSubscribeMapper {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -50,6 +50,7 @@ public class QaController {
     @GetMapping("/top-questions")
     @PreAuthorize("hasRole('PATIENT')")
     public Result topQuestions(@RequestParam(name = "limit", required = false) Integer limit) {
+
         List<QaTopQuestionDTO> list = qaService.getTopQuestions(limit);
         return Result.success(list);
     }
