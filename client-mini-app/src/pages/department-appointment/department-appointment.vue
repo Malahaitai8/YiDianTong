@@ -71,7 +71,7 @@
 		</view>
 
 		<!-- 空状态 -->
-		<view class="empty-all" v-if="isAllEmpty">
+		<view class="empty-all" v-if="!loading && periods.every(p => getSlotsByPeriod(p).length === 0)">
 			<text class="empty-icon">📅</text>
 			<text class="empty-tip">该日期暂无科室号源</text>
 		</view>
@@ -118,12 +118,6 @@ export default {
 		periods() {
 			// 仅展示上午/下午
 			return ['morning', 'afternoon'];
-		},
-		isAllEmpty() {
-			if (this.loading) {
-				return false;
-			}
-			return this.periods.every(p => this.getSlotsByPeriod(p).length === 0);
 		}
 	},
 	onLoad(query) {
@@ -133,7 +127,17 @@ export default {
 		this.initDates();
 		this.loadDoctorsAndSchedules();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadDoctorsAndSchedules();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		initDates() {
 			const list = [];
 			const weeks = ['日', '一', '二', '三', '四', '五', '六'];
@@ -226,26 +230,37 @@ export default {
 		},
 		getSlotPrice(s) {
 			// 1) 若后端直接给了价格字段，优先使用（与后端保持完全一致）
-			const raw = s.fee ?? s.price ?? s.amount;
+			const raw = s.price ?? s.fee ?? s.amount;
 			if (raw != null && !Number.isNaN(Number(raw))) {
 				return Number(raw).toFixed(2);
 			}
 
-			// 2) 若没有费用字段，则根据 slotType 做映射（与当前 system_config 配置保持一致）
-			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			// 2) 根据号别类型与后端 SystemConfig 中的 FEE_NORMAL/FEE_EXPERT/FEE_VIP 对齐
 			const slotType = (s.slotType || '').toString().trim().toUpperCase();
 			if (slotType === 'VIP') {
-				return '100.00';
+				return '100.00'; // 对齐 FEE_VIP 默认值
 			}
 			if (slotType === 'EXPERT') {
-				return '30.00';
+				return '50.00'; // 对齐 FEE_EXPERT 默认值
 			}
 
-			// 3) 兜底：根据职称简化区分专家/普通
-			if (s.doctorTitle && s.doctorTitle.includes('主任')) {
-				return '30.00';
-			}
-			return '15.00';
+			// 3) 兜底：根据职称估算，但金额仍然收敛到「普通号 15 元」
+			const fee = this.calcFeeByTitle(s.doctorTitle);
+			return fee.toFixed(2);
+		},
+		mapDoctorTitleToSlotType(title) {
+			if (!title) return '普通号';
+			if (title.includes('主任')) return '专家号';
+			if (title.includes('副主任')) return '副专家号';
+			if (title.includes('主治')) return '普通号';
+			return '普通号';
+		},
+		calcFeeByTitle(title) {
+			// 与后端 SystemConfig 默认值保持一致：普通号 15，专家号 50
+			if (!title) return 15;
+			if (title.includes('主任')) return 50;
+			// 其他职称都视为普通号
+			return 15;
 		},
 		selectSlot(s) {
 			// 即使号源为0也可以选择，用于候补

@@ -3,6 +3,8 @@
  * 用于实时接收候补队列变化通知
  */
 
+import config from '@/config'
+
 class WebSocketClient {
   constructor() {
     this.ws = null;
@@ -16,10 +18,44 @@ class WebSocketClient {
   }
 
   /**
+   * 获取 WebSocket URL
+   * @param {String} userId - 用户ID
+   * @returns {String} WebSocket URL
+   */
+  getWebSocketUrl(userId) {
+    // 从配置文件获取 API baseURL
+    let baseURL = config.baseURL || 'http://localhost:8080';
+    
+    // 将 http:// 或 https:// 替换为 ws:// 或 wss://
+    let wsUrl = baseURL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    
+    // 在微信小程序中，localhost 无法访问，需要提示用户配置实际 IP
+    // #ifdef MP-WEIXIN
+    if (wsUrl.includes('localhost') || wsUrl.includes('127.0.0.1')) {
+      console.warn('微信小程序中无法使用 localhost，请配置实际的服务器 IP 地址');
+      // 尝试使用环境变量中的 WebSocket 配置
+      const wsHost = process.env.VUE_APP_WS_HOST || 'localhost';
+      const wsPort = process.env.VUE_APP_WS_PORT || '9090';
+      const wsProtocol = process.env.VUE_APP_WS_PROTOCOL || 'ws';
+      wsUrl = `${wsProtocol}://${wsHost}:${wsPort}`;
+    }
+    // #endif
+    
+    // 构建完整的 WebSocket URL
+    return `${wsUrl}/ws/waitlist/${userId}`;
+  }
+
+  /**
    * 连接 WebSocket
    * @param {String} userId - 用户ID
    */
   connect(userId) {
+    // 验证 userId
+    if (!userId) {
+      console.error('WebSocket 连接失败：用户ID不能为空');
+      return;
+    }
+
     if (this.isConnecting || (this.ws && this.ws.readyState === 1)) {
       console.log('WebSocket 已连接或正在连接中');
       return;
@@ -29,8 +65,7 @@ class WebSocketClient {
     this.isConnecting = true;
 
     // 构建 WebSocket URL
-    // 注意：需要根据实际部署环境修改 host 和 port
-    const wsUrl = `ws://localhost:9090/ws/waitlist/${userId}`;
+    const wsUrl = this.getWebSocketUrl(userId);
     
     console.log('正在连接 WebSocket:', wsUrl);
 

@@ -197,7 +197,17 @@ export default {
 			this.loadDoctorInfo();
 		}
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadSchedules();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		// 初始化日期列表（未来7天）
 		initDateList() {
 			const dates = [];

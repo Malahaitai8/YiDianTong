@@ -179,15 +179,15 @@ export default {
 			return 0;
 		},
 		
-		// 原价 —— 优先使用后端排班返回的 fee/price，若没有则按号别简单映射
+		// 原价（与后端接口规则对齐：normal/expert/VIP -> 15/30/50）
 		originalFee() {
-			const raw = this.schedule.fee ?? this.schedule.price;
+			// 1) 若后端排班中已经带有 fee/price 字段，直接使用
+			const raw = this.schedule.price ?? this.schedule.fee;
 			if (raw != null && !Number.isNaN(Number(raw))) {
 				return Number(raw).toFixed(2);
 			}
 
-			// 后端未返回费用字段时的兜底：
-			// normal -> 15 元, expert -> 30 元, vip -> 100 元
+			// 2) 否则根据 slotType 映射到与后端相同的默认金额
 			const fee = this.estimateFeeBySlotType(this.schedule.slotType);
 			return Number(fee).toFixed(2);
 		},
@@ -327,12 +327,12 @@ export default {
 			}
 		},
 		
-		// 根据号别类型估算费用（仅在后端未返回 fee 时作为兜底使用）
+		// 根据号别类型估算费用（与后端接口约定保持一致：normal=15, expert=30, VIP=50）
 		estimateFeeBySlotType(slotType) {
-			const s = String(slotType || '').toUpperCase();
-			if (s === 'VIP') return 100;                 // VIP 号
-			if (s === 'EXPERT' || s === '专家') return 30; // 专家号
-			// 默认普通号
+			const s = String(slotType || '').toLowerCase();
+			if (s === 'vip') return 50;
+			if (s === 'expert' || s === '专家') return 30;
+			// 默认 normal/普通
 			return 15;
 		},
 		

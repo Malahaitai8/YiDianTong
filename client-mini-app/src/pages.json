@@ -9,7 +9,8 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "首页"
+				"navigationBarTitleText": "首页",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -27,7 +28,8 @@
 		{
 			"path": "pages/records/records",
 			"style": {
-				"navigationBarTitleText": "记录"
+				"navigationBarTitleText": "记录",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -77,19 +79,22 @@
 		{
 			"path": "pages/doctor-list/doctor-list",
 			"style": {
-				"navigationBarTitleText": "医生列表"
+				"navigationBarTitleText": "医生列表",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
 			"path": "pages/doctor-detail/doctor-detail",
 			"style": {
-				"navigationBarTitleText": "医生详情"
+				"navigationBarTitleText": "医生详情",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
 			"path": "pages/department-appointment/department-appointment",
 			"style": {
-				"navigationBarTitleText": "科室预约"
+				"navigationBarTitleText": "科室预约",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -101,7 +106,8 @@
 		{
 			"path": "pages/clinic-appointment/clinic-appointment",
 			"style": {
-				"navigationBarTitleText": "门诊预约"
+				"navigationBarTitleText": "门诊预约",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -119,7 +125,8 @@
 		{
 			"path": "pages/waitlist/waitlist",
 			"style": {
-				"navigationBarTitleText": "候补排队"
+				"navigationBarTitleText": "候补排队",
+				"enablePullDownRefresh": true
 			}
 		}
 	],
@@ -163,7 +170,10 @@
 				},
 				{
 					"path": "my-substitute/my-substitute",
-					"style": {"navigationBarTitleText": "我的候补"}
+					"style": {
+						"navigationBarTitleText": "我的候补",
+						"enablePullDownRefresh": true
+					}
 				}
 			]
 		},

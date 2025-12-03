@@ -181,7 +181,17 @@ export default {
 		}
 		this.loadDoctors();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadDoctors();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		// 加载医生列表
 		async loadDoctors() {
 			this.loading = true;

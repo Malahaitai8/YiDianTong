@@ -1,9 +1,17 @@
 <template>
 	<view class="appointment-detail-page">
 		<!-- 状态卡片 -->
-		<view class="status-card" :class="statusClass">
-			<view class="status-icon">{{ statusIcon }}</view>
-			<text class="status-text">{{ statusText }}</text>
+		<view
+			class="status-card"
+			:class="{
+				'status-pending': appointmentDetail.status === 'PENDING' || appointmentDetail.status === 'pending',
+				'status-confirmed': appointmentDetail.status === 'CONFIRMED' || appointmentDetail.status === 'confirmed' || appointmentDetail.status === 'SCHEDULED' || appointmentDetail.status === 'scheduled',
+				'status-completed': appointmentDetail.status === 'COMPLETED' || appointmentDetail.status === 'completed',
+				'status-cancelled': appointmentDetail.status === 'CANCELLED' || appointmentDetail.status === 'cancelled'
+			}"
+		>
+			<view class="status-icon">{{ getStatusIcon(appointmentDetail.status) }}</view>
+			<text class="status-text">{{ getStatusText(appointmentDetail.status) }}</text>
 		</view>
 
 		<!-- 就诊信息卡片 -->
@@ -143,18 +151,6 @@ export default {
 			return status === 'PENDING' || status === 'pending' || 
 				   status === 'CONFIRMED' || status === 'confirmed' ||
 				   status === 'SCHEDULED' || status === 'scheduled';
-		},
-		// 状态样式（用于小程序端，避免在模板中直接调用方法）
-		statusClass() {
-			return this.getStatusClass(this.appointmentDetail.status);
-		},
-		// 状态图标
-		statusIcon() {
-			return this.getStatusIcon(this.appointmentDetail.status);
-		},
-		// 状态文案
-		statusText() {
-			return this.getStatusText(this.appointmentDetail.status);
 		}
 	},
 	onLoad(options) {

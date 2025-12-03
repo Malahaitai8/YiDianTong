@@ -8,6 +8,7 @@ import com.example.springboot.entity.Patient;
 import com.example.springboot.entity.PrepaymentOrder;
 import com.example.springboot.entity.Waitlist;
 import com.example.springboot.mapper.PatientMapper;
+import com.example.springboot.mapper.PrepaymentOrderMapper;
 import com.example.springboot.mapper.WaitlistMapper;
 import com.example.springboot.service.PrepaymentOrderService;
 import com.example.springboot.service.WaitlistService;
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
-// [删除] import org.springframework.web.bind.annotation.PutMapping; // 未使用
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -47,6 +47,9 @@ public class WaitlistController {
     @Resource
     private PrepaymentOrderService prepaymentOrderService;
 
+    @Resource
+    private PrepaymentOrderMapper prepaymentOrderMapper;
+
 
     /** [修改] 加入候补队列 */
     @Operation(summary = "加入候补队列", description = "当号源已满时，患者可加入候补队列")
@@ -58,44 +61,38 @@ public class WaitlistController {
         if (patient == null) {
             return Result.error("当前用户不是有效的患者");
         }
-        Waitlist waitlist = waitlistMapper.selectById(request.getWaitlistId());
-        if (waitlist == null) {
-            return Result.error("候补记录不存在");
-        }
-        if (!waitlist.getPatientId().equals(patient.getId())) {
-            return Result.error("候补记录与患者不匹配");
-        }
-        if (!waitlist.getScheduleId().equals(request.getScheduleId())) {
-            return Result.error("候补记录与排班不匹配");
-        }
-
-        String currentStatus = waitlist.getStatus();
-        if (currentStatus != null) {
-            switch (currentStatus) {
-                case "WAITING":
-                    return Result.error("已在候补队列中，请勿重复提交");
-                case "GRANTED":
-                    return Result.error("候补已成功，无需重复加入");
-                case "EXPIRED":
-                    return Result.error("候补记录已失效，请重新发起");
-                default:
-                    break;
+        
+        // 检查是否已经存在该患者对该排班的候补记录
+        Waitlist existingWaitlist = waitlistMapper.selectByScheduleAndPatient(request.getScheduleId(), patient.getId());
+        if (existingWaitlist != null) {
+            // 如果已存在候补记录，直接使用现有的
+            if (!"WAITING".equals(existingWaitlist.getStatus()) && !"GRANTED".equals(existingWaitlist.getStatus())) {
+                // 如果不是等待中或已获得预约的状态，则更新状态
+                existingWaitlist.setJoinTime(new Date());
+                existingWaitlist.setStatus("WAITING");
+                waitlistMapper.update(existingWaitlist);
+                
+                // 加入队列
+                waitlistService.addToQueue(existingWaitlist);
+                return Result.success("已重新加入候补队列");
+            } else {
+                return Result.error("已在候补队列中，请勿重复提交");
             }
         }
-
-        PrepaymentOrder order = prepaymentOrderService.getOrderByWaitlistId(waitlist.getId());
-        if (order == null || !"PAID".equals(order.getStatus())) {
-            return Result.error("请先完成预支付费用");
-        }
-
-        Date joinTime = new Date();
-        waitlist.setJoinTime(joinTime);
-
-        // 只有在成功写入Redis队列后，才把数据库状态更新为 WAITING，避免状态与队列不一致
-        waitlistService.addToQueue(waitlist);
-
+        
+        // 创建新的候补记录
+        Waitlist waitlist = new Waitlist();
+        waitlist.setScheduleId(request.getScheduleId());
+        waitlist.setPatientId(patient.getId());
+        waitlist.setJoinTime(new Date());
         waitlist.setStatus("WAITING");
-        waitlistMapper.update(waitlist);
+        
+        // 插入数据库
+        waitlistMapper.insert(waitlist);
+        
+        // 加入Redis队列
+        waitlistService.addToQueue(waitlist);
+        
         return Result.success("加入候补成功");
     }
 
@@ -134,7 +131,7 @@ public class WaitlistController {
     }
 
     /** 退出候补队列（患者） */
-    @Operation(summary = "退出候补队列", description = "患者从指定排班的候补队列中移除自身")
+    @Operation(summary = "退出候补队列", description = "患者从指定排班的候补队列中移除自身，同步删除候补记录和预支付订单")
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("hasRole('PATIENT')")
     public Result cancel(@PathVariable Long scheduleId) {
@@ -147,23 +144,54 @@ public class WaitlistController {
         if (waitlist == null) {
             return Result.error("未找到候补记录");
         }
+        
+        Long waitlistId = waitlist.getId();
+        
+        // 1. 从 Redis 队列中移除候补记录
         try {
             waitlistService.removeFromQueue(waitlist);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            // 忽略队列移除失败的错误，继续执行删除操作
+            System.out.println("从队列移除候补记录失败: " + e.getMessage());
+        }
 
-        waitlist.setStatus("EXPIRED");
-        waitlistMapper.update(waitlist);
-
-        PrepaymentOrder order = prepaymentOrderService.getOrderByWaitlistId(waitlist.getId());
-        if (order != null && "PAID".equals(order.getStatus())) {
+        // 2. 处理预支付订单
+        PrepaymentOrder order = prepaymentOrderService.getOrderByWaitlistId(waitlistId);
+        String orderStatus = null;
+        if (order != null) {
+            orderStatus = order.getStatus();
+            if ("PAID".equals(orderStatus)) {
+                // 已支付的订单，需要退款
+                try {
+                    prepaymentOrderService.refundOrder(order.getOrderNo(), "用户取消候补，自动退款");
+                    orderStatus = "REFUNDED";
+                } catch (Exception e) {
+                    // 退款失败，仍然删除订单
+                    System.out.println("退款失败: " + e.getMessage());
+                }
+            }
+            // 删除预支付订单（无论状态如何）
             try {
-                prepaymentOrderService.refundOrder(order.getOrderNo(), "用户取消候补，自动退款");
-                return Result.success("已取消候补并原路退回预支付费用");
+                prepaymentOrderMapper.delete(order.getId());
             } catch (Exception e) {
-                return Result.error("候补取消成功，但退款失败：" + e.getMessage());
+                System.out.println("删除预支付订单失败: " + e.getMessage());
             }
         }
 
-        return Result.success("已退出候补队列");
+        // 3. 删除候补记录
+        try {
+            waitlistMapper.delete(waitlistId);
+        } catch (Exception e) {
+            return Result.error("删除候补记录失败: " + e.getMessage());
+        }
+
+        // 4. 返回结果
+        if ("REFUNDED".equals(orderStatus)) {
+            return Result.success("已取消候补并原路退回预支付费用");
+        } else if (order != null) {
+            return Result.success("已取消候补并删除预支付订单");
+        } else {
+            return Result.success("已退出候补队列");
+        }
     }
 }

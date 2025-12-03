@@ -151,7 +151,17 @@ export default {
 	onShow() {
 		this.loadReminder();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadReminder();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		guardedNavigate(url) {
 			if (!this.isLoggedIn) {
 				promptLogin();

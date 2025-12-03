@@ -56,9 +56,18 @@
 	"mp-weixin": { /* 微信小程序特有相关 */
 		"appid": "",
 		"setting": {
-			"urlCheck": false
+			"urlCheck": false,
+			"es6": true,
+			"enhance": true,
+			"postcss": true,
+			"minified": true
 		},
-		"usingComponents": true
+		"usingComponents": true,
+		"permission": {
+			"scope.userLocation": {
+				"desc": "你的位置信息将用于小程序位置接口的效果展示"
+			}
+		}
 	},
 	"mp-alipay" : {
         "usingComponents" : true

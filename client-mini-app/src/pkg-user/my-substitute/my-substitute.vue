@@ -142,7 +142,17 @@ export default {
 		
 		this.loadData();
 	},
+	onPullDownRefresh() {
+		this.handlePullDownRefresh();
+	},
 	methods: {
+		async handlePullDownRefresh() {
+			try {
+				await this.loadData();
+			} finally {
+				uni.stopPullDownRefresh();
+			}
+		},
 		async loadData() {
 			this.loading = true;
 			try {
