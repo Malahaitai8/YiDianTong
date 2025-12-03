@@ -4,6 +4,7 @@ package com.example.springboot.controller;
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.CreateWaitlistRequest;
 import com.example.springboot.dto.WaitlistInfoDTO;
+import com.example.springboot.dto.WaitlistCountRequest;
 import com.example.springboot.entity.Patient;
 import com.example.springboot.entity.PrepaymentOrder;
 import com.example.springboot.entity.Waitlist;
@@ -124,9 +125,23 @@ public class WaitlistController {
     }
 
     @Operation(summary = "查询多个排班的候补人数", description = "返回每个排班的候补队列数量，需管理员权限")
+    @PostMapping("/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result getQueueSizes(@RequestBody WaitlistCountRequest request) {
+        List<Long> scheduleIds = request != null ? request.getScheduleIds() : null;
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return Result.error("scheduleIds 不能为空");
+        }
+        return Result.success(waitlistService.getQueueSizes(scheduleIds));
+    }
+
+    @Operation(summary = "查询多个排班的候补人数（兼容 GET）", description = "兼容旧版前端，以查询参数形式传递 scheduleIds。建议使用 POST。")
     @GetMapping("/count")
     @PreAuthorize("hasRole('ADMIN')")
-    public Result getQueueSizes(@RequestParam("scheduleIds") List<Long> scheduleIds) {
+    public Result getQueueSizesByQuery(@RequestParam(value = "scheduleIds", required = false) List<Long> scheduleIds) {
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return Result.error("scheduleIds 不能为空");
+        }
         return Result.success(waitlistService.getQueueSizes(scheduleIds));
     }
 

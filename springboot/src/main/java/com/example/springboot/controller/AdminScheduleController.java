@@ -1,5 +1,6 @@
 package com.example.springboot.controller;
 
+import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.*;
 import com.example.springboot.entity.Schedule;
@@ -38,6 +39,7 @@ public class AdminScheduleController {
      */
     @Operation(summary = "创建单个排班", description = "为指定医生创建单个排班记录")
     @PostMapping
+    @AuditLog(operationType = "CREATE", operationModule = "SCHEDULE", operationDesc = "创建单个排班")
     public Result createSchedule(@Valid @RequestBody CreateScheduleRequest request) {
         try {
             Schedule schedule = scheduleService.createSchedule(request);
@@ -53,6 +55,7 @@ public class AdminScheduleController {
      */
     @Operation(summary = "批量创建排班", description = "为指定医生批量创建多个排班记录")
     @PostMapping("/batch")
+    @AuditLog(operationType = "CREATE", operationModule = "SCHEDULE", operationDesc = "批量创建排班", recordResponse = false)
     public Result batchCreateSchedule(@Valid @RequestBody BatchScheduleRequest request) {
         try {
             Map<String, Object> result = scheduleService.batchCreateSchedule(request);
@@ -68,6 +71,7 @@ public class AdminScheduleController {
      */
     @Operation(summary = "更新排班", description = "更新指定排班的信息")
     @PutMapping("/{id}")
+    @AuditLog(operationType = "UPDATE", operationModule = "SCHEDULE", operationDesc = "更新排班")
     public Result updateSchedule(
             @Parameter(description = "排班ID", required = true) @PathVariable Long id,
             @Valid @RequestBody UpdateScheduleRequest request) {
@@ -85,6 +89,7 @@ public class AdminScheduleController {
      */
     @Operation(summary = "删除排班", description = "删除指定的排班记录")
     @DeleteMapping("/{id}")
+    @AuditLog(operationType = "DELETE", operationModule = "SCHEDULE", operationDesc = "删除排班", recordResponse = false)
     public Result deleteSchedule(@Parameter(description = "排班ID", required = true) @PathVariable Long id) {
         try {
             scheduleService.deleteSchedule(id);
@@ -159,6 +164,7 @@ public class AdminScheduleController {
      */
     @Operation(summary = "加号并处理候补", description = "为指定排班增加号源，并自动处理候补队列")
     @PostMapping("/{id}/add-slots")
+    @AuditLog(operationType = "UPDATE", operationModule = "SCHEDULE", operationDesc = "排班加号", recordResponse = false)
     public Result addSlots(
             @Parameter(description = "排班ID", required = true) @PathVariable Long id,
             @RequestBody @Valid AddSlotsRequest request) {

@@ -5,7 +5,9 @@ import com.example.springboot.dto.AppointmentWithDoctorDTO;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface AppointmentMapper {
@@ -54,4 +56,38 @@ public interface AppointmentMapper {
      * 统计总预约数量
      */
     int countTotal();
+
+    // ---------- 统计报表用 ----------
+
+    List<Map<String, Object>> countByDateRange(@Param("startDate") Date startDate,
+                                               @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> countByDepartment(@Param("startDate") Date startDate,
+                                                @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> countByDoctor(@Param("startDate") Date startDate,
+                                            @Param("endDate") Date endDate,
+                                            @Param("doctorId") Long doctorId);
+
+    List<Map<String, Object>> sumRevenueByDateRange(@Param("startDate") Date startDate,
+                                                    @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> sumRevenueByDepartment(@Param("startDate") Date startDate,
+                                                     @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> countBySlotType(@Param("startDate") Date startDate,
+                                              @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> countByTimeSlot(@Param("startDate") Date startDate,
+                                              @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> getCancellationRateByDepartment(@Param("startDate") Date startDate,
+                                                              @Param("endDate") Date endDate);
+
+    List<Map<String, Object>> getCancellationRateByDoctor(@Param("startDate") Date startDate,
+                                                          @Param("endDate") Date endDate,
+                                                          @Param("doctorId") Long doctorId);
+
+    List<Map<String, Object>> getAppointmentTrend(@Param("startDate") Date startDate,
+                                                  @Param("endDate") Date endDate);
 }

@@ -1506,6 +1506,72 @@ GET /api/admin/schedules?doctorId=1&startDate=2025-10-25&endDate=2025-10-31&page
 
 ---
 
+### 6.10 号源设置管理（全局 / 医生 / 门诊）
+
+#### 6.10.1 获取全局设置
+
+- **接口**: `GET /api/admin/schedule-settings`
+- **权限**: 管理员
+- **说明**: 返回全局号源策略；若未配置，则返回系统默认值。
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "allowedSlotTypes": ["normal", "expert"],
+    "defaultTotalSlots": 20,
+    "maxSlotsPerSchedule": 50,
+    "maxAppointmentsPerDayPerDoctor": 60,
+    "maxAppointmentsPerDayPerPatient": 3,
+    "vipDailyLimitPerDoctor": 10,
+    "enforceWeekendLimits": true,
+    "cancelPolicy": {
+      "latestCancelHours": 2,
+      "penaltyEnabled": false
+    },
+    "overrideStrategy": "OVERRIDE",
+    "effectiveStartDate": null,
+    "effectiveEndDate": null
+  }
+}
+```
+
+#### 6.10.2 更新全局设置
+
+- **接口**: `PUT /api/admin/schedule-settings`
+- **权限**: 管理员
+- **请求体**: 同上；只需提交需要更新的字段即可。
+
+#### 6.10.3 医生级设置
+
+- **获取**: `GET /api/admin/schedule-settings/doctor/{doctorId}`
+- **更新**: `PUT /api/admin/schedule-settings/doctor/{doctorId}`
+- **说明**: 返回或保存某位医生的号源策略；为空表示继承全局。
+
+**请求体示例**:
+```json
+{
+  "allowedSlotTypes": ["expert", "vip"],
+  "defaultTotalSlots": 30,
+  "maxSlotsPerSchedule": 60,
+  "vipDailyLimitPerDoctor": 5,
+  "overrideStrategy": "OVERRIDE",
+  "effectiveStartDate": "2025-01-01",
+  "effectiveEndDate": null,
+  "description": "专家排班策略"
+}
+```
+
+#### 6.10.4 门诊级设置
+
+- **获取**: `GET /api/admin/schedule-settings/clinic/{clinicId}`
+- **更新**: `PUT /api/admin/schedule-settings/clinic/{clinicId}`
+- **说明**: 字段与医生级类似，但不包含 `doctorId`、`description`。返回空对象表示继承全局策略。
+
+---
+
 ## 7️⃣ 预约管理模块
 
 ### 7.1 查询所有预约
@@ -2031,7 +2097,55 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-### 8.3 弹出队首（管理员手动操作）
+### 8.3 批量查询候补人数（管理员）
+
+**接口**: `POST /waitlist/count`（推荐）  
+**兼容**: `GET /waitlist/count?scheduleIds=1&scheduleIds=2...`（仅为兼容旧版，URL 太长易失败）
+
+**权限**: 管理员（需要 `ADMIN` 角色）
+
+**说明**: 一次性查询多个排班的候补队列数量。由于排班列表可能包含上百条记录，改用 `POST` + JSON 避免 GET URL 过长导致浏览器拒绝请求。
+
+**请求体**:
+```json
+{
+  "scheduleIds": [574, 588, 644, 560]
+}
+```
+
+**字段说明**:
+- `scheduleIds` (必填): 排班 ID 列表，至少包含 1 个元素
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "574": 3,
+    "588": 0,
+    "644": 12,
+    "560": 1
+  }
+}
+```
+
+**错误示例**:
+```json
+{
+  "code": "500",
+  "msg": "scheduleIds 不能为空",
+  "data": null
+}
+```
+
+**注意事项**:
+- 如果排班数量非常多，前端可以按 50/100 条分批请求，减轻服务器压力。
+- 旧版 GET `/waitlist/count?scheduleIds=...` 仍可使用，但 URL 过长时浏览器可能直接拦截，强烈建议切换到 POST。
+
+---
+
+### 8.4 弹出队首（管理员手动操作）
 
 **接口**: `POST /waitlist/next/{scheduleId}`
 
@@ -2075,7 +2189,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 
 ---
 
-### 8.4 自动候补处理机制（系统自动）
+### 8.5 自动候补处理机制（系统自动）
 
 **触发场景**:
 1. 患者取消预约（`PUT /appointment/{id}/cancel`）
@@ -4509,5 +4623,532 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 - `usedSlots`: 已被预约占用的总号源数
 - `completionRate`: 就诊完成率（`已完成 / (总预约 - 已取消)`），结果为0到1之间的小数
 - `utilization`: 号源利用率（`已使用号源 / 总号源`），结果为0到1之间的小数
+
+---
+
+### 8.2 获取预约统计
+
+**接口**: `GET /api/admin/stats/appointments`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 按日期范围统计预约情况，支持按日期、科室、医生等维度统计。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "date": "2024-01-15",
+      "departmentName": "内科",
+      "departmentId": 1,
+      "doctorName": "张医生",
+      "doctorId": 1,
+      "totalAppointments": 20,
+      "completedAppointments": 18,
+      "cancelledAppointments": 1,
+      "noShowAppointments": 1,
+      "scheduledAppointments": 0,
+      "completionRate": 0.9474,
+      "cancellationRate": 0.05,
+      "totalRevenue": 1800.00
+    }
+  ]
+}
+```
+
+---
+
+### 8.3 获取科室负荷统计
+
+**接口**: `GET /api/admin/stats/departments/workload`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计各科室的预约量、完成率、退号率、号源利用率等。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "departmentId": 1,
+      "departmentName": "内科",
+      "doctorCount": 8,
+      "totalAppointments": 1200,
+      "completedAppointments": 1080,
+      "cancelledAppointments": 80,
+      "completionRate": 0.9643,
+      "cancellationRate": 0.0667,
+      "totalRevenue": 120000.00,
+      "totalSlots": 1500,
+      "usedSlots": 1200,
+      "utilizationRate": 0.80
+    }
+  ]
+}
+```
+
+---
+
+### 8.4 获取医生工作量统计
+
+**接口**: `GET /api/admin/stats/doctors/workload`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计各医生的工作天数、接诊患者数、日均接诊数、收入等。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+- `doctorId` (可选): 医生ID，如果指定则只返回该医生的统计
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "doctorId": 1,
+      "doctorName": "张医生",
+      "doctorTitle": "主任医师",
+      "departmentId": 1,
+      "departmentName": "内科",
+      "workDays": 22,
+      "totalAppointments": 440,
+      "completedAppointments": 400,
+      "cancelledAppointments": 30,
+      "noShowAppointments": 10,
+      "avgPatientsPerDay": 20.00,
+      "totalRevenue": 44000.00,
+      "completionRate": 0.9756,
+      "cancellationRate": 0.0682
+    }
+  ]
+}
+```
+
+---
+
+### 8.5 获取收入统计
+
+**接口**: `GET /api/admin/stats/revenue`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 按日期范围统计收入情况。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "date": "2024-01-15",
+      "departmentId": null,
+      "departmentName": null,
+      "slotType": null,
+      "totalRevenue": 3100.00,
+      "originalFee": 3500.00,
+      "actualFee": 3100.00,
+      "appointmentCount": 35,
+      "avgRevenuePerAppointment": 88.57
+    }
+  ]
+}
+```
+
+---
+
+### 8.6 获取收入统计（按科室）
+
+**接口**: `GET /api/admin/stats/revenue/departments`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 按科室统计收入情况。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "date": null,
+      "departmentId": 1,
+      "departmentName": "内科",
+      "slotType": null,
+      "totalRevenue": 120000.00,
+      "originalFee": 135000.00,
+      "actualFee": 120000.00,
+      "appointmentCount": 1200,
+      "avgRevenuePerAppointment": 100.00
+    }
+  ]
+}
+```
+
+---
+
+### 8.7 获取号别分布统计
+
+**接口**: `GET /api/admin/stats/slot-type-distribution`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计不同号别（普通、专家、特需）的预约分布。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "slotType": "normal",
+      "appointmentCount": 800,
+      "completedCount": 750,
+      "cancelledCount": 40,
+      "totalRevenue": 80000.00
+    },
+    {
+      "slotType": "expert",
+      "appointmentCount": 300,
+      "completedCount": 280,
+      "cancelledCount": 15,
+      "totalRevenue": 60000.00
+    },
+    {
+      "slotType": "vip",
+      "appointmentCount": 100,
+      "completedCount": 95,
+      "cancelledCount": 5,
+      "totalRevenue": 30000.00
+    }
+  ]
+}
+```
+
+---
+
+### 8.8 获取时间段分布统计
+
+**接口**: `GET /api/admin/stats/time-slot-distribution`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计不同时间段（上午、下午）的预约分布。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "timeSlot": "morning",
+      "appointmentCount": 700,
+      "completedCount": 650,
+      "cancelledCount": 35,
+      "totalRevenue": 70000.00
+    },
+    {
+      "timeSlot": "afternoon",
+      "appointmentCount": 500,
+      "completedCount": 475,
+      "cancelledCount": 25,
+      "totalRevenue": 50000.00
+    }
+  ]
+}
+```
+
+---
+
+### 8.9 获取退号率统计（按科室）
+
+**接口**: `GET /api/admin/stats/cancellation-rate/departments`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计各科室的退号率和退号数量。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "departmentId": 1,
+      "departmentName": "内科",
+      "totalCount": 1200,
+      "cancelledCount": 80,
+      "cancellationRate": 6.67
+    }
+  ]
+}
+```
+
+**字段说明**:
+- `cancellationRate`: 退号率，单位为百分比（%）
+
+---
+
+### 8.10 获取退号率统计（按医生）
+
+**接口**: `GET /api/admin/stats/cancellation-rate/doctors`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 统计各医生的退号率和退号数量。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+- `doctorId` (可选): 医生ID，如果指定则只返回该医生的统计
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": [
+    {
+      "doctorId": 1,
+      "doctorName": "张医生",
+      "doctorTitle": "主任医师",
+      "departmentId": 1,
+      "departmentName": "内科",
+      "totalCount": 440,
+      "cancelledCount": 30,
+      "cancellationRate": 6.82
+    }
+  ]
+}
+```
+
+---
+
+### 8.11 获取趋势分析
+
+**接口**: `GET /api/admin/stats/trends`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 获取预约、收入、退号的趋势数据，用于图表展示。
+
+**请求参数**:
+- `startDate` (可选): 开始日期，格式：yyyy-MM-dd，默认：30天前
+- `endDate` (可选): 结束日期，格式：yyyy-MM-dd，默认：今天
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "appointmentTrend": [
+      {
+        "date": "2024-01-15",
+        "totalCount": 45,
+        "completedCount": 40,
+        "cancelledCount": 3,
+        "noShowCount": 1,
+        "scheduledCount": 1,
+        "cancellationRate": 6.67,
+        "totalRevenue": 4500.00
+      }
+    ],
+    "revenueTrend": [
+      {
+        "date": "2024-01-15",
+        "appointmentCount": 35,
+        "originalFee": 3500.00,
+        "totalRevenue": 3100.00,
+        "actualFee": 3100.00
+      }
+    ],
+    "cancellationTrend": [
+      {
+        "date": "2024-01-15",
+        "cancelledCount": 3,
+        "cancellationRate": 6.67
+      }
+    ],
+    "startDate": "2024-01-01",
+    "endDate": "2024-01-31"
+  }
+}
+```
+
+**字段说明**:
+- `appointmentTrend`: 预约趋势数据（按日期）
+- `revenueTrend`: 收入趋势数据（按日期）
+- `cancellationTrend`: 退号趋势数据（按日期）
+
+---
+
+## 📊 统计报表API使用说明
+
+### 日期参数说明
+
+所有统计API都支持日期范围查询，参数说明：
+- `startDate`: 开始日期，格式：`yyyy-MM-dd`，如果不提供，默认查询最近30天
+- `endDate`: 结束日期，格式：`yyyy-MM-dd`，如果不提供，默认查询到今天
+
+### 统计维度
+
+系统支持以下统计维度：
+1. **时间维度**: 按日期统计（日、周、月）
+2. **科室维度**: 按科室统计预约量、收入、退号率等
+3. **医生维度**: 按医生统计工作量、收入、退号率等
+4. **号别维度**: 按号别（普通、专家、特需）统计分布
+5. **时间段维度**: 按时间段（上午、下午）统计分布
+
+### 常用统计指标
+
+- **完成率**: `已完成数 / (总预约数 - 已取消数)`
+- **退号率**: `已取消数 / 总预约数`
+- **号源利用率**: `已使用号源数 / 总号源数`
+- **日均接诊数**: `总预约数 / 工作天数`
+
+---
+
+## 9️⃣ 审计日志模块
+
+### 9.1 查询审计日志列表
+
+**接口**: `GET /api/admin/audit-logs`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 支持多条件筛选（操作类型、模块、用户、状态、日期范围等），默认按时间倒序分页返回。
+
+**查询参数**:
+- `operationType` (可选): 操作类型（CREATE/UPDATE/DELETE/APPROVE/REJECT/QUERY 等）
+- `operationModule` (可选): 操作模块（SCHEDULE/APPOINTMENT/WAITLIST/AUDIT 等）
+- `username` (可选): 操作人用户名
+- `userRole` (可选): 操作人角色（patient/doctor/admin）
+- `status` (可选): 操作状态（SUCCESS/FAILURE）
+- `targetType`、`targetId` (可选): 目标对象类型及其主键
+- `startTime`、`endTime` (可选): 操作时间范围，格式 `yyyy-MM-dd HH:mm:ss`
+- `page` (可选): 页码，默认 1
+- `pageSize` (可选): 每页数量，默认 20，最大 200
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "list": [
+      {
+        "id": 101,
+        "userId": 1,
+        "username": "admin",
+        "userRole": "admin",
+        "operationType": "UPDATE",
+        "operationModule": "SCHEDULE",
+        "operationDesc": "排班加号",
+        "requestMethod": "POST",
+        "requestUrl": "/api/admin/schedules/12/add-slots",
+        "requestParams": "{\"slotsToAdd\":5}",
+        "responseCode": "200",
+        "status": "SUCCESS",
+        "executionTime": 85,
+        "ipAddress": "127.0.0.1",
+        "createdAt": "2025-01-15 09:21:35"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 132,
+    "totalPages": 7
+  }
+}
+```
+
+### 9.2 查询审计日志详情
+
+**接口**: `GET /api/admin/audit-logs/{id}`
+
+**权限**: 仅管理员 (`ADMIN`)
+
+**说明**: 根据日志 ID 返回完整的审计信息，包含请求参数、响应信息以及错误原因等。
+
+**成功响应**:
+```json
+{
+  "code": "200",
+  "msg": "成功",
+  "data": {
+    "id": 101,
+    "userId": 1,
+    "username": "admin",
+    "userRole": "admin",
+    "operationType": "DELETE",
+    "operationModule": "SCHEDULE",
+    "operationDesc": "删除排班",
+    "requestMethod": "DELETE",
+    "requestUrl": "/api/admin/schedules/12",
+    "requestParams": null,
+    "responseCode": "200",
+    "responseMsg": "请求成功",
+    "status": "SUCCESS",
+    "executionTime": 43,
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0",
+    "createdAt": "2025-01-15 10:05:12"
+  }
+}
+```
+
+### 9.3 自动审计说明
+
+- 系统提供 `@AuditLog` 注解，已在排班创建、更新、删除、加号等关键接口启用。
+- 当接口执行成功/失败时，切面会自动采集以下信息：
+  - 操作人身份（ID、用户名、角色）
+  - 操作类型、模块与描述
+  - 请求 URL、方法、参数、IP、User-Agent
+  - 响应状态码与消息，必要时包含完整响应体
+  - 执行耗时、错误信息
+- 审计日志默认保存最新记录，可通过接口按需查询和追踪。
 
 ---
