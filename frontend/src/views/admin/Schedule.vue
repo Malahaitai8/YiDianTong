@@ -164,6 +164,14 @@
               <el-icon><Download /></el-icon>
               导出排班表
             </el-button>
+            <el-button 
+              type="info" 
+              @click="showSettingsDialog" 
+              style="width: 100%"
+            >
+              <el-icon><Setting /></el-icon>
+              号源设置管理
+            </el-button>
           </div>
         </div>
 
@@ -247,18 +255,6 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
-                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
-                            <el-button
-                              v-if="canPopWaitlist(schedule)"
-                              class="pop-waitlist-btn"
-                              type="danger"
-                              plain
-                              size="small"
-                              :loading="waitlistPopLoadingId === schedule.id"
-                              @click.stop="handlePopWaitlistClick(schedule)"
-                            >
-                              弹出候补
-                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -287,18 +283,6 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
-                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
-                            <el-button
-                              v-if="canPopWaitlist(schedule)"
-                              class="pop-waitlist-btn"
-                              type="danger"
-                              plain
-                              size="small"
-                              :loading="waitlistPopLoadingId === schedule.id"
-                              @click.stop="handlePopWaitlistClick(schedule)"
-                            >
-                              弹出候补
-                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -362,18 +346,6 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
-                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
-                            <el-button
-                              v-if="canPopWaitlist(schedule)"
-                              class="pop-waitlist-btn"
-                              type="danger"
-                              plain
-                              size="small"
-                              :loading="waitlistPopLoadingId === schedule.id"
-                              @click.stop="handlePopWaitlistClick(schedule)"
-                            >
-                              弹出候补
-                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                     </div>
@@ -402,18 +374,6 @@
                           </div>
                           <div class="slots-actions">
                             <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
-                            <span class="waitlist-info" v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
-                            <el-button
-                              v-if="canPopWaitlist(schedule)"
-                              class="pop-waitlist-btn"
-                              type="danger"
-                              plain
-                              size="small"
-                              :loading="waitlistPopLoadingId === schedule.id"
-                              @click.stop="handlePopWaitlistClick(schedule)"
-                            >
-                              弹出候补
-                            </el-button>
                             <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                           </div>
                 </div>
@@ -464,18 +424,6 @@
             <div class="schedule-item-info">
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
               <span>剩余：{{ schedule.availableSlots || 0 }}</span>
-              <span v-if="getWaitlistCount(schedule) > 0">候补：{{ getWaitlistCount(schedule) }}</span>
-              <el-button
-                v-if="canPopWaitlist(schedule)"
-                class="pop-waitlist-btn"
-                type="danger"
-                plain
-                size="small"
-                :loading="waitlistPopLoadingId === schedule.id"
-                @click.stop="handlePopWaitlistClick(schedule)"
-              >
-                弹出候补
-              </el-button>
               <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
             </div>
           </div>
@@ -785,6 +733,248 @@
         <el-button type="warning" :loading="exporting" @click="performExport">导出</el-button>
       </template>
     </el-dialog>
+
+    <!-- 号源设置管理对话框 -->
+    <el-dialog
+      v-model="settingsDialogVisible"
+      title="号源设置管理"
+      width="800px"
+      @close="handleSettingsDialogClose"
+    >
+      <el-tabs v-model="settingsActiveTab" @tab-change="handleSettingsTabChange">
+        <!-- 全局设置 -->
+        <el-tab-pane label="全局设置" name="global">
+          <el-form :model="globalSettings" :rules="settingsRules" ref="globalSettingsFormRef" label-width="180px" style="margin-top: 20px">
+            <el-form-item label="允许的号别类型" prop="allowedSlotTypes">
+              <el-checkbox-group v-model="globalSettings.allowedSlotTypes">
+                <el-checkbox label="normal">普通号</el-checkbox>
+                <el-checkbox label="expert">专家号</el-checkbox>
+                <el-checkbox label="vip">特需号</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+            <el-form-item label="默认总号源数" prop="defaultTotalSlots">
+              <el-input-number v-model="globalSettings.defaultTotalSlots" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="单次排班最大号源数" prop="maxSlotsPerSchedule">
+              <el-input-number v-model="globalSettings.maxSlotsPerSchedule" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="医生每日最大预约数" prop="maxAppointmentsPerDayPerDoctor">
+              <el-input-number v-model="globalSettings.maxAppointmentsPerDayPerDoctor" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="患者每日最大预约数" prop="maxAppointmentsPerDayPerPatient">
+              <el-input-number v-model="globalSettings.maxAppointmentsPerDayPerPatient" :min="1" :max="10" />
+            </el-form-item>
+            <el-form-item label="特需号每日限额" prop="vipDailyLimitPerDoctor">
+              <el-input-number v-model="globalSettings.vipDailyLimitPerDoctor" :min="0" :max="100" />
+            </el-form-item>
+            <el-form-item label="强制执行周末限制" prop="enforceWeekendLimits">
+              <el-switch v-model="globalSettings.enforceWeekendLimits" />
+            </el-form-item>
+            <el-form-item label="取消策略">
+              <div style="width: 100%">
+                <el-form-item label="最晚取消时间(小时)" prop="cancelPolicy.latestCancelHours" style="margin-bottom: 10px">
+                  <el-input-number v-model="globalSettings.cancelPolicy.latestCancelHours" :min="0" :max="48" />
+                </el-form-item>
+                <el-form-item label="启用取消惩罚" prop="cancelPolicy.penaltyEnabled">
+                  <el-switch v-model="globalSettings.cancelPolicy.penaltyEnabled" />
+                </el-form-item>
+              </div>
+            </el-form-item>
+            <el-form-item label="覆盖策略" prop="overrideStrategy">
+              <el-select v-model="globalSettings.overrideStrategy" style="width: 100%">
+                <el-option label="覆盖" value="OVERRIDE" />
+                <el-option label="合并" value="MERGE" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="生效开始日期" prop="effectiveStartDate">
+              <el-date-picker
+                v-model="globalSettings.effectiveStartDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="生效结束日期" prop="effectiveEndDate">
+              <el-date-picker
+                v-model="globalSettings.effectiveEndDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- 医生级设置 -->
+        <el-tab-pane label="医生级设置" name="doctor">
+          <div style="margin: 20px 0">
+            <el-form :inline="true" style="margin-bottom: 20px">
+              <el-form-item label="选择医生">
+                <el-select
+                  v-model="selectedDoctorId"
+                  placeholder="请选择医生"
+                  filterable
+                  clearable
+                  style="width: 300px"
+                  @change="loadDoctorSettings"
+                >
+                  <el-option
+                    v-for="doctor in doctorList"
+                    :key="doctor.id"
+                    :label="doctor.name"
+                    :value="doctor.id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-form>
+          </div>
+          <el-form 
+            v-if="selectedDoctorId" 
+            :model="doctorSettings" 
+            :rules="settingsRules" 
+            ref="doctorSettingsFormRef" 
+            label-width="180px"
+          >
+            <el-form-item label="允许的号别类型" prop="allowedSlotTypes">
+              <el-checkbox-group v-model="doctorSettings.allowedSlotTypes">
+                <el-checkbox label="normal">普通号</el-checkbox>
+                <el-checkbox label="expert">专家号</el-checkbox>
+                <el-checkbox label="vip">特需号</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+            <el-form-item label="默认总号源数" prop="defaultTotalSlots">
+              <el-input-number v-model="doctorSettings.defaultTotalSlots" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="单次排班最大号源数" prop="maxSlotsPerSchedule">
+              <el-input-number v-model="doctorSettings.maxSlotsPerSchedule" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="特需号每日限额" prop="vipDailyLimitPerDoctor">
+              <el-input-number v-model="doctorSettings.vipDailyLimitPerDoctor" :min="0" :max="100" />
+            </el-form-item>
+            <el-form-item label="覆盖策略" prop="overrideStrategy">
+              <el-select v-model="doctorSettings.overrideStrategy" style="width: 100%">
+                <el-option label="覆盖" value="OVERRIDE" />
+                <el-option label="合并" value="MERGE" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="生效开始日期" prop="effectiveStartDate">
+              <el-date-picker
+                v-model="doctorSettings.effectiveStartDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="生效结束日期" prop="effectiveEndDate">
+              <el-date-picker
+                v-model="doctorSettings.effectiveEndDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="描述" prop="description">
+              <el-input v-model="doctorSettings.description" type="textarea" :rows="3" placeholder="可选，填写医生级设置描述" />
+            </el-form-item>
+          </el-form>
+          <el-empty v-else description="请先选择医生" />
+        </el-tab-pane>
+
+        <!-- 门诊级设置 -->
+        <el-tab-pane label="门诊级设置" name="clinic">
+          <div style="margin: 20px 0">
+            <el-form :inline="true" style="margin-bottom: 20px">
+              <el-form-item label="选择门诊">
+                <el-select
+                  v-model="selectedClinicId"
+                  placeholder="请选择门诊"
+                  filterable
+                  clearable
+                  style="width: 300px"
+                  @change="loadClinicSettings"
+                >
+                  <el-option
+                    v-for="clinic in clinicList"
+                    :key="clinic.id"
+                    :label="clinic.name"
+                    :value="clinic.id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-form>
+          </div>
+          <el-form 
+            v-if="selectedClinicId" 
+            :model="clinicSettings" 
+            :rules="settingsRules" 
+            ref="clinicSettingsFormRef" 
+            label-width="180px"
+          >
+            <el-form-item label="允许的号别类型" prop="allowedSlotTypes">
+              <el-checkbox-group v-model="clinicSettings.allowedSlotTypes">
+                <el-checkbox label="normal">普通号</el-checkbox>
+                <el-checkbox label="expert">专家号</el-checkbox>
+                <el-checkbox label="vip">特需号</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+            <el-form-item label="默认总号源数" prop="defaultTotalSlots">
+              <el-input-number v-model="clinicSettings.defaultTotalSlots" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="单次排班最大号源数" prop="maxSlotsPerSchedule">
+              <el-input-number v-model="clinicSettings.maxSlotsPerSchedule" :min="1" :max="200" />
+            </el-form-item>
+            <el-form-item label="特需号每日限额" prop="vipDailyLimitPerDoctor">
+              <el-input-number v-model="clinicSettings.vipDailyLimitPerDoctor" :min="0" :max="100" />
+            </el-form-item>
+            <el-form-item label="覆盖策略" prop="overrideStrategy">
+              <el-select v-model="clinicSettings.overrideStrategy" style="width: 100%">
+                <el-option label="覆盖" value="OVERRIDE" />
+                <el-option label="合并" value="MERGE" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="生效开始日期" prop="effectiveStartDate">
+              <el-date-picker
+                v-model="clinicSettings.effectiveStartDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="生效结束日期" prop="effectiveEndDate">
+              <el-date-picker
+                v-model="clinicSettings.effectiveEndDate"
+                type="date"
+                placeholder="选择日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                clearable
+              />
+            </el-form-item>
+          </el-form>
+          <el-empty v-else description="请先选择门诊" />
+        </el-tab-pane>
+      </el-tabs>
+      <template #footer>
+        <el-button @click="settingsDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="settingsSubmitting" @click="saveSettings">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -793,7 +983,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
-  ArrowLeft, ArrowRight, Download, WarningFilled 
+  ArrowLeft, ArrowRight, Download, WarningFilled, Setting
 } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
 import { 
@@ -809,7 +999,14 @@ import {
 import { getDoctorList } from '@/api/doctor'
 import { getDepartmentList } from '@/api/department'
 import { getClinicList } from '@/api/clinic'
-import { popNextWaitlist, getWaitlistCounts } from '@/api/waitlist'
+import {
+  getGlobalScheduleSettings,
+  updateGlobalScheduleSettings,
+  getDoctorScheduleSettings,
+  updateDoctorScheduleSettings,
+  getClinicScheduleSettings,
+  updateClinicScheduleSettings
+} from '@/api/scheduleSettings'
 
 // 响应式数据
 const loading = ref(false)
@@ -830,6 +1027,9 @@ const isEdit = ref(false)
 const formRef = ref(null)
 const addSlotsFormRef = ref(null)
 const batchFormRef = ref(null)
+const globalSettingsFormRef = ref(null)
+const doctorSettingsFormRef = ref(null)
+const clinicSettingsFormRef = ref(null)
 
 // 视图状态
 const currentView = ref('calendar') // calendar, list
@@ -845,8 +1045,7 @@ const filters = reactive({
   timeSlot: null // 时间段筛选：morning/afternoon
 })
 
-const waitlistPopLoadingId = ref(null)
-const waitlistCountMap = ref(new Map())
+
 
 // 分页
 const pagination = reactive({
@@ -931,6 +1130,61 @@ const batchFormRules = {
   totalSlots: [{ required: true, message: '请输入总号源数', trigger: 'blur' }]
 }
 
+// 号源设置相关
+const settingsDialogVisible = ref(false)
+const settingsActiveTab = ref('global')
+const settingsSubmitting = ref(false)
+const selectedDoctorId = ref(null)
+const selectedClinicId = ref(null)
+
+// 全局设置
+const globalSettings = reactive({
+  allowedSlotTypes: ['normal', 'expert'],
+  defaultTotalSlots: 20,
+  maxSlotsPerSchedule: 50,
+  maxAppointmentsPerDayPerDoctor: 60,
+  maxAppointmentsPerDayPerPatient: 3,
+  vipDailyLimitPerDoctor: 10,
+  enforceWeekendLimits: true,
+  cancelPolicy: {
+    latestCancelHours: 2,
+    penaltyEnabled: false
+  },
+  overrideStrategy: 'OVERRIDE',
+  effectiveStartDate: null,
+  effectiveEndDate: null
+})
+
+// 医生级设置
+const doctorSettings = reactive({
+  allowedSlotTypes: [],
+  defaultTotalSlots: null,
+  maxSlotsPerSchedule: null,
+  vipDailyLimitPerDoctor: null,
+  overrideStrategy: 'OVERRIDE',
+  effectiveStartDate: null,
+  effectiveEndDate: null,
+  description: ''
+})
+
+// 门诊级设置
+const clinicSettings = reactive({
+  allowedSlotTypes: [],
+  defaultTotalSlots: null,
+  maxSlotsPerSchedule: null,
+  vipDailyLimitPerDoctor: null,
+  overrideStrategy: 'OVERRIDE',
+  effectiveStartDate: null,
+  effectiveEndDate: null
+})
+
+// 设置表单验证规则
+const settingsRules = {
+  allowedSlotTypes: [{ required: true, message: '请至少选择一个号别类型', trigger: 'change' }],
+  defaultTotalSlots: [{ required: true, message: '请输入默认总号源数', trigger: 'blur' }],
+  maxSlotsPerSchedule: [{ required: true, message: '请输入单次排班最大号源数', trigger: 'blur' }]
+}
+
 // 排序状态与排序后的数据
 const sortState = reactive({ prop: null, order: null })
 
@@ -978,31 +1232,6 @@ const onSortChange = ({ prop, order }) => {
   sortState.order = order
 }
 
-const waitlistKeys = ['waitlistQueueSize', 'waitlistCount', 'waitlistSize', 'waitlistPending', 'waitlistPendingCount']
-
-const getWaitlistCount = (schedule) => {
-  if (!schedule) return 0
-  if (schedule.id && waitlistCountMap.value instanceof Map) {
-    const fromMap = waitlistCountMap.value.get(schedule.id)
-    if (typeof fromMap === 'number') {
-      return fromMap
-    }
-  }
-  for (const key of waitlistKeys) {
-    const val = schedule[key]
-    if (val === undefined || val === null) continue
-    if (Array.isArray(val)) return val.length
-    const num = Number(val)
-    if (!Number.isNaN(num)) return num
-    if (typeof val === 'object') {
-      if (typeof val.count === 'number') return val.count
-      if (Array.isArray(val.list)) return val.list.length
-    }
-  }
-  if (Array.isArray(schedule.waitlist)) return schedule.waitlist.length
-  return 0
-}
-
 const buildScheduleDateTime = (schedule) => {
   if (!schedule?.scheduleDate) return null
   let dateObj
@@ -1031,10 +1260,6 @@ const isScheduleUpcoming = (schedule) => {
   const dt = buildScheduleDateTime(schedule)
   if (!dt) return false
   return dt.getTime() >= Date.now()
-}
-
-const canPopWaitlist = (schedule) => {
-  return getWaitlistCount(schedule) > 0 && isScheduleUpcoming(schedule)
 }
 
 // 计算属性
@@ -1294,7 +1519,6 @@ const loadScheduleList = async () => {
     
     scheduleList.value = data
     pagination.total = response?.data?.total || data.length
-    await refreshWaitlistCounts(data)
     
     selectedRows.value = []
   } catch (error) {
@@ -1476,70 +1700,6 @@ const resetFilters = () => {
   })
   pagination.page = 1
   loadScheduleList()
-}
-
-const refreshWaitlistCounts = async (list = scheduleList.value) => {
-  const idsSet = new Set()
-  ;(list || []).forEach(item => {
-    if (item?.id) idsSet.add(item.id)
-  })
-  ;(allSchedules.value || []).forEach(item => {
-    if (item?.id) idsSet.add(item.id)
-  })
-  const ids = Array.from(idsSet)
-  if (!ids.length) {
-    waitlistCountMap.value = new Map()
-    return
-  }
-  try {
-    const resp = await getWaitlistCounts(ids)
-    const map = new Map()
-    const payload = resp?.data || {}
-    Object.keys(payload).forEach(key => {
-      const id = Number(key)
-      if (!Number.isNaN(id)) {
-        const val = Number(payload[key])
-        map.set(id, Number.isNaN(val) ? 0 : val)
-      }
-    })
-    waitlistCountMap.value = map
-  } catch (error) {
-    console.error('获取候补人数失败', error)
-    waitlistCountMap.value = new Map()
-  }
-}
-
-const handlePopWaitlistClick = async (schedule) => {
-  if (!schedule) return
-  if (!isScheduleUpcoming(schedule)) {
-    ElMessage.warning('只能对未开始的排班弹出候补')
-    return
-  }
-  if (getWaitlistCount(schedule) <= 0) {
-    ElMessage.warning('该排班暂无线上线候补数据')
-    return
-  }
-  try {
-    waitlistPopLoadingId.value = schedule.id
-    const response = await popNextWaitlist(schedule.id)
-    const patientId = response?.data
-    if (patientId) {
-      ElMessage.success(`已弹出患者 ID ${patientId}`)
-    } else {
-      ElMessage.warning(response?.msg || '候补队列暂无可用记录')
-    }
-    await loadScheduleList()
-    await loadAllSchedules()
-  } catch (error) {
-    const msg = error?.response?.data?.msg || error?.message || '弹出失败'
-    if (msg.includes('队列为空')) {
-      ElMessage.warning(msg)
-    } else {
-      ElMessage.error(msg)
-    }
-  } finally {
-    waitlistPopLoadingId.value = null
-  }
 }
 
 // 视图切换
@@ -2122,6 +2282,201 @@ const getScheduleBadgeClass = (schedule) => {
   else if (schedule.slotType === 'vip') classes.push('vip-badge')
   
   return classes.join(' ')
+}
+
+// 号源设置相关方法
+const showSettingsDialog = async () => {
+  settingsDialogVisible.value = true
+  settingsActiveTab.value = 'global'
+  await loadGlobalSettings()
+}
+
+const loadGlobalSettings = async () => {
+  try {
+    const response = await getGlobalScheduleSettings()
+    if (response && response.data) {
+      const data = response.data
+      Object.assign(globalSettings, {
+        allowedSlotTypes: data.allowedSlotTypes || ['normal', 'expert'],
+        defaultTotalSlots: data.defaultTotalSlots || 20,
+        maxSlotsPerSchedule: data.maxSlotsPerSchedule || 50,
+        maxAppointmentsPerDayPerDoctor: data.maxAppointmentsPerDayPerDoctor || 60,
+        maxAppointmentsPerDayPerPatient: data.maxAppointmentsPerDayPerPatient || 3,
+        vipDailyLimitPerDoctor: data.vipDailyLimitPerDoctor || 10,
+        enforceWeekendLimits: data.enforceWeekendLimits !== undefined ? data.enforceWeekendLimits : true,
+        cancelPolicy: {
+          latestCancelHours: data.cancelPolicy?.latestCancelHours || 2,
+          penaltyEnabled: data.cancelPolicy?.penaltyEnabled || false
+        },
+        overrideStrategy: data.overrideStrategy || 'OVERRIDE',
+        effectiveStartDate: data.effectiveStartDate || null,
+        effectiveEndDate: data.effectiveEndDate || null
+      })
+    }
+  } catch (error) {
+    console.error('获取全局设置失败:', error)
+    ElMessage.error('获取全局设置失败')
+  }
+}
+
+const loadDoctorSettings = async () => {
+  if (!selectedDoctorId.value) {
+    resetDoctorSettings()
+    return
+  }
+  try {
+    const response = await getDoctorScheduleSettings(selectedDoctorId.value)
+    if (response && response.data) {
+      const data = response.data
+      // 如果返回空对象，表示继承全局设置
+      if (Object.keys(data).length === 0) {
+        resetDoctorSettings()
+        return
+      }
+      Object.assign(doctorSettings, {
+        allowedSlotTypes: data.allowedSlotTypes || [],
+        defaultTotalSlots: data.defaultTotalSlots || null,
+        maxSlotsPerSchedule: data.maxSlotsPerSchedule || null,
+        vipDailyLimitPerDoctor: data.vipDailyLimitPerDoctor || null,
+        overrideStrategy: data.overrideStrategy || 'OVERRIDE',
+        effectiveStartDate: data.effectiveStartDate || null,
+        effectiveEndDate: data.effectiveEndDate || null,
+        description: data.description || ''
+      })
+    } else {
+      resetDoctorSettings()
+    }
+  } catch (error) {
+    console.error('获取医生设置失败:', error)
+    ElMessage.error('获取医生设置失败')
+    resetDoctorSettings()
+  }
+}
+
+const loadClinicSettings = async () => {
+  if (!selectedClinicId.value) {
+    resetClinicSettings()
+    return
+  }
+  try {
+    const response = await getClinicScheduleSettings(selectedClinicId.value)
+    if (response && response.data) {
+      const data = response.data
+      // 如果返回空对象，表示继承全局设置
+      if (Object.keys(data).length === 0) {
+        resetClinicSettings()
+        return
+      }
+      Object.assign(clinicSettings, {
+        allowedSlotTypes: data.allowedSlotTypes || [],
+        defaultTotalSlots: data.defaultTotalSlots || null,
+        maxSlotsPerSchedule: data.maxSlotsPerSchedule || null,
+        vipDailyLimitPerDoctor: data.vipDailyLimitPerDoctor || null,
+        overrideStrategy: data.overrideStrategy || 'OVERRIDE',
+        effectiveStartDate: data.effectiveStartDate || null,
+        effectiveEndDate: data.effectiveEndDate || null
+      })
+    } else {
+      resetClinicSettings()
+    }
+  } catch (error) {
+    console.error('获取门诊设置失败:', error)
+    ElMessage.error('获取门诊设置失败')
+    resetClinicSettings()
+  }
+}
+
+const resetDoctorSettings = () => {
+  Object.assign(doctorSettings, {
+    allowedSlotTypes: [],
+    defaultTotalSlots: null,
+    maxSlotsPerSchedule: null,
+    vipDailyLimitPerDoctor: null,
+    overrideStrategy: 'OVERRIDE',
+    effectiveStartDate: null,
+    effectiveEndDate: null,
+    description: ''
+  })
+}
+
+const resetClinicSettings = () => {
+  Object.assign(clinicSettings, {
+    allowedSlotTypes: [],
+    defaultTotalSlots: null,
+    maxSlotsPerSchedule: null,
+    vipDailyLimitPerDoctor: null,
+    overrideStrategy: 'OVERRIDE',
+    effectiveStartDate: null,
+    effectiveEndDate: null
+  })
+}
+
+const handleSettingsTabChange = (tabName) => {
+  if (tabName === 'global') {
+    loadGlobalSettings()
+  } else if (tabName === 'doctor') {
+    if (selectedDoctorId.value) {
+      loadDoctorSettings()
+    }
+  } else if (tabName === 'clinic') {
+    if (selectedClinicId.value) {
+      loadClinicSettings()
+    }
+  }
+}
+
+const handleSettingsDialogClose = () => {
+  selectedDoctorId.value = null
+  selectedClinicId.value = null
+  resetDoctorSettings()
+  resetClinicSettings()
+  globalSettingsFormRef.value?.clearValidate()
+  doctorSettingsFormRef.value?.clearValidate()
+  clinicSettingsFormRef.value?.clearValidate()
+}
+
+const saveSettings = async () => {
+  try {
+    settingsSubmitting.value = true
+    
+    if (settingsActiveTab.value === 'global') {
+      // 验证全局设置表单
+      if (globalSettingsFormRef.value) {
+        await globalSettingsFormRef.value.validate()
+      }
+      await updateGlobalScheduleSettings(globalSettings)
+      ElMessage.success('全局设置保存成功')
+    } else if (settingsActiveTab.value === 'doctor') {
+      if (!selectedDoctorId.value) {
+        ElMessage.warning('请先选择医生')
+        return
+      }
+      // 验证医生设置表单
+      if (doctorSettingsFormRef.value) {
+        await doctorSettingsFormRef.value.validate()
+      }
+      await updateDoctorScheduleSettings(selectedDoctorId.value, doctorSettings)
+      ElMessage.success('医生设置保存成功')
+    } else if (settingsActiveTab.value === 'clinic') {
+      if (!selectedClinicId.value) {
+        ElMessage.warning('请先选择门诊')
+        return
+      }
+      // 验证门诊设置表单
+      if (clinicSettingsFormRef.value) {
+        await clinicSettingsFormRef.value.validate()
+      }
+      await updateClinicScheduleSettings(selectedClinicId.value, clinicSettings)
+      ElMessage.success('门诊设置保存成功')
+    }
+  } catch (error) {
+    if (error !== false) {
+      ElMessage.error('保存设置失败')
+      console.error('保存设置失败:', error)
+    }
+  } finally {
+    settingsSubmitting.value = false
+  }
 }
 
 // 组件挂载时加载数据
@@ -2754,11 +3109,6 @@ onMounted(async () => {
   border-radius: 10px;
   margin-left: 4px;
 }
-.waitlist-info {
-  font-size: 11px;
-  color: #f56c6c;
-}
-
 /* 让 Alert 描述支持换行 */
 ::v-deep(.el-alert__description) {
   white-space: pre-line;
