@@ -47,7 +47,7 @@ public class QaService {
                 "请返回以下JSON格式：\n" +
                 "[\n" +
                 "  {\n" +
-                "    \"Question\": \"代表性问法\",\n" +
+                "    \"Question\": \"代表性问法（一定要是问句）\",\n" +
                 "    \"count\": 出现次数\n" +
                 "  }\n" +
                 "]";
