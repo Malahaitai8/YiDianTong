@@ -73,7 +73,8 @@ const menuItems = ref([
   { path: '/admin/schedule-rules', name: '排班规则' },
   { path: '/admin/schedule-settings', name: '号源管理' },
   { path: '/admin/qa-management', name: 'QA管理' },
-  { path: '/admin/reports', name: '报表统计' }
+  { path: '/admin/reports', name: '报表统计' },
+  { path: '/admin/audit-logs', name: '审计日志' }
 ])
 
 // 判断菜单项是否应该高亮

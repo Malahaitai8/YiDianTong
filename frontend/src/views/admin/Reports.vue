@@ -1,9 +1,23 @@
 <template>
   <div class="reports-page">
+    <!-- 页面头部 -->
+    <div class="header-card">
+      <div class="header-left">
+        <h1 class="header-title">统计报表</h1>
+        <p class="header-subtitle">数据统计与分析—管理平台</p>
+      </div>
+      <div class="header-right">
+        <el-button type="primary" @click="refreshAllData">
+          <el-icon><Refresh /></el-icon>
+          刷新数据
+        </el-button>
+      </div>
+    </div>
+
     <!-- 筛选条件 -->
     <el-card class="filter-card">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <el-date-picker
             v-model="dateRange"
             type="daterange"
@@ -13,6 +27,7 @@
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
             @change="handleDateChange"
+            style="width: 100%"
           />
         </el-col>
         <el-col :span="4">
@@ -21,42 +36,36 @@
             placeholder="选择科室"
             clearable
             @change="handleDepartmentChange"
+            style="width: 100%"
           >
             <el-option label="全部科室" value="" />
-            <el-option label="内科" value="内科" />
-            <el-option label="外科" value="外科" />
-            <el-option label="儿科" value="儿科" />
-            <el-option label="妇科" value="妇科" />
-            <el-option label="骨科" value="骨科" />
+            <el-option v-for="dept in departmentList" :key="dept.id" :label="dept.name" :value="dept.id" />
           </el-select>
         </el-col>
         <el-col :span="4">
           <el-select
-            v-model="reportType"
-            placeholder="报表类型"
-            @change="handleReportTypeChange"
+            v-model="selectedDoctor"
+            placeholder="选择医生"
+            clearable
+            @change="handleDoctorChange"
+            style="width: 100%"
+            :disabled="!selectedDepartment"
           >
-            <el-option label="预约统计" value="appointment" />
-            <el-option label="医生工作量" value="doctor" />
-            <el-option label="科室统计" value="department" />
-            <el-option label="收入统计" value="revenue" />
+            <el-option label="全部医生" value="" />
+            <el-option v-for="doc in filteredDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
           </el-select>
         </el-col>
-        <el-col :span="6">
-          <el-button type="primary" @click="generateReport">
+        <el-col :span="4">
+          <el-button type="primary" @click="loadAllStats" :loading="loading">
             <el-icon><Search /></el-icon>
-            生成报表
-          </el-button>
-          <el-button @click="exportReport">
-            <el-icon><Download /></el-icon>
-            导出
+            查询
           </el-button>
           <el-button @click="resetFilters">重置</el-button>
         </el-col>
       </el-row>
     </el-card>
 
-    <!-- 统计概览 -->
+    <!-- 全局概览统计卡片 -->
     <el-row :gutter="20" class="overview-row">
       <el-col :span="6">
         <el-card class="stat-card">
@@ -115,7 +124,7 @@
       </el-col>
     </el-row>
 
-    <!-- 号源统计 -->
+    <!-- 号源统计卡片 -->
     <el-row :gutter="20" class="overview-row">
       <el-col :span="6">
         <el-card class="stat-card">
@@ -185,55 +194,85 @@
           <template #header>
             <div class="card-header">
               <span>预约趋势</span>
-              <el-select v-model="trendPeriod" size="small" style="width: 100px">
-                <el-option label="日" value="day" />
-                <el-option label="周" value="week" />
-                <el-option label="月" value="month" />
-              </el-select>
             </div>
           </template>
-          <div class="chart-container">
-            <div class="chart-placeholder">
-              <el-icon size="60" color="#dcdfe6"><TrendCharts /></el-icon>
-              <p>预约趋势图表</p>
-              <div class="trend-data">
-                <div class="trend-item" v-for="item in trendData" :key="item.date">
-                  <span class="trend-date">{{ item.date }}</span>
-                  <span class="trend-value">{{ item.value }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <v-chart class="chart" :option="appointmentTrendOption" v-loading="loading" />
         </el-card>
       </el-col>
 
-      <!-- 科室分布图 -->
+      <!-- 收入趋势图 -->
       <el-col :span="12">
         <el-card class="chart-card">
           <template #header>
-            <span>科室预约分布</span>
+            <div class="card-header">
+              <span>收入趋势</span>
+                </div>
           </template>
-          <div class="chart-container">
-            <div class="department-chart">
-              <div
-                v-for="dept in departmentData"
-                :key="dept.name"
-                class="dept-bar"
-              >
-                <div class="dept-info">
-                  <span class="dept-name">{{ dept.name }}</span>
-                  <span class="dept-count">{{ dept.count }}</span>
-                </div>
-                <div class="dept-progress">
-                  <div
-                    class="progress-bar"
-                    :style="{ width: dept.percentage + '%', backgroundColor: dept.color }"
-                  ></div>
-                </div>
-                <span class="dept-percentage">{{ dept.percentage }}%</span>
+          <v-chart class="chart" :option="revenueTrendOption" v-loading="loading" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="charts-row">
+      <!-- 号别分布饼图 -->
+      <el-col :span="8">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>号别分布</span>
               </div>
+          </template>
+          <v-chart class="chart" :option="slotTypeDistributionOption" v-loading="loading" />
+        </el-card>
+      </el-col>
+
+      <!-- 时间段分布饼图 -->
+      <el-col :span="8">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>时间段分布</span>
             </div>
+          </template>
+          <v-chart class="chart" :option="timeSlotDistributionOption" v-loading="loading" />
+        </el-card>
+      </el-col>
+
+      <!-- 科室预约分布饼图 -->
+      <el-col :span="8">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>科室预约分布</span>
           </div>
+          </template>
+          <v-chart class="chart" :option="departmentDistributionOption" v-loading="loading" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="charts-row">
+      <!-- 退号率统计（按科室） -->
+      <el-col :span="12">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>科室退号率</span>
+            </div>
+          </template>
+          <v-chart class="chart" :option="cancellationRateByDeptOption" v-loading="loading" />
+        </el-card>
+      </el-col>
+
+      <!-- 退号率统计（按医生） -->
+      <el-col :span="12">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>医生退号率</span>
+                </div>
+          </template>
+          <v-chart class="chart" :option="cancellationRateByDoctorOption" v-loading="loading" />
         </el-card>
       </el-col>
     </el-row>
@@ -242,12 +281,8 @@
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
-          <span>{{ getTableTitle() }}</span>
+          <span>详细数据</span>
           <div>
-            <el-button size="small" @click="refreshData">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
             <el-button size="small" @click="exportTableData">
               <el-icon><Download /></el-icon>
               导出表格
@@ -258,104 +293,28 @@
 
       <!-- 预约统计表格 -->
       <el-table
-        v-if="reportType === 'appointment'"
-        :data="appointmentData"
+        :data="appointmentTableData"
         v-loading="loading"
         style="width: 100%"
+        stripe
       >
         <el-table-column prop="date" label="日期" width="120" />
-        <el-table-column prop="department" label="科室" width="100" />
-        <el-table-column prop="doctor" label="医生" width="120" />
-        <el-table-column prop="total" label="总预约" width="100" />
-        <el-table-column prop="completed" label="已完成" width="100" />
-        <el-table-column prop="cancelled" label="已取消" width="100" />
-        <el-table-column prop="noShow" label="爽约" width="100" />
+        <el-table-column prop="departmentName" label="科室" width="120" />
+        <el-table-column prop="doctorName" label="医生" width="120" />
+        <el-table-column prop="totalAppointments" label="总预约" width="100" />
+        <el-table-column prop="completedAppointments" label="已完成" width="100" />
+        <el-table-column prop="cancelledAppointments" label="已取消" width="100" />
+        <el-table-column prop="noShowAppointments" label="爽约" width="100" />
         <el-table-column label="完成率" width="100">
           <template #default="{ row }">
             <el-tag :type="getCompletionRateType(row.completionRate)">
-              {{ row.completionRate }}%
+              {{ formatRate(row.completionRate) }}%
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="revenue" label="收入(元)" />
-      </el-table>
-
-      <!-- 医生工作量表格 -->
-      <el-table
-        v-if="reportType === 'doctor'"
-        :data="doctorData"
-        v-loading="loading"
-        style="width: 100%"
-      >
-        <el-table-column prop="name" label="医生姓名" width="120" />
-        <el-table-column prop="department" label="科室" width="100" />
-        <el-table-column prop="workDays" label="工作天数" width="100" />
-        <el-table-column prop="totalPatients" label="接诊患者" width="100" />
-        <el-table-column prop="avgPatients" label="日均接诊" width="100" />
-        <el-table-column prop="revenue" label="创收(元)" width="120" />
-        <el-table-column label="患者满意度" width="120">
+        <el-table-column prop="totalRevenue" label="收入(元)" width="120">
           <template #default="{ row }">
-            <el-rate
-              v-model="row.satisfaction"
-              disabled
-              show-score
-              text-color="#ff9900"
-              score-template="{value}分"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="工作效率" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getEfficiencyType(row.efficiency)">
-              {{ row.efficiency }}
-            </el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 科室统计表格 -->
-      <el-table
-        v-if="reportType === 'department'"
-        :data="departmentDetailData"
-        v-loading="loading"
-        style="width: 100%"
-      >
-        <el-table-column prop="name" label="科室名称" width="120" />
-        <el-table-column prop="doctorCount" label="医生数量" width="100" />
-        <el-table-column prop="totalAppointments" label="总预约" width="100" />
-        <el-table-column prop="completedAppointments" label="已完成" width="100" />
-        <el-table-column prop="avgWaitTime" label="平均等待时间" width="120" />
-        <el-table-column prop="revenue" label="科室收入(元)" width="120" />
-        <el-table-column prop="patientSatisfaction" label="患者满意度" width="120" />
-        <el-table-column label="科室效率" width="100">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="row.efficiency"
-              :color="getEfficiencyColor(row.efficiency)"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 收入统计表格 -->
-      <el-table
-        v-if="reportType === 'revenue'"
-        :data="revenueData"
-        v-loading="loading"
-        style="width: 100%"
-        show-summary
-        :summary-method="getRevenueSummary"
-      >
-        <el-table-column prop="date" label="日期" width="120" />
-        <el-table-column prop="department" label="科室" width="100" />
-        <el-table-column prop="registrationFee" label="挂号费" width="100" />
-        <el-table-column prop="consultationFee" label="诊疗费" width="100" />
-        <el-table-column prop="medicationFee" label="药品费" width="100" />
-        <el-table-column prop="examinationFee" label="检查费" width="100" />
-        <el-table-column prop="totalRevenue" label="总收入" width="120" />
-        <el-table-column label="收入占比" width="100">
-          <template #default="{ row }">
-            {{ row.revenuePercentage }}%
+            ¥{{ formatMoney(row.totalRevenue) }}
           </template>
         </el-table-column>
       </el-table>
@@ -377,8 +336,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart, PieChart, BarChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components'
+import VChart from 'vue-echarts'
 import {
   Calendar,
   CircleCheckFilled,
@@ -392,22 +361,60 @@ import {
   Download,
   Refresh
 } from '@element-plus/icons-vue'
-import { getOverviewStats } from '@/api/statistics'
+import {
+  getOverviewStats,
+  getAppointmentStats,
+  getDepartmentWorkloadStats,
+  getDoctorWorkloadStats,
+  getRevenueStats,
+  getRevenueStatsByDepartment,
+  getSlotTypeDistributionStats,
+  getTimeSlotDistributionStats,
+  getCancellationRateByDepartment,
+  getCancellationRateByDoctor,
+  getTrendStats
+} from '@/api/statistics'
+import { getDepartmentList } from '@/api/department'
+import { getDoctorList } from '@/api/doctor'
+
+// 注册 ECharts 组件
+use([
+  CanvasRenderer,
+  LineChart,
+  PieChart,
+  BarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+])
 
 const loading = ref(false)
-const dateRange = ref(['2024-01-01', '2024-01-31'])
+const dateRange = ref([])
 const selectedDepartment = ref('')
-const reportType = ref('appointment')
-const trendPeriod = ref('day')
+const selectedDoctor = ref('')
+const departmentList = ref([])
+const doctorList = ref([])
+
+// 初始化日期范围（默认最近30天）
+const initDateRange = () => {
+  const endDate = new Date()
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - 30)
+  dateRange.value = [
+    formatDateStr(startDate),
+    formatDateStr(endDate)
+  ]
+}
 
 // 分页
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 10,
+  pageSize: 20,
   total: 0
 })
 
-// 统计概览数据
+// 全局概览数据
 const overview = reactive({
   totalAppointments: 0,
   completedAppointments: 0,
@@ -420,221 +427,41 @@ const overview = reactive({
   utilization: 0
 })
 
+// 表格数据
+const appointmentTableData = ref([])
+
+// 图表选项
+const appointmentTrendOption = ref({})
+const revenueTrendOption = ref({})
+const slotTypeDistributionOption = ref({})
+const timeSlotDistributionOption = ref({})
+const departmentDistributionOption = ref({})
+const cancellationRateByDeptOption = ref({})
+const cancellationRateByDoctorOption = ref({})
+
 // 趋势数据
-const trendData = ref([
-  { date: '01-01', value: 45 },
-  { date: '01-02', value: 52 },
-  { date: '01-03', value: 38 },
-  { date: '01-04', value: 67 },
-  { date: '01-05', value: 59 },
-  { date: '01-06', value: 73 },
-  { date: '01-07', value: 81 }
-])
+const trendData = ref({
+  appointmentTrend: [],
+  revenueTrend: [],
+  cancellationTrend: []
+})
 
-// 科室分布数据
-const departmentData = ref([
-  { name: '内科', count: 356, percentage: 28, color: '#409eff' },
-  { name: '外科', count: 298, percentage: 24, color: '#67c23a' },
-  { name: '儿科', count: 245, percentage: 20, color: '#e6a23c' },
-  { name: '妇科', count: 189, percentage: 15, color: '#f56c6c' },
-  { name: '骨科', count: 168, percentage: 13, color: '#909399' }
-])
-
-// 预约统计数据
-const appointmentData = ref([
-  {
-    date: '2024-01-15',
-    department: '内科',
-    doctor: '张医生',
-    total: 20,
-    completed: 18,
-    cancelled: 1,
-    noShow: 1,
-    completionRate: 90,
-    revenue: 1800
-  },
-  {
-    date: '2024-01-15',
-    department: '外科',
-    doctor: '李医生',
-    total: 15,
-    completed: 14,
-    cancelled: 0,
-    noShow: 1,
-    completionRate: 93,
-    revenue: 2100
-  }
-])
-
-// 医生工作量数据
-const doctorData = ref([
-  {
-    name: '张医生',
-    department: '内科',
-    workDays: 22,
-    totalPatients: 440,
-    avgPatients: 20,
-    revenue: 44000,
-    satisfaction: 4.8,
-    efficiency: '高效'
-  },
-  {
-    name: '李医生',
-    department: '外科',
-    workDays: 20,
-    totalPatients: 300,
-    avgPatients: 15,
-    revenue: 45000,
-    satisfaction: 4.6,
-    efficiency: '良好'
-  }
-])
-
-// 科室详细数据
-const departmentDetailData = ref([
-  {
-    name: '内科',
-    doctorCount: 8,
-    totalAppointments: 1200,
-    completedAppointments: 1080,
-    avgWaitTime: '15分钟',
-    revenue: 120000,
-    patientSatisfaction: '4.7分',
-    efficiency: 85
-  },
-  {
-    name: '外科',
-    doctorCount: 6,
-    totalAppointments: 800,
-    completedAppointments: 750,
-    avgWaitTime: '20分钟',
-    revenue: 150000,
-    patientSatisfaction: '4.5分',
-    efficiency: 78
-  }
-])
-
-// 收入统计数据
-const revenueData = ref([
-  {
-    date: '2024-01-15',
-    department: '内科',
-    registrationFee: 500,
-    consultationFee: 1200,
-    medicationFee: 800,
-    examinationFee: 600,
-    totalRevenue: 3100,
-    revenuePercentage: 25
-  },
-  {
-    date: '2024-01-15',
-    department: '外科',
-    registrationFee: 400,
-    consultationFee: 1500,
-    medicationFee: 600,
-    examinationFee: 1000,
-    totalRevenue: 3500,
-    revenuePercentage: 28
-  }
-])
-
-const getTableTitle = () => {
-  const titleMap = {
-    'appointment': '预约统计详情',
-    'doctor': '医生工作量统计',
-    'department': '科室统计详情',
-    'revenue': '收入统计详情'
-  }
-  return titleMap[reportType.value] || '统计详情'
-}
-
-const getCompletionRateType = (rate) => {
-  if (rate >= 90) return 'success'
-  if (rate >= 80) return 'warning'
-  return 'danger'
-}
-
-const getEfficiencyType = (efficiency) => {
-  const typeMap = {
-    '高效': 'success',
-    '良好': 'primary',
-    '一般': 'warning',
-    '较低': 'danger'
-  }
-  return typeMap[efficiency] || 'info'
-}
-
-const getEfficiencyColor = (efficiency) => {
-  if (efficiency >= 80) return '#67c23a'
-  if (efficiency >= 60) return '#e6a23c'
-  return '#f56c6c'
-}
-
-const getRevenueSummary = (param) => {
-  const { columns, data } = param
-  const sums = []
-  columns.forEach((column, index) => {
-    if (index === 0) {
-      sums[index] = '合计'
-      return
-    }
-    if (index === 1) {
-      sums[index] = ''
-      return
-    }
-    
-    const values = data.map(item => Number(item[column.property]))
-    if (!values.every(value => isNaN(value))) {
-      sums[index] = values.reduce((prev, curr) => {
-        const value = Number(curr)
-        if (!isNaN(value)) {
-          return prev + curr
-        } else {
-          return prev
-        }
-      }, 0)
-      if (column.property === 'revenuePercentage') {
-        sums[index] = '100%'
-      } else {
-        sums[index] = `¥${sums[index]}`
-      }
-    } else {
-      sums[index] = ''
-    }
+// 计算属性
+const filteredDoctors = computed(() => {
+  if (!selectedDepartment.value) return doctorList.value
+  const deptId = Number(selectedDepartment.value)
+  return doctorList.value.filter(doc => {
+    const docDeptId = doc.clinic?.departmentId ? Number(doc.clinic.departmentId) : null
+    return docDeptId === deptId
   })
-  return sums
-}
+})
 
-const handleDateChange = () => {
-  generateReport()
-}
-
-const handleDepartmentChange = () => {
-  generateReport()
-}
-
-const handleReportTypeChange = () => {
-  generateReport()
-}
-
-// 加载全局概览统计
-const loadOverviewStats = async () => {
-  try {
-    const res = await getOverviewStats()
-    const data = res?.data || {}
-    overview.totalAppointments = data.totalAppointments || 0
-    overview.completedAppointments = data.completedAppointments || 0
-    overview.cancelledAppointments = data.cancelledAppointments || 0
-    overview.noShowAppointments = data.noShowAppointments || 0
-    overview.totalSlots = data.totalSlots || 0
-    overview.availableSlots = data.availableSlots || 0
-    overview.usedSlots = data.usedSlots || 0
-    overview.completionRate = data.completionRate || 0
-    overview.utilization = data.utilization || 0
-  } catch (error) {
-    console.error('加载概览统计失败:', error)
-    ElMessage.error('加载统计数据失败')
-  }
+// 格式化日期字符串
+const formatDateStr = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 // 格式化百分比
@@ -643,65 +470,607 @@ const formatRate = (rate) => {
   return (rate * 100).toFixed(2)
 }
 
-const generateReport = async () => {
+// 格式化金额
+const formatMoney = (amount) => {
+  if (!amount) return '0.00'
+  return Number(amount).toFixed(2)
+}
+
+// 获取查询参数
+const getQueryParams = () => {
+  const params = {}
+  if (dateRange.value && dateRange.value.length === 2) {
+    params.startDate = dateRange.value[0]
+    params.endDate = dateRange.value[1]
+  }
+  if (selectedDoctor.value) {
+    params.doctorId = selectedDoctor.value
+  }
+  return params
+}
+
+// 加载全局概览统计
+const loadOverviewStats = async () => {
+  try {
+    const res = await getOverviewStats()
+    const data = res?.data || {}
+    Object.assign(overview, {
+      totalAppointments: data.totalAppointments || 0,
+      completedAppointments: data.completedAppointments || 0,
+      cancelledAppointments: data.cancelledAppointments || 0,
+      noShowAppointments: data.noShowAppointments || 0,
+      totalSlots: data.totalSlots || 0,
+      availableSlots: data.availableSlots || 0,
+      usedSlots: data.usedSlots || 0,
+      completionRate: data.completionRate || 0,
+      utilization: data.utilization || 0
+    })
+  } catch (error) {
+    console.error('加载概览统计失败:', error)
+    ElMessage.error('加载概览统计失败')
+  }
+}
+
+// 加载趋势数据
+const loadTrendStats = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getTrendStats(params)
+    const data = res?.data || {}
+    trendData.value = {
+      appointmentTrend: data.appointmentTrend || [],
+      revenueTrend: data.revenueTrend || [],
+      cancellationTrend: data.cancellationTrend || []
+    }
+    updateTrendCharts()
+  } catch (error) {
+    console.error('加载趋势数据失败:', error)
+  }
+}
+
+// 更新预约趋势图
+const updateAppointmentTrendChart = () => {
+  const data = trendData.value.appointmentTrend || []
+  const dates = data.map(item => item.date)
+  const totalCounts = data.map(item => item.totalCount || 0)
+  const completedCounts = data.map(item => item.completedCount || 0)
+  const cancelledCounts = data.map(item => item.cancelledCount || 0)
+
+  appointmentTrendOption.value = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: ['总预约', '已完成', '已取消']
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: dates
+    },
+    yAxis: {
+      type: 'value'
+    },
+    series: [
+      {
+        name: '总预约',
+        type: 'line',
+        data: totalCounts,
+        smooth: true,
+        itemStyle: { color: '#409eff' }
+      },
+      {
+        name: '已完成',
+        type: 'line',
+        data: completedCounts,
+        smooth: true,
+        itemStyle: { color: '#67c23a' }
+      },
+      {
+        name: '已取消',
+        type: 'line',
+        data: cancelledCounts,
+        smooth: true,
+        itemStyle: { color: '#f56c6c' }
+      }
+    ]
+  }
+}
+
+// 更新收入趋势图
+const updateRevenueTrendChart = () => {
+  const data = trendData.value.revenueTrend || []
+  const dates = data.map(item => item.date)
+  const revenues = data.map(item => item.totalRevenue || 0)
+
+  revenueTrendOption.value = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const param = params[0]
+        return `${param.name}<br/>${param.seriesName}: ¥${formatMoney(param.value)}`
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: dates
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: {
+        formatter: (value) => `¥${(value / 1000).toFixed(0)}k`
+      }
+    },
+    series: [
+      {
+        name: '收入',
+        type: 'line',
+        data: revenues,
+        smooth: true,
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
+              { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+            ]
+          }
+        },
+        itemStyle: { color: '#409eff' }
+      }
+    ]
+  }
+}
+
+// 更新趋势图表
+const updateTrendCharts = () => {
+  updateAppointmentTrendChart()
+  updateRevenueTrendChart()
+}
+
+// 加载号别分布统计
+const loadSlotTypeDistribution = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getSlotTypeDistributionStats(params)
+    const data = res?.data || []
+    
+    slotTypeDistributionOption.value = {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{a} <br/>{b}: {c} ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '号别分布',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: true,
+            formatter: '{b}\n{c} ({d}%)'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: 16,
+              fontWeight: 'bold'
+            }
+          },
+          data: data.map(item => ({
+            value: item.appointmentCount || 0,
+            name: getSlotTypeName(item.slotType)
+          }))
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('加载号别分布失败:', error)
+  }
+}
+
+// 加载时间段分布统计
+const loadTimeSlotDistribution = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getTimeSlotDistributionStats(params)
+    const data = res?.data || []
+    
+    timeSlotDistributionOption.value = {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{a} <br/>{b}: {c} ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '时间段分布',
+          type: 'pie',
+          radius: '60%',
+          data: data.map(item => ({
+            value: item.appointmentCount || 0,
+            name: getTimeSlotName(item.timeSlot)
+          })),
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('加载时间段分布失败:', error)
+  }
+}
+
+// 加载科室分布统计
+const loadDepartmentDistribution = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getDepartmentWorkloadStats(params)
+    const data = res?.data || []
+    
+    departmentDistributionOption.value = {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{a} <br/>{b}: {c} ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '科室分布',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: true,
+            formatter: '{b}\n{c}'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: 16,
+              fontWeight: 'bold'
+            }
+          },
+          data: data.map(item => ({
+            value: item.totalAppointments || 0,
+            name: item.departmentName || '未知科室'
+          }))
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('加载科室分布失败:', error)
+  }
+}
+
+// 加载退号率统计（按科室）
+const loadCancellationRateByDept = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getCancellationRateByDepartment(params)
+    const data = res?.data || []
+    
+    cancellationRateByDeptOption.value = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        },
+        formatter: (params) => {
+          const param = params[0]
+          return `${param.name}<br/>退号率: ${param.value}%`
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: data.map(item => item.departmentName || '未知'),
+        axisLabel: {
+          rotate: 45
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: '{value}%'
+        }
+      },
+      series: [
+        {
+          name: '退号率',
+          type: 'bar',
+          data: data.map(item => item.cancellationRate || 0),
+          itemStyle: {
+            color: (params) => {
+              const rate = params.value
+              if (rate >= 10) return '#f56c6c'
+              if (rate >= 5) return '#e6a23c'
+              return '#67c23a'
+            }
+          },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: '{c}%'
+          }
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('加载科室退号率失败:', error)
+  }
+}
+
+// 加载退号率统计（按医生）
+const loadCancellationRateByDoctor = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getCancellationRateByDoctor(params)
+    const data = res?.data || []
+    
+    // 只显示前10名医生
+    const topData = data.slice(0, 10)
+    
+    cancellationRateByDoctorOption.value = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        },
+        formatter: (params) => {
+          const param = params[0]
+          return `${param.name}<br/>退号率: ${param.value}%`
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: topData.map(item => item.doctorName || '未知'),
+        axisLabel: {
+          rotate: 45
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: '{value}%'
+        }
+      },
+      series: [
+        {
+          name: '退号率',
+          type: 'bar',
+          data: topData.map(item => item.cancellationRate || 0),
+          itemStyle: {
+            color: (params) => {
+              const rate = params.value
+              if (rate >= 10) return '#f56c6c'
+              if (rate >= 5) return '#e6a23c'
+              return '#67c23a'
+            }
+          },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: '{c}%'
+          }
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('加载医生退号率失败:', error)
+  }
+}
+
+// 加载预约统计数据
+const loadAppointmentStats = async () => {
+  try {
+    const params = getQueryParams()
+    const res = await getAppointmentStats(params)
+    const data = res?.data || []
+    appointmentTableData.value = data
+    pagination.total = data.length
+  } catch (error) {
+    console.error('加载预约统计失败:', error)
+    ElMessage.error('加载预约统计失败')
+  }
+}
+
+// 加载所有统计数据
+const loadAllStats = async () => {
   loading.value = true
   try {
-    // TODO: 调用API生成报表
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // 模拟数据更新
-    pagination.total = 50
-    
-    ElMessage.success('报表生成成功')
+    await Promise.all([
+      loadOverviewStats(),
+      loadTrendStats(),
+      loadSlotTypeDistribution(),
+      loadTimeSlotDistribution(),
+      loadDepartmentDistribution(),
+      loadCancellationRateByDept(),
+      loadCancellationRateByDoctor(),
+      loadAppointmentStats()
+    ])
   } catch (error) {
-    ElMessage.error('报表生成失败')
+    console.error('加载统计数据失败:', error)
   } finally {
     loading.value = false
   }
 }
 
-const exportReport = () => {
-  // TODO: 实现导出功能
-  ElMessage.info('导出功能开发中')
+// 刷新所有数据
+const refreshAllData = () => {
+  loadAllStats()
 }
 
-const exportTableData = () => {
-  // TODO: 实现表格导出功能
-  ElMessage.info('表格导出功能开发中')
+// 辅助函数
+const getSlotTypeName = (type) => {
+  const map = {
+    normal: '普通号',
+    expert: '专家号',
+    vip: '特需号'
+  }
+  return map[type] || type
+}
+
+const getTimeSlotName = (slot) => {
+  const map = {
+    morning: '上午',
+    afternoon: '下午',
+    evening: '晚间'
+  }
+  return map[slot] || slot
+}
+
+const getCompletionRateType = (rate) => {
+  const rateNum = typeof rate === 'number' ? rate : parseFloat(rate)
+  if (rateNum >= 0.9) return 'success'
+  if (rateNum >= 0.8) return 'warning'
+  return 'danger'
+}
+
+// 事件处理
+const handleDateChange = () => {
+  loadAllStats()
+}
+
+const handleDepartmentChange = () => {
+  selectedDoctor.value = ''
+  loadAllStats()
+}
+
+const handleDoctorChange = () => {
+  loadAllStats()
 }
 
 const resetFilters = () => {
-  dateRange.value = ['2024-01-01', '2024-01-31']
+  initDateRange()
   selectedDepartment.value = ''
-  reportType.value = 'appointment'
-  generateReport()
-}
-
-const refreshData = () => {
-  loadOverviewStats()
-  generateReport()
+  selectedDoctor.value = ''
+  loadAllStats()
 }
 
 const handleSizeChange = (size) => {
   pagination.pageSize = size
   pagination.currentPage = 1
-  generateReport()
 }
 
 const handleCurrentChange = (page) => {
   pagination.currentPage = page
-  generateReport()
 }
 
-onMounted(() => {
-  loadOverviewStats()
-  generateReport()
+const exportTableData = () => {
+  ElMessage.info('导出功能开发中')
+}
+
+// 初始化
+onMounted(async () => {
+  initDateRange()
+  try {
+    const [deptRes, docRes] = await Promise.all([
+      getDepartmentList(),
+      getDoctorList()
+    ])
+    departmentList.value = deptRes?.data || []
+    doctorList.value = docRes?.data || []
+  } catch (error) {
+    console.error('加载基础数据失败:', error)
+  }
+  await loadAllStats()
 })
 </script>
 
 <style scoped>
 .reports-page {
-  padding: 0;
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.header-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #303133;
+  text-align: left;
+}
+
+.header-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+  text-align: left;
 }
 
 .filter-card {
@@ -714,12 +1083,21 @@ onMounted(() => {
 
 .stat-card {
   height: 120px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .stat-content {
   display: flex;
   align-items: center;
   height: 100%;
+  padding: 20px;
 }
 
 .stat-icon {
@@ -740,14 +1118,6 @@ onMounted(() => {
 
 .stat-icon.completed {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.stat-icon.revenue {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.stat-icon.satisfaction {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
 .stat-icon.cancelled {
@@ -774,12 +1144,6 @@ onMounted(() => {
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
-.stat-sub-info {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
-
 .stat-info {
   flex: 1;
 }
@@ -797,18 +1161,10 @@ onMounted(() => {
   margin: 8px 0 5px 0;
 }
 
-.stat-change {
+.stat-sub-info {
   font-size: 12px;
-  display: flex;
-  align-items: center;
-}
-
-.stat-change.positive {
-  color: #67c23a;
-}
-
-.stat-change .el-icon {
-  margin-right: 2px;
+  color: #909399;
+  margin-top: 4px;
 }
 
 .charts-row {
@@ -816,112 +1172,21 @@ onMounted(() => {
 }
 
 .chart-card {
-  height: 400px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.chart-container {
-  height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chart-placeholder {
-  text-align: center;
-  color: #909399;
-}
-
-.chart-placeholder p {
-  margin: 10px 0;
+  font-weight: 600;
   font-size: 16px;
 }
 
-.trend-data {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.trend-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 5px 10px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.trend-date {
-  color: #909399;
-}
-
-.trend-value {
-  color: #303133;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-.department-chart {
+.chart {
+  height: 400px;
   width: 100%;
-  padding: 20px;
-}
-
-.dept-bar {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.dept-bar:last-child {
-  margin-bottom: 0;
-}
-
-.dept-info {
-  width: 80px;
-  display: flex;
-  flex-direction: column;
-}
-
-.dept-name {
-  font-weight: 600;
-  color: #303133;
-  font-size: 14px;
-}
-
-.dept-count {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 2px;
-}
-
-.dept-progress {
-  flex: 1;
-  height: 20px;
-  background: #f0f0f0;
-  border-radius: 10px;
-  margin: 0 15px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  border-radius: 10px;
-  transition: width 0.3s ease;
-}
-
-.dept-percentage {
-  width: 50px;
-  text-align: right;
-  font-size: 12px;
-  color: #606266;
 }
 
 .table-card {

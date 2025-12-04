@@ -255,11 +255,11 @@
                           </div>
                           <div class="slots-actions">
                             <div class="slots-info-row">
-                              <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -299,11 +299,11 @@
                           </div>
                           <div class="slots-actions">
                             <div class="slots-info-row">
-                              <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -378,11 +378,11 @@
                           </div>
                           <div class="slots-actions">
                             <div class="slots-info-row">
-                              <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -422,11 +422,11 @@
                           </div>
                           <div class="slots-actions">
                             <div class="slots-info-row">
-                              <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
+                            <span class="slots-info">剩余：{{ schedule.availableSlots || 0 }}</span>
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 

@@ -19,6 +19,7 @@ import AdminSchedule from '@/views/admin/Schedule.vue'
 import AdminSourceManagement from '@/views/admin/SourceManagement.vue'
 import AdminQAManagement from '@/views/admin/QAManagement.vue'
 import AdminReports from '@/views/admin/Reports.vue'
+import AdminAuditLogs from '@/views/admin/AuditLogs.vue'
 import AdminScheduleRules from '@/views/admin/ScheduleRules.vue'
 import AdminScheduleSettings from '@/views/admin/ScheduleSettings.vue'
 import AdminPatients from '@/views/admin/Patients.vue'
@@ -167,6 +168,12 @@ const routes = [
         name: 'AdminReports',
         component: AdminReports,
         meta: { title: '统计报表' }
+      },
+      {
+        path: 'audit-logs',
+        name: 'AdminAuditLogs',
+        component: AdminAuditLogs,
+        meta: { title: '审计日志' }
       },
     ]
   },
