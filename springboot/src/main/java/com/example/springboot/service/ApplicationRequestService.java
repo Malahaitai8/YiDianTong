@@ -69,6 +69,11 @@ public class ApplicationRequestService {
             if (oldValue == null) {
                 throw new RuntimeException("字段名无效");
             }
+            
+            // 验证新值不能和旧值相同
+            if (dto.getNewValue() != null && dto.getNewValue().trim().equals(oldValue.trim())) {
+                throw new RuntimeException("新值不能和旧值相同");
+            }
         }
 
         // 2. 构建实体对象

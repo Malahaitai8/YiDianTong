@@ -17,7 +17,7 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card">
       <el-row :gutter="20">
-        <el-col :span="8">
+        <el-col :span="12">
           <el-date-picker
             v-model="dateRange"
             type="daterange"
@@ -30,32 +30,7 @@
             style="width: 100%"
           />
         </el-col>
-        <el-col :span="4">
-          <el-select
-            v-model="selectedDepartment"
-            placeholder="选择科室"
-            clearable
-            @change="handleDepartmentChange"
-            style="width: 100%"
-          >
-            <el-option label="全部科室" value="" />
-            <el-option v-for="dept in departmentList" :key="dept.id" :label="dept.name" :value="dept.id" />
-          </el-select>
-        </el-col>
-        <el-col :span="4">
-          <el-select
-            v-model="selectedDoctor"
-            placeholder="选择医生"
-            clearable
-            @change="handleDoctorChange"
-            style="width: 100%"
-            :disabled="!selectedDepartment"
-          >
-            <el-option label="全部医生" value="" />
-            <el-option v-for="doc in filteredDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
-          </el-select>
-        </el-col>
-        <el-col :span="4">
+        <el-col :span="6">
           <el-button type="primary" @click="loadAllStats" :loading="loading">
             <el-icon><Search /></el-icon>
             查询
@@ -238,12 +213,12 @@
         </el-card>
       </el-col>
 
-      <!-- 科室预约分布饼图 -->
+      <!-- 科室预约统计横向条形图 -->
       <el-col :span="8">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>科室预约分布</span>
+              <span>科室预约统计</span>
           </div>
           </template>
           <v-chart class="chart" :option="departmentDistributionOption" v-loading="loading" />
@@ -374,8 +349,6 @@ import {
   getCancellationRateByDoctor,
   getTrendStats
 } from '@/api/statistics'
-import { getDepartmentList } from '@/api/department'
-import { getDoctorList } from '@/api/doctor'
 
 // 注册 ECharts 组件
 use([
@@ -391,10 +364,6 @@ use([
 
 const loading = ref(false)
 const dateRange = ref([])
-const selectedDepartment = ref('')
-const selectedDoctor = ref('')
-const departmentList = ref([])
-const doctorList = ref([])
 
 // 初始化日期范围（默认最近30天）
 const initDateRange = () => {
@@ -446,15 +415,6 @@ const trendData = ref({
   cancellationTrend: []
 })
 
-// 计算属性
-const filteredDoctors = computed(() => {
-  if (!selectedDepartment.value) return doctorList.value
-  const deptId = Number(selectedDepartment.value)
-  return doctorList.value.filter(doc => {
-    const docDeptId = doc.clinic?.departmentId ? Number(doc.clinic.departmentId) : null
-    return docDeptId === deptId
-  })
-})
 
 // 格式化日期字符串
 const formatDateStr = (date) => {
@@ -482,9 +442,6 @@ const getQueryParams = () => {
   if (dateRange.value && dateRange.value.length === 2) {
     params.startDate = dateRange.value[0]
     params.endDate = dateRange.value[1]
-  }
-  if (selectedDoctor.value) {
-    params.doctorId = selectedDoctor.value
   }
   return params
 }
@@ -737,48 +694,84 @@ const loadTimeSlotDistribution = async () => {
   }
 }
 
-// 加载科室分布统计
+// 加载科室分布统计（横向条形图）
 const loadDepartmentDistribution = async () => {
   try {
     const params = getQueryParams()
     const res = await getDepartmentWorkloadStats(params)
     const data = res?.data || []
     
+    // 按预约数排序（从高到低）
+    const sortedData = [...data].sort((a, b) => (b.totalAppointments || 0) - (a.totalAppointments || 0))
+    
+    // 定义颜色数组
+    const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9c27b0', '#ff9800', '#00bcd4']
+    
     departmentDistributionOption.value = {
       tooltip: {
-        trigger: 'item',
-        formatter: '{a} <br/>{b}: {c} ({d}%)'
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        },
+        formatter: (params) => {
+          const param = params[0]
+          return `${param.name}<br/>预约数: ${param.value} 人次`
+        }
       },
-      legend: {
-        orient: 'vertical',
-        left: 'left'
+      grid: {
+        left: '25%',
+        right: '10%',
+        top: '10%',
+        bottom: '10%',
+        containLabel: false
+      },
+      xAxis: {
+        type: 'value',
+        name: '预约数（人次）',
+        axisLabel: {
+          formatter: '{value}'
+        }
+      },
+      yAxis: {
+        type: 'category',
+        data: sortedData.map(item => item.departmentName || '未知科室'),
+        axisLabel: {
+          fontWeight: 'bold',
+          fontSize: 14,
+          color: '#303133'
+        },
+        axisLine: {
+          show: false
+        },
+        axisTick: {
+          show: false
+        }
       },
       series: [
         {
-          name: '科室分布',
-          type: 'pie',
-          radius: ['40%', '70%'],
-          avoidLabelOverlap: false,
-          itemStyle: {
-            borderRadius: 10,
-            borderColor: '#fff',
-            borderWidth: 2
-          },
-          label: {
-            show: true,
-            formatter: '{b}\n{c}'
-          },
-          emphasis: {
+          name: '预约数',
+          type: 'bar',
+          data: sortedData.map((item, index) => ({
+            value: item.totalAppointments || 0,
+            itemStyle: {
+              color: colors[index % colors.length]
+            },
             label: {
               show: true,
-              fontSize: 16,
-              fontWeight: 'bold'
+              position: 'right',
+              formatter: '{c} 人次',
+              color: '#909399',
+              fontSize: 12
             }
-          },
-          data: data.map(item => ({
-            value: item.totalAppointments || 0,
-            name: item.departmentName || '未知科室'
-          }))
+          })),
+          barWidth: '60%',
+          label: {
+            show: true,
+            position: 'right',
+            formatter: '{c} 人次',
+            color: '#909399',
+            fontSize: 12
+          }
         }
       ]
     }
@@ -987,19 +980,8 @@ const handleDateChange = () => {
   loadAllStats()
 }
 
-const handleDepartmentChange = () => {
-  selectedDoctor.value = ''
-  loadAllStats()
-}
-
-const handleDoctorChange = () => {
-  loadAllStats()
-}
-
 const resetFilters = () => {
   initDateRange()
-  selectedDepartment.value = ''
-  selectedDoctor.value = ''
   loadAllStats()
 }
 
@@ -1019,16 +1001,6 @@ const exportTableData = () => {
 // 初始化
 onMounted(async () => {
   initDateRange()
-  try {
-    const [deptRes, docRes] = await Promise.all([
-      getDepartmentList(),
-      getDoctorList()
-    ])
-    departmentList.value = deptRes?.data || []
-    doctorList.value = docRes?.data || []
-  } catch (error) {
-    console.error('加载基础数据失败:', error)
-  }
   await loadAllStats()
 })
 </script>

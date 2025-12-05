@@ -1,30 +1,32 @@
 <template>
   <div class="doctor-application-page">
-    <el-card shadow="never" class="intro-card">
-      <div class="intro-content">
-        <div>
-          <h2>统一申请管理</h2>
-          <p>在这里可以提交调班申请和信息修改申请，并实时跟踪审批状态。</p>
-        </div>
+    <div class="header-card">
+      <div class="header-left">
+        <h1 class="header-title">统一申请管理</h1>
+        <p class="header-subtitle">在这里可以提交调班申请和信息修改申请，并实时跟踪审批状态。</p>
+      </div>
+      <div class="header-right">
         <el-space wrap>
           <el-tag type="warning">调班申请</el-tag>
           <el-tag type="info">信息修改申请</el-tag>
           <el-tag type="success">审批进度实时更新</el-tag>
         </el-space>
       </div>
-    </el-card>
+    </div>
 
-    <el-row :gutter="16" class="form-section">
-      <el-col :span="12" :xs="24">
-        <el-card shadow="never" class="form-card">
-          <template #header>
-            <div class="card-header">
-              <span>提交新申请</span>
-              <el-button link type="primary" @click="loadMyData">刷新数据</el-button>
-            </div>
-          </template>
+    <el-tabs v-model="mainTab" type="border-card" class="main-tabs">
+      <!-- 提交新申请 -->
+      <el-tab-pane label="提交新申请" name="submit">
+        <div class="tab-content">
+          <el-card shadow="never" class="form-card">
+            <template #header>
+              <div class="card-header">
+                <span>提交新申请</span>
+                <el-button link type="primary" @click="loadMyData">刷新数据</el-button>
+              </div>
+            </template>
 
-          <el-tabs v-model="activeTab" class="apply-tabs">
+            <el-tabs v-model="activeTab" class="apply-tabs">
             <el-tab-pane label="调班申请" name="SCHEDULE_CHANGE">
               <el-form
                 ref="scheduleFormRef"
@@ -177,40 +179,43 @@
                 </el-form-item>
               </el-form>
             </el-tab-pane>
-          </el-tabs>
-        </el-card>
-      </el-col>
+            </el-tabs>
+          </el-card>
+        </div>
+      </el-tab-pane>
 
-      <el-col :span="12" :xs="24">
-        <el-card shadow="never" class="list-card">
-          <template #header>
-            <div class="card-header">
-              <span>我的申请记录</span>
-              <el-space>
-                <el-select
-                  v-model="listFilters.type"
-                  placeholder="全部类型"
-                  clearable
-                  style="width: 140px"
-                >
-                  <el-option label="调班申请" value="SCHEDULE_CHANGE" />
-                  <el-option label="信息修改" value="INFO_UPDATE" />
-                </el-select>
-                <el-select
-                  v-model="listFilters.status"
-                  placeholder="全部状态"
-                  clearable
-                  style="width: 140px"
-                >
-                  <el-option label="待审核" value="PENDING" />
-                  <el-option label="已批准" value="APPROVED" />
-                  <el-option label="已拒绝" value="REJECTED" />
-                  <el-option label="已取消" value="CANCELLED" />
-                </el-select>
-                <el-button type="primary" link @click="loadMyRequests">刷新</el-button>
-              </el-space>
-            </div>
-          </template>
+      <!-- 我的申请记录 -->
+      <el-tab-pane label="我的申请记录" name="records">
+        <div class="tab-content">
+          <el-card shadow="never" class="list-card">
+            <template #header>
+              <div class="card-header">
+                <span>我的申请记录</span>
+                <el-space>
+                  <el-select
+                    v-model="listFilters.type"
+                    placeholder="全部类型"
+                    clearable
+                    style="width: 140px"
+                  >
+                    <el-option label="调班申请" value="SCHEDULE_CHANGE" />
+                    <el-option label="信息修改" value="INFO_UPDATE" />
+                  </el-select>
+                  <el-select
+                    v-model="listFilters.status"
+                    placeholder="全部状态"
+                    clearable
+                    style="width: 140px"
+                  >
+                    <el-option label="待审核" value="PENDING" />
+                    <el-option label="已批准" value="APPROVED" />
+                    <el-option label="已拒绝" value="REJECTED" />
+                    <el-option label="已取消" value="CANCELLED" />
+                  </el-select>
+                  <el-button type="primary" link @click="loadMyRequests">刷新</el-button>
+                </el-space>
+              </div>
+            </template>
 
           <el-table
             :data="filteredRequests"
@@ -270,9 +275,10 @@
               </template>
             </el-table-column>
           </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
+          </el-card>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
 
     <el-drawer
       v-model="detailDrawer.visible"
@@ -369,6 +375,7 @@ const userStore = useUserStore()
 // 获取医生ID：优先从doctorId字段，其次从userId字段，最后从id字段
 const doctorId = computed(() => userStore.user?.doctorId || userStore.user?.userId || userStore.user?.id)
 
+const mainTab = ref('submit')
 const activeTab = ref('SCHEDULE_CHANGE')
 const scheduleFormRef = ref()
 const infoFormRef = ref()
@@ -731,20 +738,54 @@ onMounted(async () => {
   gap: 16px;
 }
 
-.intro-card h2 {
-  margin: 0 0 4px;
-}
-
-.intro-content {
+.header-card {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  justify-content: space-between;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
 }
 
-.form-section {
-  margin-top: 4px;
+.header-left {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.header-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #303133;
+  text-align: left;
+}
+
+.header-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+  text-align: left;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.main-tabs {
+  margin-top: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content {
+  padding: 20px;
 }
 
 .card-header {
@@ -792,6 +833,17 @@ onMounted(async () => {
 }
 
 @media (max-width: 992px) {
+  .header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
   .apply-form {
     padding-right: 0;
   }

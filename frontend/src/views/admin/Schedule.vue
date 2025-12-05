@@ -259,7 +259,7 @@
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -303,7 +303,7 @@
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -382,7 +382,7 @@
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -426,7 +426,7 @@
                               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
                             </div>
                             <div class="slots-buttons-row">
-                            <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+                            <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
                               <el-button 
                                 v-if="canPopWaitlist(schedule)"
                                 class="pop-waitlist-btn" 
@@ -489,7 +489,7 @@
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
               <span>剩余：{{ schedule.availableSlots || 0 }}</span>
               <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
-              <el-button class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
+              <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
               <el-button 
                 v-if="canPopWaitlist(schedule)"
                 class="pop-waitlist-btn" 
@@ -589,7 +589,7 @@
             </el-table-column>
             <el-table-column label="操作" width="280" fixed="right">
               <template #default="scope">
-                <el-button type="success" size="small" @click="openAddSlotsDialog(scope.row)">
+                <el-button v-if="canAddSlots(scope.row)" type="success" size="small" @click="openAddSlotsDialog(scope.row)">
                   加号
                 </el-button>
                 <el-button
@@ -2579,6 +2579,39 @@ const getWaitlistCountTagType = (schedule) => {
   if (count >= 10) return 'danger'
   if (count >= 5) return 'warning'
   return 'success'
+}
+
+// 判断是否可以加号
+const canAddSlots = (schedule) => {
+  if (!schedule || !schedule.scheduleDate) return false
+  
+  const now = new Date()
+  const scheduleDate = new Date(schedule.scheduleDate)
+  
+  // 将日期设置为当天的开始时间（00:00:00）用于比较
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const scheduleDay = new Date(scheduleDate.getFullYear(), scheduleDate.getMonth(), scheduleDate.getDate())
+  
+  // 如果排班日期是今天之前的，不能加号
+  if (scheduleDay < today) return false
+  
+  // 如果排班日期是今天之后的，可以加号
+  if (scheduleDay > today) return true
+  
+  // 如果是今天，需要根据时间段和时间判断
+  const currentHour = now.getHours()
+  const timeSlot = (schedule.timeSlot || '').toUpperCase()
+  
+  if (timeSlot === 'MORNING') {
+    // 上午号：12点之前可以加号
+    return currentHour < 12
+  } else if (timeSlot === 'AFTERNOON') {
+    // 下午号：18点之前可以加号
+    return currentHour < 18
+  }
+  
+  // 其他情况不允许加号
+  return false
 }
 
 const canPopWaitlist = (schedule) => {

@@ -236,9 +236,45 @@ const applySubmitting = ref(false)
 const applyForm = reactive({ fieldName: '', newValue: '', reason: '' })
 const titleOptions = ['主任医师', '副主任医师', '主治医师', '住院医师']
 const isTitleField = computed(() => applyForm.fieldName === 'title')
+
+// 获取当前字段的旧值
+const getOldValue = () => {
+  if (!doctorInfo.value || !applyForm.fieldName) return ''
+  const field = applyForm.fieldName
+  switch (field) {
+    case 'name':
+      return doctorInfo.value.name || ''
+    case 'title':
+      return doctorInfo.value.title || ''
+    case 'specialty':
+      return doctorInfo.value.specialty || ''
+    case 'bio':
+      return doctorInfo.value.bio || ''
+    default:
+      return ''
+  }
+}
+
+// 验证新值不能和旧值相同
+const validateNewValue = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('请输入新值'))
+    return
+  }
+  const oldValue = getOldValue()
+  if (value.trim() === oldValue.trim()) {
+    callback(new Error('新值不能和旧值相同'))
+    return
+  }
+  callback()
+}
+
 const applyRules = {
   fieldName: [{ required: true, message: '请选择字段', trigger: 'change' }],
-  newValue: [{ required: true, message: '请输入新值', trigger: ['blur', 'change'] }]
+  newValue: [
+    { required: true, message: '请输入新值', trigger: ['blur', 'change'] },
+    { validator: validateNewValue, trigger: ['blur', 'change'] }
+  ]
 }
 watch(
   () => applyForm.fieldName,
@@ -256,6 +292,14 @@ const submitApply = async () => {
   try {
     const valid = await applyFormRef.value.validate()
     if (!valid) return
+    
+    // 再次检查新值是否与旧值相同
+    const oldValue = getOldValue()
+    if (applyForm.newValue.trim() === oldValue.trim()) {
+      ElMessage.warning('新值不能和旧值相同，请修改后重试')
+      return
+    }
+    
     applySubmitting.value = true
     await applyDoctorInfoUpdate({
       fieldName: applyForm.fieldName,
