@@ -6,8 +6,10 @@ import com.example.springboot.dto.QaMatchedFaqDTO;
 import com.example.springboot.dto.QaTopQuestionDTO;
 import com.example.springboot.dto.QaAskRequest;
 import com.example.springboot.service.QaService;
+import com.example.springboot.service.QuestionLogService;
 import com.example.springboot.service.SystemConfigService;
 import com.example.springboot.entity.SystemConfig;
+import com.example.springboot.config.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,6 +36,9 @@ public class QaController {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private QuestionLogService questionLogService;
 
     private static final String KEY_LLM_ENABLED = "qa.llm.enabled";
     private static final String KEY_LLM_MODEL = "qa.llm.model";
@@ -102,6 +107,30 @@ public class QaController {
                 "source", "FAQ",
                 "matches", matches
         ));
+    }
+
+    @Operation(summary = "记录用户问题", description = "记录用户提问到问题库，用于高频问题统计")
+    @PostMapping("/log-question")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result logQuestion(@RequestBody Map<String, String> request) {
+        try {
+            String question = Optional.ofNullable(request.get("question")).orElse("").trim();
+            if (question.isEmpty()) {
+                return Result.error("问题内容不能为空");
+            }
+
+            Long userId = SecurityUtils.getCurrentUserId();
+            if (userId == null) {
+                return Result.error("未登录");
+            }
+
+            // 静默记录，失败不影响用户体验
+            questionLogService.logQuestion(userId, question);
+            return Result.success();
+        } catch (Exception e) {
+            // 静默处理，返回成功，避免影响用户体验
+            return Result.success();
+        }
     }
 
     private boolean matchesIdentityRule(String q, String qLower) {

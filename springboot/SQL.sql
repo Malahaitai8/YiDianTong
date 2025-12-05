@@ -297,11 +297,8 @@ CREATE TABLE `question_log` (
     PRIMARY KEY (`id`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) COMMENT='用户问题记录表 - 用于统计高频问题';
- -- =================
-补丁1：
--- ========================================
--- 审计日志表 (audit_log)
--- ========================================
+
+-- 审计日志表
 DROP TABLE IF EXISTS `audit_log`;
 
 CREATE TABLE `audit_log` (
