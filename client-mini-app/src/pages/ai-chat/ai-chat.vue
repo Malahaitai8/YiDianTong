@@ -104,7 +104,16 @@ export default {
       suggestExpanded: true
     };
   },
-  onLoad() {
+  onLoad(options = {}) {
+    const questionFromQuery = (() => {
+      const raw = options.question || '';
+      try {
+        return decodeURIComponent(raw);
+      } catch (e) {
+        return raw;
+      }
+    })().trim();
+
     const savedUrl = uni.getStorageSync('aiServiceUrl') || '';
     this.apiUrl = savedUrl;
     this.apiUrlInput = savedUrl;
@@ -125,6 +134,11 @@ export default {
       this.topQuestions = cachedTop;
     } else {
       this.fetchTopQuestions();
+    }
+
+    // 若从首页“猜你想问”跳转，预填问题
+    if (questionFromQuery) {
+      this.message = questionFromQuery;
     }
   },
   methods: {

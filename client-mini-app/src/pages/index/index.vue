@@ -36,31 +36,19 @@
 				<text class="main-card-arrow">›</text>
 			</view>
 
-			<!-- 四宫格导航 -->
+			<!-- 功能导航（两宫格） -->
 			<view class="nav-grid">
-				<view class="nav-item" @click="goToDepartments">
-					<view class="nav-icon-box">
-						<text class="nav-icon">🏥</text>
-					</view>
-					<text class="nav-text">找门诊</text>
-				</view>
 				<view class="nav-item" @click="goToDoctors">
 					<view class="nav-icon-box">
 						<text class="nav-icon">👨‍⚕️</text>
 					</view>
 					<text class="nav-text">找医生</text>
 				</view>
-				<view class="nav-item" @click="goToMyAppointments">
+				<view class="nav-item" @click="goToDepartments">
 					<view class="nav-icon-box">
-						<text class="nav-icon">📋</text>
+						<text class="nav-icon">🏥</text>
 					</view>
-					<text class="nav-text">我的预约</text>
-				</view>
-				<view class="nav-item" @click="goToMySubstitute">
-					<view class="nav-icon-box">
-						<text class="nav-icon">⏰</text>
-					</view>
-					<text class="nav-text">我的候补</text>
+					<text class="nav-text">找门诊</text>
 				</view>
 			</view>
 		</view>
@@ -199,20 +187,10 @@ export default {
 			// 直接查看所有医生（需要登录）
 			this.guardedNavigate('/pages/doctor-list/doctor-list');
 		},
-		goToMyAppointments() {
-			// 我的预约（需要登录；登录后暂时提示开发中）
-			if (!this.isLoggedIn) {
-				promptLogin();
-				return;
-			}
-			uni.showToast({ title: '我的预约开发中', icon: 'none' });
-		},
-		goToMySubstitute() {
-			// 我的候补（需要登录）
-			this.guardedNavigate('/pkg-user/my-substitute/my-substitute');
-		},
 		goToFAQDetail(item) {
-			uni.showToast({ title: item.question, icon: 'none' });
+			const question = item?.question || '';
+			const url = `/pages/ai-chat/ai-chat${question ? `?question=${encodeURIComponent(question)}` : ''}`;
+			this.guardedNavigate(url);
 		},
 		goToLogin() {
 			uni.navigateTo({ url: '/pages/login/login' });
@@ -409,10 +387,10 @@ export default {
 	font-weight: 300;
 }
 
-/* 四宫格导航 */
+/* 功能导航 */
 .nav-grid {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(2, 1fr);
 	gap: 20rpx;
 }
 .nav-item {

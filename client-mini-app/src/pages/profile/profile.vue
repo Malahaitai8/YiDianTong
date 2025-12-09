@@ -48,25 +48,6 @@
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
-			
-			<view class="menu-item" @click="goToSubstitute">
-				<view class="menu-left">
-					<text class="menu-icon">⏰</text>
-					<text class="menu-text">我的候补</text>
-				</view>
-				<view class="menu-right">
-					<text class="menu-badge" v-if="substituteCount > 0">{{ substituteCount }}</text>
-					<text class="menu-arrow">›</text>
-				</view>
-			</view>
-			
-			<view class="menu-item" @click="goToRules">
-				<view class="menu-left">
-					<text class="menu-icon">📖</text>
-					<text class="menu-text">挂号与退号规则</text>
-				</view>
-				<text class="menu-arrow">›</text>
-			</view>
 		</view>
 
 		<!-- 退出登录/登录按钮 -->
@@ -218,9 +199,6 @@ export default {
 			getApp().globalData.recordFilter = 'waitlist';
 			// 跳转到记录页面
 			uni.switchTab({ url: '/pages/records/records' });
-		},
-		goToRules() {
-			uni.showToast({ title: '规则说明功能开发中', icon: 'none' });
 		},
 		goToLogin() {
 			uni.navigateTo({ url: '/pages/login/login' });
