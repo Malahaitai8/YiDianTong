@@ -535,46 +535,55 @@
         <!-- 导入表格选项卡 -->
         <el-tab-pane label="导入表格" name="import">
           <div class="import-container">
-            <!-- 模板下载区域 -->
-            <div class="template-section">
-              <el-alert
-                type="info"
-                :closable="false"
-                show-icon
-                class="usage-alert"
-              >
-                <template #default>
-                  <div class="usage-tips">
-                    <div class="tip-item">
-                      <el-icon class="tip-icon"><DocumentAdd /></el-icon>
-                      <span>下载模板文件，按照格式填写科室信息</span>
-                    </div>
-                    <div class="tip-item">
-                      <el-icon class="tip-icon"><Document /></el-icon>
-                      <span>支持 Excel (.xlsx) 和 CSV (.csv) 格式</span>
-                    </div>
-                    <div class="tip-item">
-                      <el-icon class="tip-icon"><Check /></el-icon>
-                      <span>科室名称为必填项，长度2-50个字符</span>
-                    </div>
-                    <div class="tip-item">
-                      <el-icon class="tip-icon"><Edit /></el-icon>
-                      <span>科室描述为可选项</span>
-                    </div>
-                  </div>
-                </template>
-              </el-alert>
+            <!-- 使用说明卡片 -->
+            <el-card class="usage-card" shadow="never">
+              <template #header>
+                <div class="card-header-title">
+                  <el-icon class="header-icon" color="#409EFF"><InfoFilled /></el-icon>
+                  <span>使用说明</span>
+                </div>
+              </template>
               
-              <div class="template-actions">
-                <el-button type="success" @click="downloadTemplate('excel')">
-                  <el-icon><Download /></el-icon>
-                  下载Excel模板
-                </el-button>
-                <el-button type="success" @click="downloadTemplate('csv')">
-                  <el-icon><Download /></el-icon>
-                  下载CSV模板
-                </el-button>
+              <div class="usage-content">
+                <div class="usage-item">
+                  <el-icon class="usage-icon" color="#409EFF"><Document /></el-icon>
+                  <span class="usage-text">下载模板文件，按照格式填写科室信息</span>
+                </div>
+                <div class="usage-item">
+                  <el-icon class="usage-icon" color="#409EFF"><Document /></el-icon>
+                  <span class="usage-text">支持 Excel (.xlsx) 和 CSV (.csv) 格式</span>
+                </div>
+                <div class="usage-item">
+                  <el-icon class="usage-icon" color="#67C23A"><CircleCheck /></el-icon>
+                  <span class="usage-text">科室名称为必填项，长度2-50个字符</span>
+                </div>
+                <div class="usage-item">
+                  <el-icon class="usage-icon" color="#409EFF"><Notebook /></el-icon>
+                  <span class="usage-text">科室描述为可选项</span>
+                </div>
               </div>
+            </el-card>
+            
+            <!-- 模板下载按钮 -->
+            <div class="template-actions">
+              <el-button 
+                type="primary" 
+                size="large"
+                @click="downloadTemplate('excel')"
+                class="download-btn excel-btn"
+              >
+                <el-icon><Download /></el-icon>
+                下载Excel模板
+              </el-button>
+              <el-button 
+                type="success" 
+                size="large"
+                @click="downloadTemplate('csv')"
+                class="download-btn csv-btn"
+              >
+                <el-icon><Download /></el-icon>
+                下载CSV模板
+              </el-button>
             </div>
 
             <!-- 文件上传区域 -->
@@ -704,7 +713,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
     Setting,
     DocumentAdd,
     Document,
-    Check
+    Check,
+    InfoFilled,
+    CircleCheck,
+    Notebook
   } from '@element-plus/icons-vue'
   import { 
     getDepartmentList, 
@@ -1660,7 +1672,7 @@ const saveImportDepartments = async () => {
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 20px;
+  padding: 10px;
 }
 
 .stat-icon {

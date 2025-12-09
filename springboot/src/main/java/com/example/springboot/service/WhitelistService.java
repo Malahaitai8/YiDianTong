@@ -97,5 +97,32 @@ public class WhitelistService {
         }
         return whitelistMapper.delete(id);
     }
+
+    /**
+     * 批量删除白名单
+     */
+    public void batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new CustomerException("请选择要删除的记录");
+        }
+        for (Long id : ids) {
+            whitelistMapper.delete(id);
+        }
+    }
+
+    /**
+     * 切换白名单状态（启用/停用）
+     */
+    public void toggleStatus(Long id) {
+        Whitelist existing = whitelistMapper.selectById(id);
+        if (existing == null) {
+            throw new CustomerException("白名单记录不存在");
+        }
+        
+        // 切换状态
+        String newStatus = "active".equals(existing.getStatus()) ? "inactive" : "active";
+        existing.setStatus(newStatus);
+        whitelistMapper.update(existing);
+    }
 }
 

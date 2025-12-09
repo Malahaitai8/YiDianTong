@@ -4,11 +4,14 @@ import request from './request'
 
 /**
  * 获取全局概览统计
+ * @param {Object} params - 查询参数
+ * @param {number} params.departmentId - 科室ID（可选）
  */
-export const getOverviewStats = () => {
+export const getOverviewStats = (params) => {
   return request({
     url: '/api/admin/stats/overview',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

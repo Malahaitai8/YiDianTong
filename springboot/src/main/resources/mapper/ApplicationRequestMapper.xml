@@ -30,6 +30,12 @@
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
         
+        <!-- 申请人医生姓名（直接映射到实体） -->
+        <result column="applicant_doctor_name" property="applicantName"/>
+        
+        <!-- 审核人管理员姓名（直接映射到实体） -->
+        <result column="reviewer_admin_name" property="reviewerName"/>
+        
         <!-- 关联申请人 -->
         <association property="applicant" javaType="com.example.springboot.entity.User">
             <id column="applicant_id" property="id"/>
@@ -65,12 +71,16 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name,
+            reviewer_admin.name as reviewer_admin_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
+        LEFT JOIN admin reviewer_admin ON reviewer_admin.user_id = ar.reviewer_id
         ORDER BY ar.created_at DESC
     </select>
     
@@ -81,12 +91,16 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name,
+            reviewer_admin.name as reviewer_admin_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
+        LEFT JOIN admin reviewer_admin ON reviewer_admin.user_id = ar.reviewer_id
         WHERE ar.id = #{id}
     </select>
     
@@ -97,12 +111,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.request_type = #{requestType}
         ORDER BY ar.created_at DESC
     </select>
@@ -114,12 +130,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.applicant_id = #{applicantId}
         ORDER BY ar.created_at DESC
     </select>
@@ -131,12 +149,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.status = #{status}
         ORDER BY ar.created_at DESC
     </select>
@@ -148,12 +168,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.doctor_id = #{doctorId}
         ORDER BY ar.created_at DESC
     </select>
@@ -165,12 +187,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.schedule_id = #{scheduleId}
         ORDER BY ar.created_at DESC
     </select>
@@ -182,12 +206,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.status = 'PENDING'
         ORDER BY ar.created_at ASC
     </select>
@@ -199,12 +225,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         WHERE ar.created_at BETWEEN #{startDate} AND #{endDate}
         ORDER BY ar.created_at DESC
     </select>
@@ -216,12 +244,14 @@
             u1.username as applicant_username, u1.role as applicant_role_user,
             u2.username as reviewer_username,
             s.schedule_date, s.time_slot,
-            d.name as doctor_name, d.title as doctor_title
+            d.name as doctor_name, d.title as doctor_title,
+            applicant_doctor.name as applicant_doctor_name
         FROM application_request ar
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN schedule s ON ar.schedule_id = s.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
         <where>
             <if test="requestType != null">
                 AND ar.request_type = #{requestType}
@@ -346,6 +376,8 @@
             u1.username as applicantUsername,
             u2.username as reviewerUsername,
             d.name as doctorName,
+            applicant_doctor.name as applicantName,
+            reviewer_admin.name as reviewerName,
             CASE ar.request_type
                 WHEN 'SCHEDULE_CHANGE' THEN '调班申请'
                 WHEN 'INFO_UPDATE' THEN '信息修改申请'
@@ -375,6 +407,8 @@
         LEFT JOIN user u1 ON ar.applicant_id = u1.id
         LEFT JOIN user u2 ON ar.reviewer_id = u2.id
         LEFT JOIN doctor d ON ar.doctor_id = d.id
+        LEFT JOIN doctor applicant_doctor ON applicant_doctor.user_id = ar.applicant_id
+        LEFT JOIN admin reviewer_admin ON reviewer_admin.user_id = ar.reviewer_id
         WHERE ar.id = #{id}
     </select>
     

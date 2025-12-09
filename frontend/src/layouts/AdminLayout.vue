@@ -61,19 +61,27 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const menuItems = ref([
+  // 一、概览与统计
   { path: '/admin/dashboard', name: '数据概览' },
+  { path: '/admin/reports', name: '报表统计' },
+  
+  // 二、人员管理
   { path: '/admin/doctors', name: '医生管理' },
-  { path: '/admin/doctor-change', name: '申请管理' },
   { path: '/admin/patients', name: '患者管理' },
-  { path: '/admin/appointments', name: '预约管理' },
   { path: '/admin/admins', name: '管理员信息' },
-  { path: '/admin/whitelist', name: '白名单管理' },
+  
+  // 三、科室与排班
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
   { path: '/admin/schedule-rules', name: '排班规则' },
   { path: '/admin/schedule-settings', name: '号源管理' },
-  { path: '/admin/qa-management', name: 'QA管理' },
-  { path: '/admin/reports', name: '报表统计' },
+  
+  // 四、业务管理
+  { path: '/admin/appointments', name: '预约管理' },
+  { path: '/admin/doctor-change', name: '申请管理' },
+  
+  // 五、系统管理
+  { path: '/admin/whitelist', name: '白名单管理' },
   { path: '/admin/audit-logs', name: '审计日志' }
 ])
 

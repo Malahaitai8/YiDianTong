@@ -225,7 +225,6 @@
             row-key="id"
             border
           >
-            <el-table-column prop="id" label="ID" width="80" />
             <el-table-column label="类型" width="130">
               <template #default="{ row }">
                 <el-tag :type="requestTypeTag[row.requestType] || 'info'">
@@ -291,7 +290,7 @@
         <el-skeleton :rows="6" animated />
       </div>
       <div v-else-if="detailDrawer.data" class="detail-content">
-        <el-descriptions :column="1" border>
+        <el-descriptions :column="1" border label-width="100px">
           <el-descriptions-item label="申请ID">{{ detailDrawer.data.id }}</el-descriptions-item>
           <el-descriptions-item label="类型">{{ detailDrawer.data.requestTypeName }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ detailDrawer.data.statusName }}</el-descriptions-item>
@@ -301,9 +300,9 @@
         </el-descriptions>
         <el-divider content-position="left">业务信息</el-divider>
         <div v-if="detailDrawer.data.requestType === 'SCHEDULE_CHANGE'">
-          <el-descriptions :column="1" border>
+          <el-descriptions :column="1" border label-width="100px">
             <el-descriptions-item label="排班ID">
-              {{ detailDrawer.data.scheduleId }}
+              {{ detailDrawer.data.scheduleId || '（排班已删除）' }}
             </el-descriptions-item>
             <el-descriptions-item label="变更类型">
               {{ detailDrawer.data.changeTypeName }}
@@ -318,14 +317,14 @@
               <span v-else>无</span>
             </el-descriptions-item>
             <el-descriptions-item label="号源调整">
-              {{ detailDrawer.data.slotsAdjustment ?? '-' }}
+              {{ detailDrawer.data.slotAdjustment ?? '-' }}
             </el-descriptions-item>
           </el-descriptions>
         </div>
         <div v-else>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="字段">
-              {{ detailDrawer.data.fieldNameChinese || detailDrawer.data.fieldName }}
+          <el-descriptions :column="1" border label-width="100px">
+            <el-descriptions-item label="修改字段">
+              {{ getFieldNameChinese(detailDrawer.data.fieldName) }}
             </el-descriptions-item>
             <el-descriptions-item label="旧值">
               {{ detailDrawer.data.oldValue || '-' }}
@@ -335,21 +334,23 @@
             </el-descriptions-item>
           </el-descriptions>
         </div>
-        <el-divider content-position="left">审核信息</el-divider>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="审核人">
-            {{ detailDrawer.data.reviewerUsername || '未审核' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="审核时间">
-            {{ detailDrawer.data.reviewedAt || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="拒绝原因">
-            {{ detailDrawer.data.rejectionReason || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ detailDrawer.data.updatedAt || '-' }}
-          </el-descriptions-item>
-        </el-descriptions>
+        <template v-if="detailDrawer.data.status !== 'PENDING'">
+          <el-divider content-position="left">审核信息</el-divider>
+          <el-descriptions :column="1" border label-width="100px">
+            <el-descriptions-item label="审核人">
+              {{ detailDrawer.data.reviewerUsername || '未审核' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="审核时间">
+              {{ detailDrawer.data.reviewedAt || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="拒绝原因">
+              {{ detailDrawer.data.rejectionReason || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="更新时间">
+              {{ detailDrawer.data.updatedAt || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </template>
       </div>
       <div v-else class="drawer-loading">
         <el-empty description="暂无数据" />
@@ -724,6 +725,25 @@ const formatDate = (value) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const getFieldNameChinese = (fieldName) => {
+  const fieldMap = {
+    'name': '姓名',
+    'title': '职称',
+    'department': '科室',
+    'phone': '电话',
+    'email': '邮箱',
+    'gender': '性别',
+    'birthDate': '出生日期',
+    'idCard': '身份证号',
+    'address': '地址',
+    'specialty': '专长',
+    'introduction': '简介',
+    'education': '学历',
+    'workExperience': '工作经验'
+  }
+  return fieldMap[fieldName] || fieldName
 }
 
 onMounted(async () => {

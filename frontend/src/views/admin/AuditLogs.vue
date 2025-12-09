@@ -16,94 +16,111 @@
 
     <!-- 筛选条件 -->
     <el-card class="filter-card">
-      <el-form :model="filters" :inline="true" label-width="100px">
-        <el-form-item label="操作类型">
-          <el-select
-            v-model="filters.operationType"
-            placeholder="全部"
-            clearable
-            style="width: 150px"
-          >
-            <el-option label="创建" value="CREATE" />
-            <el-option label="更新" value="UPDATE" />
-            <el-option label="删除" value="DELETE" />
-            <el-option label="审批" value="APPROVE" />
-            <el-option label="拒绝" value="REJECT" />
-            <el-option label="查询" value="QUERY" />
-          </el-select>
-        </el-form-item>
+      <el-form :model="filters" label-width="80px" class="filter-form">
+        <!-- 第一行：用户角色、操作人、操作类型、操作模块 -->
+        <el-row :gutter="20">
+          <el-col :span="6">
+            <el-form-item label="用户角色">
+              <el-select
+                v-model="filters.userRole"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+              >
+                <el-option label="患者" value="patient" />
+                <el-option label="医生" value="doctor" />
+                <el-option label="管理员" value="admin" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="操作人">
+              <el-input
+                v-model="filters.username"
+                placeholder="请输入用户名"
+                clearable
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="操作类型">
+              <el-select
+                v-model="filters.operationType"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+              >
+                <el-option label="创建" value="CREATE" />
+                <el-option label="更新" value="UPDATE" />
+                <el-option label="删除" value="DELETE" />
+                <el-option label="审批" value="APPROVE" />
+                <el-option label="拒绝" value="REJECT" />
+                <el-option label="查询" value="QUERY" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="操作模块">
+              <el-select
+                v-model="filters.operationModule"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+              >
+                <el-option label="排班" value="SCHEDULE" />
+                <el-option label="预约" value="APPOINTMENT" />
+                <el-option label="候补" value="WAITLIST" />
+                <el-option label="审计" value="AUDIT" />
+                <el-option label="用户" value="USER" />
+                <el-option label="医生" value="DOCTOR" />
+                <el-option label="科室" value="DEPARTMENT" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="操作模块">
-          <el-select
-            v-model="filters.operationModule"
-            placeholder="全部"
-            clearable
-            style="width: 150px"
-          >
-            <el-option label="排班" value="SCHEDULE" />
-            <el-option label="预约" value="APPOINTMENT" />
-            <el-option label="候补" value="WAITLIST" />
-            <el-option label="审计" value="AUDIT" />
-            <el-option label="用户" value="USER" />
-            <el-option label="医生" value="DOCTOR" />
-            <el-option label="科室" value="DEPARTMENT" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="操作人">
-          <el-input
-            v-model="filters.username"
-            placeholder="用户名"
-            clearable
-            style="width: 150px"
-          />
-        </el-form-item>
-
-        <el-form-item label="用户角色">
-          <el-select
-            v-model="filters.userRole"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option label="患者" value="patient" />
-            <el-option label="医生" value="doctor" />
-            <el-option label="管理员" value="admin" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="操作状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option label="成功" value="SUCCESS" />
-            <el-option label="失败" value="FAILURE" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="时间范围">
-          <el-date-picker
-            v-model="timeRange"
-            type="datetimerange"
-            range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 380px"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">
-            <el-icon><Search /></el-icon>
-            查询
-          </el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
+        <!-- 第二行：时间范围、操作状态、按钮 -->
+        <el-row :gutter="20" class="second-row">
+          <el-col :span="12">
+            <el-form-item label="时间范围">
+              <el-date-picker
+                v-model="timeRange"
+                type="datetimerange"
+                range-separator="至"
+                start-placeholder="开始时间"
+                end-placeholder="结束时间"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="操作状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+              >
+                <el-option label="成功" value="SUCCESS" />
+                <el-option label="失败" value="FAILURE" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label=" " class="button-form-item">
+              <div class="button-group">
+                <el-button type="primary" @click="handleSearch">
+                  <el-icon><Search /></el-icon>
+                  查询
+                </el-button>
+                <el-button @click="handleReset">重置</el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
     </el-card>
 
@@ -114,59 +131,56 @@
         v-loading="loading"
         stripe
         border
-        style="width: 100%"
+        style="width: 100%; table-layout: fixed;"
+        :default-sort="{ prop: sortConfig.prop, order: sortConfig.order }"
         @row-click="handleRowClick"
+        @sort-change="handleSortChange"
       >
-        <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="createdAt" label="操作时间" width="180" sortable="custom" />
-        <el-table-column prop="username" label="操作人" width="120">
+        <el-table-column type="index" label="序号" width="70" align="center" />
+        <el-table-column prop="createdAt" label="操作时间" width="180" sortable="custom">
           <template #default="{ row }">
-            <div>
-              <div>{{ row.username || '-' }}</div>
-              <el-tag size="small" :type="getRoleTagType(row.userRole)">
-                {{ getUserRoleName(row.userRole) }}
-              </el-tag>
-            </div>
+            {{ formatDateTime(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column prop="operationType" label="操作类型" width="100">
+        <el-table-column prop="userRole" label="用户角色" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="getRoleTagType(row.userRole)">
+              {{ getUserRoleName(row.userRole) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="username" label="操作人" width="130">
+          <template #default="{ row }">
+            {{ row.username || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="operationType" label="操作类型" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="getOperationTypeTagType(row.operationType)">
               {{ getOperationTypeName(row.operationType) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operationModule" label="操作模块" width="120">
+        <el-table-column prop="operationModule" label="操作模块" width="110" align="center">
           <template #default="{ row }">
             <el-tag type="info">{{ getOperationModuleName(row.operationModule) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operationDesc" label="操作描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="requestMethod" label="请求方法" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getMethodTagType(row.requestMethod)">
-              {{ row.requestMethod }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="requestUrl" label="请求URL" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'">
               {{ row.status === 'SUCCESS' ? '成功' : '失败' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="responseCode" label="响应码" width="100" />
-        <el-table-column prop="executionTime" label="耗时(ms)" width="100" sortable="custom">
+        <el-table-column prop="executionTime" label="耗时" width="110" sortable="custom" align="center">
           <template #default="{ row }">
             <span :class="getExecutionTimeClass(row.executionTime)">
-              {{ row.executionTime }}
+              {{ row.executionTime }}ms
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="ipAddress" label="IP地址" width="130" />
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="100" align="center">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click.stop="viewDetail(row)">
               详情
@@ -193,13 +207,13 @@
     <el-dialog
       v-model="detailVisible"
       title="审计日志详情"
-      width="800px"
+      width="900px"
       class="detail-dialog"
     >
       <div v-if="detailData" class="detail-content">
-        <el-descriptions :column="2" border>
+        <el-descriptions :column="2" border label-class-name="detail-label">
           <el-descriptions-item label="日志ID">{{ detailData.id }}</el-descriptions-item>
-          <el-descriptions-item label="操作时间">{{ detailData.createdAt }}</el-descriptions-item>
+          <el-descriptions-item label="操作时间">{{ formatDateTime(detailData.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="操作人">
             <div>
               <div>{{ detailData.username || '-' }}</div>
@@ -274,6 +288,12 @@ const detailVisible = ref(false)
 const detailData = ref(null)
 const timeRange = ref([])
 
+// 排序状态
+const sortConfig = reactive({
+  prop: 'createdAt',
+  order: 'descending' // descending: 降序(最新的在前), ascending: 升序(最旧的在前)
+})
+
 // 筛选条件
 const filters = reactive({
   operationType: '',
@@ -320,7 +340,14 @@ const loadAuditLogs = async () => {
 
     const res = await getAuditLogs(params)
     const data = res?.data || {}
-    auditLogs.value = data.list || []
+    let logs = data.list || []
+    
+    // 前端排序处理
+    if (sortConfig.prop && sortConfig.order) {
+      logs = sortLogs(logs, sortConfig.prop, sortConfig.order)
+    }
+    
+    auditLogs.value = logs
     pagination.total = data.total || 0
     pagination.totalPages = data.totalPages || 0
   } catch (error) {
@@ -374,6 +401,64 @@ const handleSizeChange = (size) => {
 const handleCurrentChange = (page) => {
   pagination.page = page
   loadAuditLogs()
+}
+
+// 排序变化处理
+const handleSortChange = ({ prop, order }) => {
+  sortConfig.prop = prop
+  sortConfig.order = order
+  loadAuditLogs()
+}
+
+// 排序函数
+const sortLogs = (logs, prop, order) => {
+  if (!order) return logs
+  
+  const sortedLogs = [...logs]
+  sortedLogs.sort((a, b) => {
+    let aValue = a[prop]
+    let bValue = b[prop]
+    
+    // 处理时间字段
+    if (prop === 'createdAt') {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+    
+    // 处理数字字段
+    if (prop === 'executionTime') {
+      aValue = Number(aValue) || 0
+      bValue = Number(bValue) || 0
+    }
+    
+    if (order === 'ascending') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+  
+  return sortedLogs
+}
+
+// 格式化日期时间
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '-'
+  try {
+    const date = new Date(dateTimeStr)
+    if (isNaN(date.getTime())) return dateTimeStr
+    
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  } catch (e) {
+    return dateTimeStr
+  }
 }
 
 // 格式化JSON
@@ -517,8 +602,95 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.filter-form {
+  padding: 10px 0;
+}
+
+.filter-form .el-row {
+  margin-bottom: 0;
+}
+
+.filter-form .el-form-item {
+  margin-bottom: 18px;
+}
+
+.filter-form .second-row {
+  align-items: flex-start;
+}
+
+.button-form-item {
+  width: 100%;
+}
+
+.button-form-item :deep(.el-form-item__content) {
+  width: 100% !important;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.button-group .el-button {
+  flex: 1;
+  min-width: 0;
+}
+
 .table-card {
   margin-bottom: 20px;
+}
+
+.table-card :deep(.el-table) {
+  table-layout: fixed !important;
+}
+
+.table-card :deep(.el-table__header-wrapper) {
+  overflow: hidden;
+}
+
+.table-card :deep(.el-table__body-wrapper) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-card :deep(.el-table__header) {
+  width: 100% !important;
+}
+
+.table-card :deep(.el-table__body) {
+  width: 100% !important;
+}
+
+.table-card :deep(.el-table th),
+.table-card :deep(.el-table td) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 修复表头偏移问题 */
+.table-card :deep(.el-table__header-wrapper .el-table__header) {
+  margin-right: 0 !important;
+}
+
+.table-card :deep(.el-table__body-wrapper .el-table__body) {
+  margin-right: 0 !important;
+}
+
+/* 移除滚动条gutter */
+.table-card :deep(.el-table__body-wrapper) {
+  scrollbar-gutter: auto !important;
+}
+
+.table-card :deep(.el-table--scrollable-x .el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
+.table-card :deep(.el-table--border::after),
+.table-card :deep(.el-table--group::after),
+.table-card :deep(.el-table::before) {
+  background-color: #ebeef5;
 }
 
 .pagination-container {
@@ -534,6 +706,16 @@ onMounted(() => {
 .detail-content {
   max-height: 600px;
   overflow-y: auto;
+}
+
+.detail-content :deep(.detail-label) {
+  white-space: nowrap;
+  min-width: 120px;
+  width: 120px;
+}
+
+.detail-content :deep(.el-descriptions__label) {
+  white-space: nowrap !important;
 }
 
 .url-text {

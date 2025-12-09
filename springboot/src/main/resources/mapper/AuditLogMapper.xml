@@ -7,12 +7,12 @@
     
     <insert id="insert" parameterType="com.example.springboot.entity.AuditLog" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO audit_log (
-            user_id, username, operation_type, operation_module, operation_desc,
+            user_id, username, user_role, operation_type, operation_module, operation_desc,
             target_type, target_id, request_method, request_url, request_params,
             response_code, response_msg, ip_address, user_agent, execution_time,
             status, error_message, created_at
         ) VALUES (
-            #{userId}, #{username}, #{operationType}, #{operationModule}, #{operationDesc},
+            #{userId}, #{username}, #{userRole}, #{operationType}, #{operationModule}, #{operationDesc},
             #{targetType}, #{targetId}, #{requestMethod}, #{requestUrl}, #{requestParams},
             #{responseCode}, #{responseMsg}, #{ipAddress}, #{userAgent}, #{executionTime},
             #{status}, #{errorMessage}, NOW()

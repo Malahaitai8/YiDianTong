@@ -37,7 +37,7 @@
           <div class="card-actions">
             <el-input
               v-model="searchKeyword"
-              prefix-icon="Search"
+              :prefix-icon="Search"
               placeholder="搜索问题或答案关键字"
               clearable
               class="search-input"
@@ -185,7 +185,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Upload, Download, Search } from '@element-plus/icons-vue'
 import {
   getFaqList,
   createFaq,
@@ -250,7 +250,9 @@ const loadFaqs = async () => {
   try {
     loading.value = true
     const resp = await getFaqList()
-    const list = Array.isArray(resp?.data) ? resp.data : []
+    const list = Array.isArray(resp?.data)
+      ? resp.data
+      : (Array.isArray(resp) ? resp : [])
     faqList.value = list.map((item, idx) => ({
       ...item,
       _index: idx
@@ -267,7 +269,9 @@ const loadStats = async () => {
   try {
     statsLoading.value = true
     const resp = await getFaqStats()
-    const map = resp?.data || {}
+    const map = typeof resp?.data === 'object' && resp?.data !== null
+      ? resp.data
+      : (typeof resp === 'object' && resp !== null ? resp : {})
     statsEntries.value = Object.keys(map).map((key) => ({
       question: key,
       count: Number(map[key]) || 0,
@@ -372,7 +376,9 @@ const handleImportSubmit = async () => {
 const handleExport = async () => {
   try {
     const resp = await exportFaqs()
-    const faqs = resp?.data?.faqs || resp?.data || []
+    const faqs = Array.isArray(resp)
+      ? resp
+      : (Array.isArray(resp?.data?.faqs) ? resp.data.faqs : (Array.isArray(resp?.data) ? resp.data : []))
     const blob = new Blob([JSON.stringify(faqs, null, 2)], {
       type: 'application/json;charset=utf-8'
     })

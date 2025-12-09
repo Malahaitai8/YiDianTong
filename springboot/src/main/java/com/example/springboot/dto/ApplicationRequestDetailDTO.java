@@ -17,6 +17,7 @@ public class ApplicationRequestDetailDTO {
     
     // 申请人信息
     private Long applicantId;
+    private String applicantName; // 申请人姓名（医生姓名）
     private String applicantUsername;
     private String applicantRole;
     
@@ -51,6 +52,7 @@ public class ApplicationRequestDetailDTO {
     
     // 审核信息
     private Long reviewerId;
+    private String reviewerName; // 审核人姓名（管理员姓名）
     private String reviewerUsername;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

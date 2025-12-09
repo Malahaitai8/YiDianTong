@@ -27,9 +27,12 @@ public class AdminStatisticsController {
 
     @Operation(summary = "获取全局概览统计", description = "提供全站的核心运营指标，如预约量、完成率、号源利用率等")
     @GetMapping("/overview")
-    public Result getOverviewStats() {
+    public Result getOverviewStats(
+            @Parameter(description = "科室ID，可选") @RequestParam(required = false) Long departmentId,
+            @Parameter(description = "开始日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate) {
         try {
-            return Result.success(statisticsService.getOverviewStats());
+            return Result.success(statisticsService.getOverviewStats(departmentId, startDate, endDate));
         } catch (Exception e) {
             return Result.error("获取统计数据失败: " + e.getMessage());
         }
@@ -121,13 +124,14 @@ public class AdminStatisticsController {
     @GetMapping("/slot-type-distribution")
     public Result getSlotTypeDistribution(
             @Parameter(description = "开始日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
-            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate) {
+            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "科室ID，可选") @RequestParam(required = false) Long departmentId) {
         try {
             if (startDate == null || endDate == null) {
                 endDate = new Date();
                 startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
             }
-            return Result.success(statisticsService.getSlotTypeDistribution(startDate, endDate));
+            return Result.success(statisticsService.getSlotTypeDistribution(startDate, endDate, departmentId));
         } catch (Exception e) {
             return Result.error("获取号别分布统计失败: " + e.getMessage());
         }
@@ -137,13 +141,14 @@ public class AdminStatisticsController {
     @GetMapping("/time-slot-distribution")
     public Result getTimeSlotDistribution(
             @Parameter(description = "开始日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
-            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate) {
+            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "科室ID，可选") @RequestParam(required = false) Long departmentId) {
         try {
             if (startDate == null || endDate == null) {
                 endDate = new Date();
                 startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
             }
-            return Result.success(statisticsService.getTimeSlotDistribution(startDate, endDate));
+            return Result.success(statisticsService.getTimeSlotDistribution(startDate, endDate, departmentId));
         } catch (Exception e) {
             return Result.error("获取时间段分布统计失败: " + e.getMessage());
         }
@@ -186,13 +191,14 @@ public class AdminStatisticsController {
     @GetMapping("/trends")
     public Result getTrendStatistics(
             @Parameter(description = "开始日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
-            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate) {
+            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "科室ID，可选") @RequestParam(required = false) Long departmentId) {
         try {
             if (startDate == null || endDate == null) {
                 endDate = new Date();
                 startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
             }
-            return Result.success(statisticsService.getTrendStatistics(startDate, endDate));
+            return Result.success(statisticsService.getTrendStatistics(startDate, endDate, departmentId));
         } catch (Exception e) {
             return Result.error("获取趋势统计失败: " + e.getMessage());
         }

@@ -205,5 +205,30 @@ public class AdminController {
             return Result.error("删除失败: " + e.getMessage());
         }
     }
+
+    @Operation(summary = "批量删除白名单", description = "管理员批量删除白名单记录")
+    @org.springframework.web.bind.annotation.DeleteMapping("/whitelist/batch")
+    public Result batchDeleteWhitelist(@RequestBody List<Long> ids) {
+        try {
+            if (ids == null || ids.isEmpty()) {
+                return Result.error("请选择要删除的记录");
+            }
+            whitelistService.batchDelete(ids);
+            return Result.success("批量删除成功，共删除 " + ids.size() + " 条记录");
+        } catch (Exception e) {
+            return Result.error("批量删除失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "切换白名单状态", description = "管理员切换白名单启用/停用状态")
+    @org.springframework.web.bind.annotation.PatchMapping("/whitelist/{id}/status")
+    public Result toggleWhitelistStatus(@PathVariable Long id) {
+        try {
+            whitelistService.toggleStatus(id);
+            return Result.success("状态切换成功");
+        } catch (Exception e) {
+            return Result.error("状态切换失败: " + e.getMessage());
+        }
+    }
 }
 

@@ -360,6 +360,7 @@ public class ApplicationRequestService {
         dto.setRequestTypeName(getRequestTypeName(request.getRequestType()));
         
         dto.setApplicantId(request.getApplicantId());
+        dto.setApplicantName(request.getApplicantName());
         if (request.getApplicant() != null) {
             dto.setApplicantUsername(request.getApplicant().getUsername());
         }
@@ -389,6 +390,7 @@ public class ApplicationRequestService {
         dto.setRejectReason(request.getRejectReason());
         
         dto.setReviewerId(request.getReviewerId());
+        dto.setReviewerName(request.getReviewerName());
         if (request.getReviewer() != null) {
             dto.setReviewerUsername(request.getReviewer().getUsername());
         }

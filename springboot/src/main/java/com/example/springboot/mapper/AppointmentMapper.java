@@ -50,12 +50,17 @@ public interface AppointmentMapper {
     /**
      * 根据状态统计预约数量
      */
-    int countByStatus(@Param("status") String status);
+    int countByStatus(@Param("status") String status, 
+                     @Param("departmentId") Long departmentId,
+                     @Param("startDate") Date startDate,
+                     @Param("endDate") Date endDate);
 
     /**
      * 统计总预约数量
      */
-    int countTotal();
+    int countTotal(@Param("departmentId") Long departmentId,
+                   @Param("startDate") Date startDate,
+                   @Param("endDate") Date endDate);
 
     // ---------- 统计报表用 ----------
 
@@ -70,16 +75,19 @@ public interface AppointmentMapper {
                                             @Param("doctorId") Long doctorId);
 
     List<Map<String, Object>> sumRevenueByDateRange(@Param("startDate") Date startDate,
-                                                    @Param("endDate") Date endDate);
+                                                    @Param("endDate") Date endDate,
+                                                    @Param("departmentId") Long departmentId);
 
     List<Map<String, Object>> sumRevenueByDepartment(@Param("startDate") Date startDate,
                                                      @Param("endDate") Date endDate);
 
     List<Map<String, Object>> countBySlotType(@Param("startDate") Date startDate,
-                                              @Param("endDate") Date endDate);
+                                              @Param("endDate") Date endDate,
+                                              @Param("departmentId") Long departmentId);
 
     List<Map<String, Object>> countByTimeSlot(@Param("startDate") Date startDate,
-                                              @Param("endDate") Date endDate);
+                                              @Param("endDate") Date endDate,
+                                              @Param("departmentId") Long departmentId);
 
     List<Map<String, Object>> getCancellationRateByDepartment(@Param("startDate") Date startDate,
                                                               @Param("endDate") Date endDate);
@@ -89,5 +97,6 @@ public interface AppointmentMapper {
                                                           @Param("doctorId") Long doctorId);
 
     List<Map<String, Object>> getAppointmentTrend(@Param("startDate") Date startDate,
-                                                  @Param("endDate") Date endDate);
+                                                  @Param("endDate") Date endDate,
+                                                  @Param("departmentId") Long departmentId);
 }

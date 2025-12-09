@@ -64,7 +64,7 @@ const menuItems = ref([
   { path: '/doctor', name: '工作台' },
   { path: '/doctor/profile', name: '个人信息' },
   { path: '/doctor/schedule', name: '我的排班' },
-  { path: '/doctor/applications', name: '申请管理' },
+  { path: '/doctor/applications', name: '我的申请' },
   { path: '/doctor/patients', name: '患者查看' }
 ])
 

@@ -157,13 +157,15 @@ public interface ScheduleMapper {
     /**
      * 统计所有排班的总号源数
      */
-    @Select("SELECT SUM(total_slots) FROM schedule")
-    Integer sumTotalSlots();
+    Integer sumTotalSlots(@Param("departmentId") Long departmentId,
+                         @Param("startDate") Date startDate,
+                         @Param("endDate") Date endDate);
 
     /**
      * 统计所有排班的总可用号源数
      */
-    @Select("SELECT SUM(available_slots) FROM schedule")
-    Integer sumAvailableSlots();
+    Integer sumAvailableSlots(@Param("departmentId") Long departmentId,
+                              @Param("startDate") Date startDate,
+                              @Param("endDate") Date endDate);
 
 }

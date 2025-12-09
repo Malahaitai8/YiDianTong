@@ -3,6 +3,8 @@ package com.example.springboot.aspect;
 import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.config.SecurityUtils;
+import com.example.springboot.entity.User;
+import com.example.springboot.mapper.UserMapper;
 import com.example.springboot.service.AuditLogService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,10 +39,12 @@ public class AuditLogAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(AuditLogAspect.class);
     private final AuditLogService auditLogService;
+    private final UserMapper userMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AuditLogAspect(AuditLogService auditLogService) {
+    public AuditLogAspect(AuditLogService auditLogService, UserMapper userMapper) {
         this.auditLogService = auditLogService;
+        this.userMapper = userMapper;
     }
 
     @Around("@annotation(com.example.springboot.annotation.AuditLog)")
@@ -88,9 +92,28 @@ public class AuditLogAspect {
         log.setErrorMessage(errorMessage);
         log.setCreatedAt(new Date());
 
-        log.setUserId(SecurityUtils.getCurrentUserId());
-        log.setUsername(SecurityUtils.getCurrentUsername());
-        log.setUserRole(SecurityUtils.getCurrentUserRole());
+        Long userId = SecurityUtils.getCurrentUserId();
+        String username = SecurityUtils.getCurrentUsername();
+        String userRole = SecurityUtils.getCurrentUserRole();
+        
+        // 如果无法从SecurityContext获取角色，尝试从数据库查询
+        if (userRole == null && username != null) {
+            try {
+                User user = userMapper.selectByUsername(username);
+                if (user != null) {
+                    userRole = user.getRole();
+                    if (userId == null) {
+                        userId = user.getId();
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to fetch user role from database for username: {}", username, e);
+            }
+        }
+        
+        log.setUserId(userId);
+        log.setUsername(username);
+        log.setUserRole(userRole);
 
         HttpServletRequest request = getCurrentRequest();
         if (request != null) {

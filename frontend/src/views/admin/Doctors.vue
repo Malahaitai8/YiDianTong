@@ -68,6 +68,33 @@
       </el-row>
     </el-card>
 
+    <!-- 批量操作卡片 -->
+    <el-card v-if="selectedDoctors.length > 0" class="batch-card">
+      <div class="batch-operations">
+        <span class="selected-info">已选择 {{ selectedDoctors.length }} 个医生</span>
+        <div class="batch-buttons">
+          <el-button
+            type="warning"
+            size="small"
+            @click="handleBatchResetPassword"
+            :disabled="selectedDoctors.length === 0"
+          >
+            <el-icon><Key /></el-icon>
+            批量重置密码
+          </el-button>
+          <el-button
+            type="danger"
+            size="small"
+            @click="handleBatchDelete"
+            :disabled="selectedDoctors.length === 0"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 医生列表 -->
     <el-card class="table-card">
       <el-table
@@ -76,11 +103,11 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column type="selection" width="50" />
         
-        <el-table-column prop="id" label="医生ID" width="100" />
+        <el-table-column prop="id" label="医生ID" width="80" />
         
-        <el-table-column label="医生信息" width="200">
+        <el-table-column label="医生信息" min-width="220">
           <template #default="{ row }">
             <div class="doctor-info">
               <el-avatar :size="40">
@@ -94,7 +121,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="科室" width="120">
+        <el-table-column label="科室" width="110">
           <template #default="{ row }">
             <span v-if="row.clinic">
               {{ row.clinic?.department?.name || '未知科室' }}
@@ -110,23 +137,14 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="用户账号" width="120">
+        <el-table-column label="用户账号" width="110">
           <template #default="{ row }">
             <span v-if="row.user">{{ row.user.username }}</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         
-        <el-table-column label="专长" width="200">
-          <template #default="{ row }">
-            <el-tag size="small" v-if="row.specialty">
-              {{ row.specialty }}
-            </el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.user?.status)" v-if="row.user">
               {{ getStatusText(row.user.status) }}
@@ -135,14 +153,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="个人简介" width="200">
-          <template #default="{ row }">
-            <span v-if="row.bio">{{ row.bio }}</span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column label="操作" width="360" class-name="operation-col">
           <template #default="{ row }">
             <!-- 待审核状态的操作按钮 -->
             <template v-if="row.user?.status === 'pending_approval'">
@@ -233,30 +244,7 @@
         />
       </div>
 
-      <!-- 批量操作栏 -->
-      <div class="batch-operations" v-if="selectedDoctors.length > 0">
-        <span class="selected-info">已选择 {{ selectedDoctors.length }} 个医生</span>
-        <div class="batch-buttons">
-          <el-button
-            type="warning"
-            size="small"
-            @click="handleBatchResetPassword"
-            :disabled="selectedDoctors.length === 0"
-          >
-            <el-icon><Key /></el-icon>
-            批量重置密码
-          </el-button>
-          <el-button
-            type="danger"
-            size="small"
-            @click="handleBatchDelete"
-            :disabled="selectedDoctors.length === 0"
-          >
-            <el-icon><Delete /></el-icon>
-            批量删除
-          </el-button>
-        </div>
-      </div>
+
     </el-card>
 
     <!-- 添加/编辑医生对话框 -->
@@ -264,11 +252,13 @@
       v-model="doctorDialog.visible"
       :title="doctorDialog.isEdit ? '编辑医生' : '添加医生'"
       width="600px"
+      class="add-doctor-dialog"
       @close="resetDoctorForm"
     >
       
 
 
+      <div class="doctor-form-wrap">
       <el-form
         ref="doctorFormRef"
         :model="doctorForm"
@@ -340,6 +330,7 @@
           />
         </el-form-item>
       </el-form>
+      </div>
 
       <template #footer>
         <span class="dialog-footer">
@@ -351,131 +342,122 @@
       </template>
     </el-dialog>
 
-    <!-- 医生详情对话框 -->
-    <el-dialog
+    <!-- 医生详情抽屉 -->
+    <el-drawer
       v-model="detailDialog.visible"
       title="医生详情"
-      width="900px"
-      :close-on-click-modal="false"
+      direction="rtl"
+      size="600px"
+      class="doctor-detail-drawer"
+      :with-header="true"
+      :append-to-body="true"
+      :modal="true"
     >
       <div v-if="selectedDoctor" class="doctor-detail">
         <!-- 医生基本信息卡片 -->
         <el-card class="doctor-header-card" shadow="never">
-          <el-row :gutter="30">
+          <el-row :gutter="30" align="middle">
             <el-col :span="6">
               <div class="doctor-avatar">
-                <el-avatar :size="120" class="doctor-avatar-img">
+                <el-avatar :size="104" class="doctor-avatar-img">
                   {{ selectedDoctor.name ? selectedDoctor.name.charAt(0) : '医' }}
                 </el-avatar>
               </div>
             </el-col>
             <el-col :span="18">
               <div class="doctor-basic-info">
-                <h3>{{ selectedDoctor.name || '未设置姓名' }}</h3>
-                <div class="info-grid">
-                  <div class="info-item">
-                    <span class="info-label">医生ID：</span>
-                    <span class="info-value">{{ selectedDoctor.id }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">科室：</span>
-                    <span class="info-value">{{ selectedDoctor.clinic?.department?.name || '未知科室' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">门诊：</span>
-                    <span class="info-value">{{ selectedDoctor.clinic?.name || '未设置门诊' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">职称：</span>
-                    <span class="info-value">{{ selectedDoctor.title || '未设置职称' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">用户账号：</span>
-                    <span class="info-value">{{ selectedDoctor.user?.username || '未关联账号' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">账户状态：</span>
-                    <span class="info-value">
-                      <el-tag :type="getStatusType(selectedDoctor.user?.status)" v-if="selectedDoctor.user">
-                        {{ getStatusText(selectedDoctor.user.status) }}
-                      </el-tag>
-                      <span v-else>未关联账号</span>
-                    </span>
-                  </div>
-                  <div class="info-item" v-if="selectedDoctor.user?.createdAt">
-                    <span class="info-label">创建时间：</span>
-                    <span class="info-value">{{ formatDate(selectedDoctor.user.createdAt) }}</span>
-                  </div>
+                <h2 class="doctor-name-title">{{ selectedDoctor.name || '未设置姓名' }}</h2>
+                <div class="doctor-subtitle">{{ selectedDoctor.title || '未设置职称' }} ｜ {{ selectedDoctor.clinic?.department?.name || '未知科室' }}</div>
+                <div class="doctor-status-line">
+                  <el-tag :type="getStatusType(selectedDoctor.user?.status)" v-if="selectedDoctor.user">
+                    {{ getStatusText(selectedDoctor.user.status) }}
+                  </el-tag>
+                  <span v-else class="tag-empty">未关联账号</span>
                 </div>
+                <div class="doctor-username">用户账号：{{ selectedDoctor.user?.username || '未关联账号' }}</div>
               </div>
             </el-col>
           </el-row>
         </el-card>
 
-        <!-- 专长领域卡片 -->
-        <el-card class="doctor-section-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <i class="el-icon-star-on"></i>
-              <span>专长领域</span>
+        <div class="detail-content-panel">
+        <!-- 基本信息：无边框区域 -->
+        <div class="section-block">
+          <div class="card-header section-title">
+            <span>基本信息</span>
+          </div>
+          <div class="base-info-panel boxed">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">医生 ID：</span>
+                <span class="info-value">{{ selectedDoctor.id }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">门诊 ID：</span>
+                <span class="info-value">{{ selectedDoctor.clinicId || '未设置' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">创建时间：</span>
+                <span class="info-value">{{ formatDateOnly(selectedDoctor.user?.createdAt) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">科室：</span>
+                <span class="info-value">{{ selectedDoctor.clinic?.department?.name || '未知科室' }}</span>
+              </div>
             </div>
-          </template>
+          </div>
+        </div>
+
+        <!-- 专长领域：无边框区域 -->
+        <div class="section-block">
+          <div class="card-header section-title">
+            <span>专长领域</span>
+          </div>
           <div class="doctor-specialty-content">
-            <el-tag v-if="selectedDoctor.specialty" class="specialty-tag">
-              {{ selectedDoctor.specialty }}
-            </el-tag>
+            <template v-if="specialtyTags.length">
+              <el-tag
+                v-for="(tag, idx) in specialtyTags"
+                :key="idx"
+                class="specialty-tag"
+                effect="light"
+                type="primary"
+              >
+                {{ tag }}
+              </el-tag>
+            </template>
             <span v-else class="empty-text">未设置专长</span>
           </div>
-        </el-card>
+        </div>
 
-        <!-- 医生简介卡片 -->
-        <el-card class="doctor-section-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <i class="el-icon-document"></i>
-              <span>医生简介</span>
-            </div>
-          </template>
+        <!-- 医生简介：无边框区域 -->
+        <div class="section-block">
+          <div class="card-header section-title">
+            <span>医生简介</span>
+          </div>
           <div class="doctor-bio-content">
             <p>{{ selectedDoctor.bio || '暂无简介' }}</p>
           </div>
-        </el-card>
+        </div>
 
-        <!-- 其他信息卡片 -->
-        <el-card class="doctor-section-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <i class="el-icon-info"></i>
-              <span>其他信息</span>
+        <!-- 其他信息：无边框区域 -->
+        <div class="section-block">
+          <div class="card-header section-title">
+            <span>其他信息</span>
+          </div>
+          <div class="other-info-body">
+            <div class="para">
+              <span class="para-label">门诊描述：</span>
+              <span class="para-text">{{ selectedDoctor.clinic?.description || '—' }}</span>
             </div>
-          </template>
-          <div class="doctor-additional-content">
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <div class="additional-info-item">
-                  <span class="info-label">用户ID：</span>
-                  <span class="info-value">{{ selectedDoctor.userId || '未关联' }}</span>
-                </div>
-              </el-col>
-              <el-col :span="12">
-                <div class="additional-info-item">
-                  <span class="info-label">门诊ID：</span>
-                  <span class="info-value">{{ selectedDoctor.clinicId || '未设置' }}</span>
-                </div>
-              </el-col>
-            </el-row>
-            <div class="additional-info-item" v-if="selectedDoctor.clinic?.description">
-              <span class="info-label">门诊描述：</span>
-              <span class="info-value">{{ selectedDoctor.clinic.description }}</span>
-            </div>
-            <div class="additional-info-item" v-if="selectedDoctor.clinic?.department?.description">
-              <span class="info-label">科室描述：</span>
-              <span class="info-value">{{ selectedDoctor.clinic.department.description }}</span>
+            <div class="para" v-if="selectedDoctor.clinic?.department">
+              <span class="para-label">科室描述：</span>
+              <span class="para-text">{{ selectedDoctor.clinic?.department?.description || '—' }}</span>
             </div>
           </div>
-        </el-card>
+        </div>
       </div>
-    </el-dialog>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -606,6 +588,13 @@ const detailDialog = reactive({
 })
 const selectedDoctor = ref(null)
 
+// 专长标签（将专长字段按常见分隔符拆分为标签）
+const specialtyTags = computed(() => {
+  const s = (selectedDoctor.value?.specialty || '').trim()
+  if (!s) return []
+  return s.split(/[、，,;；\|\/\s]+/).filter(Boolean).slice(0, 8)
+})
+
 const getStatusType = (status) => {
   const statusMap = {
     'active': 'success',
@@ -640,6 +629,20 @@ const formatDate = (dateString) => {
     })
   } catch (error) {
     return '日期格式错误'
+  }
+}
+
+// 仅日期（YYYY/MM/DD）
+const formatDateOnly = (dateString) => {
+  if (!dateString) return '未知'
+  try {
+    const d = new Date(dateString)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}/${m}/${day}`
+  } catch (e) {
+    return '未知'
   }
 }
 
@@ -1171,39 +1174,51 @@ onMounted(async () => {
   margin-top: 20px;
 }
 
-/* 医生详情对话框样式 */
+/* 医生详情抽屉样式（右侧） */
+.doctor-detail-drawer :deep(.el-drawer__header) {
+  margin-bottom: 8px;
+  padding: 12px 16px 0 16px;
+  border-bottom: none;
+}
+.doctor-detail-drawer :deep(.el-drawer__body) {
+  padding: 8px 16px 12px 16px;
+}
 .doctor-detail {
   padding: 0;
   line-height: 1.6;
 }
 
-/* 医生头像样式 */
-.doctor-avatar {
-  text-align: center;
-  margin-bottom: 20px;
+/* 顶部头像+基本信息 */
+.doctor-header-card {
+  margin-bottom: 18px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
 }
-
+.doctor-avatar { text-align: center; }
 .doctor-avatar-img {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border: 3px solid #f0f0f0;
 }
-
-/* 基本信息卡片样式 */
-.doctor-header-card {
-  margin-bottom: 18px;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-}
-
-.doctor-basic-info h3 {
-  font-size: 26px;
-  font-weight: 600;
-  margin-bottom: 18px;
+.doctor-basic-info { text-align: left; }
+.doctor-name-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
   color: #2c3e50;
-  border-bottom: 2px solid #409eff;
-  padding-bottom: 10px;
-  display: inline-block;
-  text-align: left;
+}
+.doctor-subtitle {
+  color: #606266;
+  margin-bottom: 8px;
+}
+.doctor-status-line { margin-bottom: 8px; }
+.doctor-username { color: #303133; }
+
+/* 基本信息卡片 */
+.base-info-card { border: none; }
+.base-info-card :deep(.el-card__body) {
+  background: #f7f9fc;
+  border: 1px solid #eef2f6;
+  border-radius: 10px;
 }
 
 /* 信息网格布局 */
@@ -1211,33 +1226,18 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px 24px;
-  margin-top: 18px;
+  margin-top: 6px;
 }
-
-.info-item {
-  display: flex;
-  align-items: flex-start;
-  min-height: 30px;
-  line-height: 1.5;
-}
-
+.info-item { display: flex; align-items: center; min-height: 28px; }
 .info-label {
   display: inline-block;
-  width: 90px;
+  width: 96px;
   color: #666;
   font-weight: 500;
   flex-shrink: 0;
   text-align: left;
-  padding-top: 2px;
 }
-
-.info-value {
-  color: #333;
-  font-weight: 400;
-  flex: 1;
-  text-align: left;
-  padding-top: 2px;
-}
+.info-value { color: #333; font-weight: 500; }
 
 /* 卡片样式 */
 .doctor-section-card {
@@ -1246,9 +1246,42 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
-.doctor-section-card:last-child {
-  margin-bottom: 0;
+/* 无边框的段落区块（基本信息、专长领域、医生简介、其他信息） */
+.section-block { margin-bottom: 8px; }
+/* 仅将“专长领域/医生简介/其他信息”标题左移 4px，与“基本信息”齐平 */
+/* 让三个小节标题与“基本信息”左侧严格对齐：仅下方三个小节左移 8px */
+.detail-content-panel .section-block:not(:first-child) .section-title { margin: 0 0 2px -8px; padding-left: 0; display: block; }
+/* 保持“基本信息”标题不偏移 */
+.detail-content-panel .section-block:first-child .section-title { margin: 0 0 2px 0; }
+
+/* 内容容器字号 */
+.detail-content-panel { font-size: 16px; }
+
+/* 灰色框：仅包裹基本信息 */
+.base-info-panel.boxed {
+  border: 1px solid #e6e8eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px 16px;
 }
+
+/* 基本信息容器 */
+.base-info-panel { padding: 0; background: transparent; border: none; }
+
+/* 内容块统一左对齐，不额外缩进 */
+.detail-content-panel .doctor-specialty-content,
+.detail-content-panel .doctor-bio-content,
+.detail-content-panel .other-info-body,
+.detail-content-panel .base-info-panel { padding-left: 0; }
+
+/* 其他信息无框段落样式 */
+.other-info-body { padding: 0; }
+.para { margin: 10px 0 0; line-height: 1.9; color: #303133; text-align: left; }
+.para-label { font-weight: 400; color: #303133; margin-right: 4px; }
+.para-text { color: #303133; }
+
+.doctor-section-card:last-child,
+.section-block:last-child { margin-bottom: 0; }
 
 /* 卡片头部样式 */
 .card-header {
@@ -1258,6 +1291,7 @@ onMounted(async () => {
   font-weight: 600;
   color: #2c3e50;
   text-align: left;
+  padding: 0;
 }
 
 .card-header i {
@@ -1268,37 +1302,39 @@ onMounted(async () => {
 
 /* 专长内容样式 */
 .doctor-specialty-content {
-  padding: 16px 0;
+  padding: 2px 0 0;
   text-align: left;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
 }
 
 .specialty-tag {
   background: #409eff;
-  color: white;
+  color: #fff;
   border: none;
   padding: 6px 14px;
-  font-size: 13px;
-  border-radius: 4px;
+  font-size: 16px;
+  border-radius: 6px;
   font-weight: 500;
   display: inline-block;
 }
 
 /* 简介内容样式 */
 .doctor-bio-content {
-  padding: 16px 0;
+  padding: 0;
   text-align: left;
 }
 
 .doctor-bio-content p {
-  line-height: 1.6;
-  color: #555;
+  line-height: 1.8;
+  color: #303133;
   text-align: left;
   margin: 0;
-  font-size: 14px;
-  padding: 8px 12px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  border-left: 3px solid #409eff;
+  font-size: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
 }
 
 /* 其他信息样式 */
@@ -1385,5 +1421,25 @@ onMounted(async () => {
   .doctor-basic-info h3 {
     font-size: 24px;
   }
+}
+.batch-card {
+  margin-bottom: 16px;
+}
+
+/* 防止操作列按钮换行，确保与表头对齐 */
+.operation-col :deep(.cell) {
+  white-space: nowrap;
+}
+.operation-col :deep(.el-button-group) {
+  display: inline-flex;
+  flex-wrap: nowrap;
+}
+
+/* 添加/编辑医生对话框表单整体左移一点 */
+.doctor-form-wrap {
+  margin-left: -30px;
+}
+@media (max-width: 768px) {
+  .doctor-form-wrap { margin-left: -6px; }
 }
 </style>

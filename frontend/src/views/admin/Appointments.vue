@@ -73,6 +73,24 @@
       </el-row>
     </el-card>
 
+    <!-- 批量操作卡片 -->
+    <el-card v-if="selectedAppointments.length > 0" class="batch-card">
+      <div class="batch-operations">
+        <span class="selected-info">已选择 {{ selectedAppointments.length }} 个预约</span>
+        <div class="batch-buttons">
+          <el-button
+            type="danger"
+            size="small"
+            @click="handleBatchDelete"
+            :disabled="selectedAppointments.length === 0"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 预约列表 -->
     <el-card class="table-card">
       <el-table
@@ -82,59 +100,54 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="预约ID" width="100" />
-        <el-table-column label="患者姓名" min-width="120">
+        <el-table-column prop="id" label="预约ID" width="80" />
+        <el-table-column label="患者" width="100">
           <template #default="{ row }">
             {{ getPatientName(row.patientId) }}
           </template>
         </el-table-column>
-        <el-table-column label="医生姓名" min-width="120">
-          <template #default="{ row }">
-            {{ getDoctorNameOnly(row.doctorId) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="科室" min-width="120">
+        <el-table-column label="科室" width="80">
           <template #default="{ row }">
             {{ getDepartmentName(row.scheduleId) }}
           </template>
         </el-table-column>
-        <el-table-column label="门诊" min-width="120">
+        <el-table-column label="门诊" width="130">
           <template #default="{ row }">
             {{ getClinicName(row.scheduleId) }}
           </template>
         </el-table-column>
-        <el-table-column label="预约时间" width="180">
+        <el-table-column label="医生" width="100">
+          <template #default="{ row }">
+            {{ getDoctorNameOnly(row.doctorId) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="预约时间" width="170">
           <template #default="{ row }">
             {{ formatDateTime(row.appointmentTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="预约状态" min-width="120" align="center">
+        <el-table-column label="来源类型" width="100" align="center">
+          <template #default="{ row }">
+            {{ getSourceTypeText(row.sourceType) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="预约状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="挂号费" width="100" align="right">
+        <el-table-column label="挂号费" width="90" align="right">
           <template #default="{ row }">
             ¥{{ formatMoney(row.fee) }}
           </template>
         </el-table-column>
-        <el-table-column label="实际费用" width="100" align="right">
+        <el-table-column label="实际费用" width="90" align="right">
           <template #default="{ row }">
             <span style="color: #67c23a; font-weight: 600;">
               ¥{{ formatMoney(row.actualFee) }}
             </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="来源类型" width="120" align="center">
-          <template #default="{ row }">
-            {{ getSourceTypeText(row.sourceType) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.createdAt) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -192,7 +205,7 @@
                 {{ getSpecificRoleText(selectedAppointment.patientInfo?.specificRole) }}
               </el-descriptions-item>
               <el-descriptions-item label="身份状态">
-                {{ selectedAppointment.patientInfo?.idStatus || '-' }}
+                {{ getIdStatusText(selectedAppointment.patientInfo?.idStatus) }}
               </el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
@@ -251,7 +264,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Delete } from '@element-plus/icons-vue'
 import { getAppointmentList, getAppointmentById, deleteAppointment } from '@/api/appointment'
 import { getPatientById } from '@/api/patient'
 import { getDoctorById } from '@/api/doctor'
@@ -553,14 +566,16 @@ const getStatusText = (status) => {
     return status
   }
   
-  // 将英文状态转换为中文（根据数据库定义：scheduled/cancelled/completed）
+  // 将英文状态转换为中文（根据数据库定义：scheduled/cancelled/completed/no_show）
   const statusMap = {
     'SCHEDULED': '待就诊',
     'scheduled': '待就诊',
     'COMPLETED': '已完成',
     'completed': '已完成',
     'CANCELLED': '已取消',
-    'cancelled': '已取消'
+    'cancelled': '已取消',
+    'NO_SHOW': '未到诊',
+    'no_show': '未到诊'
   }
   
   // 转换为小写进行匹配（不区分大小写）
@@ -579,7 +594,8 @@ const getStatusType = (status) => {
   const statusMap = {
     '待就诊': 'warning',      // 橙色/黄色
     '已完成': 'success',      // 绿色
-    '已取消': 'danger'        // 红色
+    '已取消': 'danger',       // 红色
+    '未到诊': 'info'          // 灰色
   }
   
   return statusMap[chineseStatus] || 'info'
@@ -677,6 +693,40 @@ const handleSelectionChange = (selection) => {
   selectedAppointments.value = selection
 }
 
+// 批量删除预约
+const handleBatchDelete = async () => {
+  if (selectedAppointments.value.length === 0) {
+    ElMessage.warning('请先选择要删除的预约')
+    return
+  }
+
+  try {
+    const appointmentIds = selectedAppointments.value.map(apt => `ID:${apt.id}`).join('、')
+    await ElMessageBox.confirm(
+      `确定要删除以下 ${selectedAppointments.value.length} 个预约吗？\n${appointmentIds}\n\n此操作不可恢复！`,
+      '确认批量删除',
+      { 
+        type: 'error',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    // 批量删除
+    const deletePromises = selectedAppointments.value.map(apt => deleteAppointment(apt.id))
+    await Promise.all(deletePromises)
+    
+    ElMessage.success(`成功删除 ${selectedAppointments.value.length} 个预约`)
+    selectedAppointments.value = []
+    await loadAppointments() // 重新加载数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
 // 身份证号脱敏处理
 const maskIdCard = (idCard) => {
   if (!idCard || idCard === '-') return '-'
@@ -701,6 +751,16 @@ const getSpecificRoleText = (role) => {
     'external': '校外人员'
   }
   return roleMap[role] || role
+}
+
+// 获取身份状态文本
+const getIdStatusText = (status) => {
+  if (!status) return '-'
+  const statusMap = {
+    'pending': '待认证',
+    'verified': '已认证'
+  }
+  return statusMap[status] || status
 }
 
 // 查看详情
@@ -838,6 +898,29 @@ onMounted(() => {
 
 .table-card {
   margin-bottom: 20px;
+}
+
+.batch-card {
+  margin-bottom: 16px;
+  background: #fff7e6;
+  border: 1px solid #ffd666;
+}
+
+.batch-operations {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selected-info {
+  font-size: 14px;
+  color: #faad14;
+  font-weight: 500;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 12px;
 }
 
 .empty-state {

@@ -197,4 +197,44 @@
         ORDER BY s.schedule_date, s.time_slot
     </select>
 
+    <!-- 统计所有排班的总号源数 -->
+    <select id="sumTotalSlots" resultType="java.lang.Integer">
+        SELECT SUM(s.total_slots) FROM schedule s
+        <if test="departmentId != null">
+            LEFT JOIN doctor d ON s.doctor_id = d.id
+            LEFT JOIN clinic c ON d.clinic_id = c.id
+        </if>
+        <where>
+            <if test="departmentId != null">
+                c.department_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND s.schedule_date >= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND s.schedule_date &lt;= #{endDate}
+            </if>
+        </where>
+    </select>
+
+    <!-- 统计所有排班的总可用号源数 -->
+    <select id="sumAvailableSlots" resultType="java.lang.Integer">
+        SELECT SUM(s.available_slots) FROM schedule s
+        <if test="departmentId != null">
+            LEFT JOIN doctor d ON s.doctor_id = d.id
+            LEFT JOIN clinic c ON d.clinic_id = c.id
+        </if>
+        <where>
+            <if test="departmentId != null">
+                c.department_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND s.schedule_date >= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND s.schedule_date &lt;= #{endDate}
+            </if>
+        </where>
+    </select>
+
 </mapper>

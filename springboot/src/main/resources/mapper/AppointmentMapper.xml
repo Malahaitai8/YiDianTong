@@ -92,12 +92,37 @@
 
     <!-- 根据状态统计预约数量 -->
     <select id="countByStatus" resultType="int">
-        SELECT count(*) FROM appointment WHERE status = #{status}
+        SELECT count(*) FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        WHERE a.status = #{status}
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
+        <if test="startDate != null">
+            AND a.appointment_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND a.appointment_time &lt;= #{endDate}
+        </if>
     </select>
 
     <!-- 统计总预约数量 -->
     <select id="countTotal" resultType="int">
-        SELECT count(*) FROM appointment
+        SELECT count(*) FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        <where>
+            <if test="departmentId != null">
+                c.department_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND a.appointment_time >= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND a.appointment_time &lt;= #{endDate}
+            </if>
+        </where>
     </select>
 
     <!-- ========== 统计报表查询 ========== -->
@@ -176,8 +201,14 @@
             SUM(a.actual_fee) AS totalRevenue,
             SUM(a.actual_fee) AS actualFee
         FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
         WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
         AND a.status != 'CANCELLED'
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
         GROUP BY DATE(a.appointment_time)
         ORDER BY date
     </select>
@@ -211,7 +242,12 @@
             SUM(a.actual_fee) AS totalRevenue
         FROM appointment a
         LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
         WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
         GROUP BY s.slot_type
         ORDER BY appointmentCount DESC
     </select>
@@ -226,7 +262,12 @@
             SUM(a.actual_fee) AS totalRevenue
         FROM appointment a
         LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
         WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
         GROUP BY s.time_slot
         ORDER BY appointmentCount DESC
     </select>
@@ -297,7 +338,13 @@
             END AS cancellationRate,
             SUM(a.actual_fee) AS totalRevenue
         FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
         WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
         GROUP BY DATE(a.appointment_time)
         ORDER BY date
     </select>

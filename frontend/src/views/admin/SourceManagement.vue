@@ -195,44 +195,7 @@
       </template>
     </el-dialog>
 
-    <!-- 统计信息 -->
-    <el-card class="config-card" shadow="hover">
-      <template #header>
-        <div class="card-header">
-          <span>号源统计</span>
-          <el-button type="primary" @click="refreshStats">
-            刷新统计
-          </el-button>
-        </div>
-      </template>
-      
-      <el-row :gutter="20">
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-number">{{ stats.totalSlots }}</div>
-            <div class="stat-label">总号源数</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-number">{{ stats.bookedSlots }}</div>
-            <div class="stat-label">已预约号源</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-number">{{ stats.availableSlots }}</div>
-            <div class="stat-label">可用号源</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-number">{{ stats.utilizationRate }}%</div>
-            <div class="stat-label">利用率</div>
-          </div>
-        </el-col>
-      </el-row>
-    </el-card>
+    <!-- 统计信息已按要求移除 -->
   </div>
 </template>
 

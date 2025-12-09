@@ -1,93 +1,116 @@
 <template>
   <div class="application-requests-page">
-    <el-row :gutter="16" class="stat-row">
+    <el-row :gutter="20" class="stat-row">
       <el-col v-for="card in statCards" :key="card.key" :span="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-card__content">
-            <div>
-              <div class="stat-card__label">{{ card.label }}</div>
-              <div class="stat-card__value">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div :class="['stat-icon', card.iconClass]">
+              <el-icon><component :is="card.icon" /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">
                 <span v-if="!statLoading">{{ stats[card.key] ?? 0 }}</span>
                 <el-skeleton v-else :rows="1" animated />
               </div>
+              <div class="stat-label">{{ card.label }}</div>
             </div>
-            <el-tag :type="card.tagType" effect="dark">{{ card.badge }}</el-tag>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
     <el-card class="filter-card" shadow="never">
-      <el-form :inline="true" :model="filters" class="filter-form">
-        <el-form-item label="申请类型">
-          <el-select
-            v-model="filters.requestType"
-            placeholder="全部类型"
-            style="width: 180px"
-            clearable
-            @change="handleLocalFilterChange"
-          >
-            <el-option
-              v-for="item in requestTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部状态"
-            style="width: 180px"
-            clearable
-            @change="handleStatusChange"
-          >
-            <el-option
-              v-for="item in statusOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="创建时间">
-          <el-date-picker
-            v-model="filters.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            @change="handleLocalFilterChange"
-          />
-        </el-form-item>
-        <el-form-item label="关键字">
-          <el-input
-            v-model.trim="filters.keyword"
-            placeholder="支持申请人/理由/字段"
-            clearable
-            @clear="handleLocalFilterChange"
-            @keyup.enter="handleLocalFilterChange"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleLocalFilterChange">筛选</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-        <el-form-item class="quick-buttons">
-          <el-button-group>
-            <el-button
-              v-for="item in quickFilters"
-              :key="item.value"
-              :type="quickStatus === item.value ? 'primary' : 'default'"
-              @click="handleQuickStatus(item.value)"
-            >
-              {{ item.label }}
-            </el-button>
-          </el-button-group>
-        </el-form-item>
-      </el-form>
+      <div class="filter-container">
+        <!-- 第一行：类型、状态、关键字 -->
+        <el-row :gutter="16" class="filter-row">
+          <el-col :span="6">
+            <el-form-item label="申请类型">
+              <el-select
+                v-model="filters.requestType"
+                placeholder="全部类型"
+                style="width: 100%"
+                clearable
+                @change="handleLocalFilterChange"
+              >
+                <el-option
+                  v-for="item in requestTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部状态"
+                style="width: 100%"
+                clearable
+                @change="handleStatusChange"
+              >
+                <el-option
+                  v-for="item in statusOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="关键字">
+              <el-input
+                v-model.trim="filters.keyword"
+                placeholder="支持申请人/理由/字段"
+                clearable
+                @clear="handleLocalFilterChange"
+                @keyup.enter="handleLocalFilterChange"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <!-- 第二行：时间筛选、快捷按钮和操作按钮 -->
+        <el-row :gutter="16" class="filter-row">
+          <el-col :span="12">
+            <el-form-item label="创建时间">
+              <el-date-picker
+                v-model="filters.dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                @change="handleLocalFilterChange"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="1"></el-col>
+          <el-col :span="7">
+            <el-form-item label=" " class="button-group-item">
+              <el-button-group>
+                <el-button
+                  v-for="item in quickFilters"
+                  :key="item.value"
+                  :type="quickStatus === item.value ? 'primary' : 'default'"
+                  @click="handleQuickStatus(item.value)"
+                >
+                  {{ item.label }}
+                </el-button>
+              </el-button-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="4">
+            <el-form-item label=" " class="action-buttons">
+              <el-button type="primary" @click="handleLocalFilterChange">筛选</el-button>
+              <el-button @click="handleReset">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </div>
     </el-card>
 
     <el-card shadow="never">
@@ -109,37 +132,35 @@
 
       <el-table
         :data="filteredRequests"
-        height="calc(100vh - 420px)"
         border
         v-loading="loading"
         :row-key="(row) => row.id"
         empty-text="暂无申请记录"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column label="类型" width="140">
+        <el-table-column label="类型" width="120">
           <template #default="{ row }">
             <el-tag :type="requestTypeTagType[row.requestType] || 'info'">
               {{ requestTypeText[row.requestType] || row.requestType }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="申请人" min-width="180">
+        <el-table-column label="申请人" width="150">
           <template #default="{ row }">
             <div class="applicant-cell">
               <div class="applicant-name">
-                {{ row.applicantUsername || `ID:${row.applicantId}` }}
+                {{ row.applicantName || row.applicant?.username || '未知医生' }}
               </div>
               <div class="applicant-role">{{ roleText[row.applicantRole] || row.applicantRole }}</div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="申请内容" min-width="260">
+        <el-table-column label="申请内容">
           <template #default="{ row }">
             <div v-if="row.requestType === 'SCHEDULE_CHANGE'">
-              排班ID：{{ row.scheduleId }} · {{ changeTypeText[row.changeType] || '未知' }}
+              {{ changeTypeText[row.changeType] || '未知' }}
             </div>
             <div v-else-if="row.requestType === 'INFO_UPDATE'">
-              医生ID：{{ row.doctorId }} · {{ fieldNameText[row.fieldName] || row.fieldName }}
+              {{ fieldNameText[row.fieldName] || row.fieldName }}
             </div>
             <div class="reason-text" v-if="row.reason">
               <el-icon class="reason-icon"><ChatLineRound /></el-icon>
@@ -147,21 +168,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="140">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTagType[row.status] || 'info'">
               {{ statusText[row.status] || row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="提交时间" width="170">
+        <el-table-column prop="createdAt" label="提交时间" width="160">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" width="170">
-          <template #default="{ row }">
-            {{ formatDate(row.updatedAt) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
@@ -206,7 +222,7 @@
         <el-skeleton :rows="8" animated />
       </div>
       <div v-else-if="detailDrawer.data" class="detail-content">
-        <el-descriptions :column="1" border>
+        <el-descriptions :column="1" border label-width="100px">
           <el-descriptions-item label="申请ID">
             {{ detailDrawer.data.id }}
           </el-descriptions-item>
@@ -217,43 +233,46 @@
             {{ detailDrawer.data.statusName }}
           </el-descriptions-item>
           <el-descriptions-item label="申请人">
-            {{ detailDrawer.data.applicantUsername }}（{{ roleText[detailDrawer.data.applicantRole] || detailDrawer.data.applicantRole }}）
+            {{ detailDrawer.data.applicantName || detailDrawer.data.applicantUsername || '未知' }}（{{ roleText[detailDrawer.data.applicantRole] || detailDrawer.data.applicantRole }}）
           </el-descriptions-item>
           <el-descriptions-item label="申请原因">
             {{ detailDrawer.data.reason || '未填写' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="申请时间">
+            {{ formatDate(detailDrawer.data.createdAt) }}
           </el-descriptions-item>
         </el-descriptions>
 
         <el-divider content-position="left">业务信息</el-divider>
         <div v-if="detailDrawer.data.requestType === 'SCHEDULE_CHANGE'">
-          <el-descriptions :column="1" border>
+          <el-descriptions :column="1" border label-width="100px">
             <el-descriptions-item label="排班ID">
-              {{ detailDrawer.data.scheduleId }}
+              {{ detailDrawer.data.scheduleId || '（排班已删除）' }}
             </el-descriptions-item>
             <el-descriptions-item label="变更类型">
               {{ detailDrawer.data.changeTypeName }}
             </el-descriptions-item>
             <el-descriptions-item label="原排班">
-              {{ detailDrawer.data.originalDate }} · {{ detailDrawer.data.originalTimeSlotName }}
+              {{ detailDrawer.data.originalDate }} · {{ timeSlotText[detailDrawer.data.originalTimeSlot] || detailDrawer.data.originalTimeSlot }}
             </el-descriptions-item>
             <el-descriptions-item label="新排班">
               <span v-if="detailDrawer.data.newDate">
-                {{ detailDrawer.data.newDate }} · {{ detailDrawer.data.newTimeSlotName }}
+                {{ detailDrawer.data.newDate }} · {{ timeSlotText[detailDrawer.data.newTimeSlot] || detailDrawer.data.newTimeSlot }}
               </span>
               <span v-else>无</span>
             </el-descriptions-item>
             <el-descriptions-item label="号源调整">
-              {{ detailDrawer.data.slotsAdjustment ?? '-' }}
+              {{ detailDrawer.data.slotAdjustment ?? '-' }}
             </el-descriptions-item>
           </el-descriptions>
         </div>
         <div v-else>
-          <el-descriptions :column="1" border>
+          <el-descriptions :column="1" border label-width="100px">
             <el-descriptions-item label="医生">
               {{ detailDrawer.data.doctorName || `ID:${detailDrawer.data.doctorId}` }}
             </el-descriptions-item>
-            <el-descriptions-item label="字段">
-              {{ detailDrawer.data.fieldNameChinese || detailDrawer.data.fieldName }}
+            <el-descriptions-item label="修改字段">
+              {{ detailDrawer.data.fieldNameDisplay || detailDrawer.data.fieldName }}
             </el-descriptions-item>
             <el-descriptions-item label="旧值">
               {{ detailDrawer.data.oldValue || '-' }}
@@ -264,24 +283,23 @@
           </el-descriptions>
         </div>
 
-        <el-divider content-position="left">审核信息</el-divider>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="审核状态">
-            {{ detailDrawer.data.statusName }}
-          </el-descriptions-item>
-          <el-descriptions-item label="审核人">
-            {{ detailDrawer.data.reviewerUsername || '未审核' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="审核时间">
-            {{ detailDrawer.data.reviewedAt || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="拒绝原因">
-            {{ detailDrawer.data.rejectionReason || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ detailDrawer.data.updatedAt || '-' }}
-          </el-descriptions-item>
-        </el-descriptions>
+        <template v-if="detailDrawer.data.status !== 'PENDING'">
+          <el-divider content-position="left">审核信息</el-divider>
+          <el-descriptions :column="1" border label-width="100px">
+            <el-descriptions-item label="审核状态">
+              {{ detailDrawer.data.statusName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="审核人">
+              {{ detailDrawer.data.reviewerName || detailDrawer.data.reviewerUsername || '未审核' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="审核时间">
+              {{ formatDate(detailDrawer.data.reviewedAt) || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="拒绝原因" v-if="detailDrawer.data.status === 'REJECTED'">
+              {{ detailDrawer.data.rejectReason || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </template>
       </div>
       <div v-else class="drawer-loading">
         <el-empty description="暂无数据" />
@@ -321,16 +339,15 @@ const stats = reactive({
 })
 
 const statCards = [
-  { key: 'total', label: '总申请', badge: 'ALL', tagType: 'primary' },
-  { key: 'pending', label: '待审核', badge: '待处理', tagType: 'warning' },
-  { key: 'approved', label: '已批准', badge: '已通过', tagType: 'success' },
-  { key: 'rejected', label: '已拒绝', badge: '已驳回', tagType: 'danger' }
+  { key: 'total', label: '总申请数', icon: 'Document', iconClass: 'total' },
+  { key: 'pending', label: '待审核', icon: 'Clock', iconClass: 'pending' },
+  { key: 'approved', label: '已通过', icon: 'CircleCheckFilled', iconClass: 'approved' },
+  { key: 'rejected', label: '已拒绝', icon: 'CircleCloseFilled', iconClass: 'rejected' }
 ]
 
 const quickFilters = [
   { label: '全部申请', value: 'ALL' },
-  { label: '待审核申请', value: 'PENDING_ONLY' },
-  { label: '最近更新', value: 'RECENT' }
+  { label: '待审核申请', value: 'PENDING_ONLY' }
 ]
 
 const filters = reactive({
@@ -391,8 +408,16 @@ const statusTagType = {
 }
 
 const roleText = {
+  doctor: '医生',
   DOCTOR: '医生',
+  admin: '管理员',
   ADMIN: '管理员'
+}
+
+const timeSlotText = {
+  morning: '上午',
+  afternoon: '下午',
+  evening: '晚上'
 }
 
 const detailDrawer = reactive({
@@ -424,9 +449,7 @@ const filteredRequests = computed(() => {
       return true
     })
     .sort((a, b) => {
-      if (quickStatus.value === 'RECENT') {
-        return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)
-      }
+      // 默认按创建时间倒序排列
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
     })
 })
@@ -609,36 +632,118 @@ onMounted(async () => {
 }
 
 .stat-row {
-  margin-bottom: 4px;
+  margin-bottom: 20px;
 }
 
-.stat-card__content {
+.stat-card {
+  height: 140px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stat-card :deep(.el-card__body) {
+  height: 100%;
+  padding: 18px 20px;
+  box-sizing: border-box;
   display: flex;
-  justify-content: space-between;
   align-items: center;
 }
 
-.stat-card__label {
-  font-size: 14px;
-  color: #909399;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-.stat-card__value {
+.stat-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.stat-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20px;
   font-size: 28px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stat-icon.total {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-icon.pending {
+  background: linear-gradient(135deg, #ffd86f 0%, #fc6262 100%);
+}
+
+.stat-icon.approved {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-icon.rejected {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-number {
+  font-size: 32px;
   font-weight: 600;
   color: #303133;
-  line-height: 1.2;
+  line-height: 1;
 }
 
-.filter-form {
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+  margin-top: 8px;
+}
+
+.filter-container {
+  padding: 0;
+}
+
+.filter-row {
+  margin-bottom: 0;
+}
+
+.filter-row:first-child {
+  margin-bottom: 16px;
+}
+
+.filter-row :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.filter-row :deep(.el-form-item__label) {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.quick-filter-item :deep(.el-form-item__content) {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
   align-items: center;
 }
 
-.quick-buttons {
-  margin-left: auto;
+.button-group-item :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
+}
+
+.action-buttons :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .table-header {

@@ -49,7 +49,30 @@
       </el-row>
     </el-card>
 
+    <!-- 批量操作卡片 -->
+    <el-card v-if="selected.length > 0" class="batch-card">
+      <div class="batch-operations">
+        <span class="selected-info">已选择 {{ selected.length }} 个患者</span>
+        <div class="batch-buttons">
+          <el-button
+            type="danger"
+            size="small"
+            @click="handleBatchDelete"
+            :disabled="selected.length === 0"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <el-card class="table-card">
+      <template #header>
+        <div class="card-header">
+          <span>患者列表</span>
+        </div>
+      </template>
       <el-table :data="filteredPatients" v-loading="loading" style="width: 100%" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="患者ID" width="90" />
@@ -104,7 +127,8 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="formDialog.visible" :title="formDialog.isEdit ? '编辑患者' : '添加患者'" width="600px" @close="resetForm">
+    <el-dialog v-model="formDialog.visible" :title="formDialog.isEdit ? '编辑患者' : '添加患者'" width="600px" class="add-patient-dialog" @close="resetForm">
+      <div class="patient-form-wrap">
       <el-form ref="patientFormRef" :model="patientForm" :rules="patientRules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -157,6 +181,7 @@
           </el-col>
         </el-row>
       </el-form>
+      </div>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="formDialog.visible = false">取消</el-button>
@@ -170,12 +195,12 @@
         <div class="detail-grid">
           <div class="detail-item"><span class="detail-label">患者ID：</span><span class="detail-value">{{ selectedPatient.id }}</span></div>
           <div class="detail-item"><span class="detail-label">姓名：</span><span class="detail-value">{{ selectedPatient.name }}</span></div>
-          <div class="detail-item"><span class="detail-label">角色：</span><span class="detail-value">{{ selectedPatient.specificRole }}</span></div>
+          <div class="detail-item"><span class="detail-label">角色：</span><span class="detail-value">{{ specificRoleText(selectedPatient.specificRole) }}</span></div>
           <div class="detail-item"><span class="detail-label">身份状态：</span><span class="detail-value">{{ idStatusText(selectedPatient.idStatus) }}</span></div>
           <div class="detail-item"><span class="detail-label">联系电话：</span><span class="detail-value">{{ selectedPatient.phoneNumber }}</span></div>
           <div class="detail-item"><span class="detail-label">身份证号：</span><span class="detail-value">{{ selectedPatient.idCardNumber }}</span></div>
           <div class="detail-item"><span class="detail-label">用户账号：</span><span class="detail-value">{{ selectedPatient.user?.username || '-' }}</span></div>
-          <div class="detail-item" v-if="selectedPatient.user?.status"><span class="detail-label">账户状态：</span><span class="detail-value">{{ selectedPatient.user.status }}</span></div>
+          <div class="detail-item" v-if="selectedPatient.user?.status"><span class="detail-label">账户状态：</span><span class="detail-value">{{ userStatusText(selectedPatient.user.status) }}</span></div>
         </div>
       </div>
       <template #footer>
@@ -191,7 +216,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Search, Plus, Delete } from '@element-plus/icons-vue'
 import { getPatientList, getPatientById, createPatient, updatePatient, deletePatient } from '@/api/patient'
 import { registerPatient } from '@/api/auth'
 
@@ -259,6 +284,40 @@ const viewDialog = reactive({ visible: false })
 const selectedPatient = ref({})
 
 const handleSelectionChange = (rows) => { selected.value = rows }
+
+// 批量删除患者
+const handleBatchDelete = async () => {
+  if (selected.value.length === 0) {
+    ElMessage.warning('请先选择要删除的患者')
+    return
+  }
+
+  try {
+    const patientNames = selected.value.map(patient => patient.name || `ID:${patient.id}`).join('、')
+    await ElMessageBox.confirm(
+      `确定要删除以下 ${selected.value.length} 个患者吗？\n${patientNames}\n\n此操作不可恢复！`,
+      '确认批量删除',
+      { 
+        type: 'error',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    // 批量删除
+    const deletePromises = selected.value.map(patient => deletePatient(patient.id))
+    await Promise.all(deletePromises)
+    
+    ElMessage.success(`成功删除 ${selected.value.length} 个患者`)
+    selected.value = []
+    await loadPatients() // 重新加载数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
 const handleSearch = () => { pagination.currentPage = 1 }
 const resetSearch = async () => {
   searchForm.keyword = ''
@@ -302,7 +361,7 @@ const editPatient = (row) => {
   patientForm.password = ''
   patientForm.name = row.name
   patientForm.specificRole = row.specificRole
-  patientForm.idStatus = row.idStatus
+  patientForm.idStatus = idStatusText(row.idStatus)
   patientForm.phoneNumber = row.phoneNumber
   patientForm.idCardNumber = row.idCardNumber
   formDialog.isEdit = true
@@ -446,6 +505,19 @@ const specificRoleText = (v) => {
   const m = { student: '学生', teacher: '教师', outsider: '外来人员', 学生: '学生', 教师: '教师', 外来人员: '外来人员' }
   return m[v] || v || '-'
 }
+
+// 账户状态中文映射（仅前端显示）
+const userStatusText = (v) => {
+  const m = {
+    active: '已激活',
+    disabled: '已停用',
+    inactive: '已禁用',
+    pending: '待审核',
+    pending_approval: '待审核',
+    locked: '已锁定'
+  }
+  return m[v] || v || '-'
+}
 </script>
 
 <style scoped>
@@ -457,7 +529,31 @@ const specificRoleText = (v) => {
   align-items: center;
 }
 .search-card { margin-bottom: 16px; }
+.batch-card {
+  margin-bottom: 16px;
+  background: #fff7e6;
+  border: 1px solid #ffd666;
+}
+.batch-operations {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.selected-info {
+  font-size: 14px;
+  color: #faad14;
+  font-weight: 500;
+}
+.batch-buttons {
+  display: flex;
+  gap: 12px;
+}
 .table-card { margin-top: 8px; }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .patient-info { display: flex; align-items: center; gap: 12px; }
 .patient-details { display: flex; flex-direction: column; }
 .patient-name { font-weight: 600; color: #2c3e50; }
@@ -468,4 +564,10 @@ const specificRoleText = (v) => {
 .detail-item { display: flex; gap: 8px; }
 .detail-label { color: #7a8a99; }
 .detail-value { color: #2c3e50; }
+
+/* 添加/编辑患者对话框表单整体左移一点 */
+.patient-form-wrap { margin-left: -35px; }
+@media (max-width: 768px) { .patient-form-wrap { margin-left: -6px; } }
+.patient-detail { padding-left: 15px; }
+@media (max-width: 768px) { .patient-detail { padding-left: 10px; } }
 </style>

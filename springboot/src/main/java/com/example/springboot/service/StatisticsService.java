@@ -29,23 +29,23 @@ public class StatisticsService {
     @Resource
     private DepartmentMapper departmentMapper;
 
-    public OverviewStatsDTO getOverviewStats() {
+    public OverviewStatsDTO getOverviewStats(Long departmentId, Date startDate, Date endDate) {
         OverviewStatsDTO stats = new OverviewStatsDTO();
 
         // 1. 预约状态统计
-        int totalAppointments = appointmentMapper.countTotal();
-        int completedAppointments = appointmentMapper.countByStatus("COMPLETED");
-        int cancelledAppointments = appointmentMapper.countByStatus("CANCELLED");
-        int noShowAppointments = appointmentMapper.countByStatus("NO_SHOW");
+        int totalAppointments = appointmentMapper.countTotal(departmentId, startDate, endDate);
+        int completedAppointments = appointmentMapper.countByStatus("COMPLETED", departmentId, startDate, endDate);
+        int cancelledAppointments = appointmentMapper.countByStatus("CANCELLED", departmentId, startDate, endDate);
+        int noShowAppointments = appointmentMapper.countByStatus("NO_SHOW", departmentId, startDate, endDate);
 
         stats.setTotalAppointments(totalAppointments);
         stats.setCompletedAppointments(completedAppointments);
         stats.setCancelledAppointments(cancelledAppointments);
         stats.setNoShowAppointments(noShowAppointments);
 
-        // 2. 号源统计
-        Integer totalSlots = scheduleMapper.sumTotalSlots();
-        Integer availableSlots = scheduleMapper.sumAvailableSlots();
+        // 2. 号源统计（基于排班日期）
+        Integer totalSlots = scheduleMapper.sumTotalSlots(departmentId, startDate, endDate);
+        Integer availableSlots = scheduleMapper.sumAvailableSlots(departmentId, startDate, endDate);
         totalSlots = (totalSlots == null) ? 0 : totalSlots;
         availableSlots = (availableSlots == null) ? 0 : availableSlots;
         int usedSlots = totalSlots - availableSlots;
@@ -107,7 +107,7 @@ public class StatisticsService {
      * 获取收入统计（按日期范围）
      */
     public List<RevenueStatisticsDTO> getRevenueStatistics(Date startDate, Date endDate) {
-        List<Map<String, Object>> data = appointmentMapper.sumRevenueByDateRange(startDate, endDate);
+        List<Map<String, Object>> data = appointmentMapper.sumRevenueByDateRange(startDate, endDate, null);
         return convertToRevenueStatistics(data);
     }
 
@@ -122,15 +122,15 @@ public class StatisticsService {
     /**
      * 获取号别分布统计
      */
-    public List<Map<String, Object>> getSlotTypeDistribution(Date startDate, Date endDate) {
-        return appointmentMapper.countBySlotType(startDate, endDate);
+    public List<Map<String, Object>> getSlotTypeDistribution(Date startDate, Date endDate, Long departmentId) {
+        return appointmentMapper.countBySlotType(startDate, endDate, departmentId);
     }
 
     /**
      * 获取时间段分布统计
      */
-    public List<Map<String, Object>> getTimeSlotDistribution(Date startDate, Date endDate) {
-        return appointmentMapper.countByTimeSlot(startDate, endDate);
+    public List<Map<String, Object>> getTimeSlotDistribution(Date startDate, Date endDate, Long departmentId) {
+        return appointmentMapper.countByTimeSlot(startDate, endDate, departmentId);
     }
 
     /**
@@ -150,15 +150,15 @@ public class StatisticsService {
     /**
      * 获取预约趋势统计
      */
-    public TrendStatisticsDTO getTrendStatistics(Date startDate, Date endDate) {
+    public TrendStatisticsDTO getTrendStatistics(Date startDate, Date endDate, Long departmentId) {
         TrendStatisticsDTO trend = new TrendStatisticsDTO();
         
         // 预约趋势
-        List<Map<String, Object>> appointmentTrend = appointmentMapper.getAppointmentTrend(startDate, endDate);
+        List<Map<String, Object>> appointmentTrend = appointmentMapper.getAppointmentTrend(startDate, endDate, departmentId);
         trend.setAppointmentTrend(appointmentTrend);
         
         // 收入趋势
-        List<Map<String, Object>> revenueTrend = appointmentMapper.sumRevenueByDateRange(startDate, endDate);
+        List<Map<String, Object>> revenueTrend = appointmentMapper.sumRevenueByDateRange(startDate, endDate, departmentId);
         trend.setRevenueTrend(revenueTrend);
         
         // 退号趋势（从预约趋势中提取）

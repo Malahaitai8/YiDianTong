@@ -44,6 +44,21 @@ export const deleteWhitelist = (id) => {
   })
 }
 
+export const batchDeleteWhitelist = (ids) => {
+  return request({
+    url: '/admin/whitelist/batch',
+    method: 'delete',
+    data: ids
+  })
+}
+
+export const toggleWhitelistStatus = (id) => {
+  return request({
+    url: `/admin/whitelist/${id}/status`,
+    method: 'patch'
+  })
+}
+
 
 
 

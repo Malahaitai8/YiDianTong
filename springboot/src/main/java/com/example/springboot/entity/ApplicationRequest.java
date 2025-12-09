@@ -32,6 +32,11 @@ public class ApplicationRequest {
      */
     private String applicantRole;
     
+    /**
+     * 申请人姓名（医生姓名）
+     */
+    private String applicantName;
+    
     // ===== 调班申请相关字段 =====
     
     /**
@@ -114,6 +119,11 @@ public class ApplicationRequest {
      * 审核人用户ID
      */
     private Long reviewerId;
+    
+    /**
+     * 审核人姓名（管理员姓名）
+     */
+    private String reviewerName;
     
     /**
      * 审核时间
