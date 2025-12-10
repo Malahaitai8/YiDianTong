@@ -280,8 +280,8 @@ public class DoctorService {
             item.put("patientName", patient.getName());
             item.put("patientGender", null);  // User实体中无性别字段
             item.put("patientAge", null);     // User实体中无年龄字段
-            item.put("patientPhone", patient.getPhoneNumber());
-            item.put("patientIdCard", patient.getIdCardNumber());
+            item.put("phoneNumber", patient.getPhoneNumber());
+            item.put("idCardNumber", patient.getIdCardNumber());
             
             // 排班信息
             if (schedule != null) {

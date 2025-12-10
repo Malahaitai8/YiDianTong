@@ -349,4 +349,33 @@
         ORDER BY date
     </select>
 
+    <!-- 获取预约原始明细列表（用于Excel导出） -->
+    <select id="getAppointmentRawDetails" resultType="map">
+        SELECT
+            a.id AS appointmentId,
+            p.name AS patientName,
+            p.phone_number AS patientPhone,
+            dept.name AS departmentName,
+            d.name AS doctorName,
+            s.slot_type AS slotType,
+            DATE(s.schedule_date) AS appointmentDate,
+            s.time_slot AS timeSlot,
+            a.status AS status,
+            a.fee AS registrationFee,
+            a.actual_fee AS actualFee,
+            a.appointment_time AS appointmentTime,
+            a.source_type AS sourceType
+        FROM appointment a
+        LEFT JOIN patient p ON a.patient_id = p.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
+        ORDER BY a.appointment_time DESC
+    </select>
+
 </mapper>

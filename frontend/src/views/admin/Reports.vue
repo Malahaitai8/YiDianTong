@@ -7,13 +7,9 @@
         <p class="header-subtitle">数据统计与分析—管理平台</p>
       </div>
       <div class="header-right">
-        <el-button @click="exportReport" :loading="exporting">
+        <el-button @click="exportReport" :loading="exporting" type="primary">
           <el-icon><Download /></el-icon>
-          导出Excel
-        </el-button>
-        <el-button @click="exportToPDF" :loading="exportingPDF" type="success">
-          <el-icon><Document /></el-icon>
-          导出PDF
+          导出Excel报表
         </el-button>
         <el-button type="primary" @click="refreshAllData">
           <el-icon><Refresh /></el-icon>
@@ -388,7 +384,6 @@ import {
   Download
 } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
 import {
   getOverviewStats,
   getDepartmentWorkloadStats,
@@ -399,7 +394,8 @@ import {
   getTimeSlotDistributionStats,
   getCancellationRateByDepartment,
   getCancellationRateByDoctor,
-  getTrendStats
+  getTrendStats,
+  getAppointmentRawDetails
 } from '@/api/statistics'
 import { getDepartmentList } from '@/api/department'
 
@@ -418,7 +414,6 @@ use([
 
 const loading = ref(false)
 const exporting = ref(false)
-const exportingPDF = ref(false)
 const dateRange = ref([])
 
 // 图表引用
@@ -1446,7 +1441,7 @@ const resetFilters = () => {
   loadAllStats()
 }
 
-// 导出报表
+// 导出报表 - 6个Sheet结构
 const exportReport = async () => {
   try {
     exporting.value = true
@@ -1466,131 +1461,142 @@ const exportReport = async () => {
     const deptName = selectedDepartment.value
       ? (departmentList.value.find(d => d.id === selectedDepartment.value)?.name || '全部科室')
       : '全部科室'
-    const filterNote = selectedDepartment.value ? `筛选条件：${deptName}` : '筛选条件：全部科室'
+    const filterNote = selectedDepartment.value ? `筛选条件：${deptName}` : ''
     
-    // 1. 概览统计工作表
+    // ==================== Sheet 1: 统计概览 ====================
     const overviewData = [
-      ['统计报表 - 概览统计'],
-      ['导出时间', new Date().toLocaleString('zh-CN')],
-      ['日期范围', dateRange.value && dateRange.value.length === 2 
-        ? `${dateRange.value[0]} 至 ${dateRange.value[1]}` 
-        : '全部'],
-      ['筛选科室', selectedDepartment.value 
-        ? (departmentList.value.find(d => d.id === selectedDepartment.value)?.name || '全部')
-        : '全部'],
+      ['项目', '数值', '备注'],
+      ['统计周期', `${startDate} 至 ${endDate}`, filterNote],
       [],
-      ['指标', '数值'],
-      ['总预约数', overview.totalAppointments],
-      ['已完成', overview.completedAppointments],
-      ['已取消', overview.cancelledAppointments],
-      ['爽约', overview.noShowAppointments],
-      ['总号源数', overview.totalSlots],
-      ['可用号源', overview.availableSlots],
-      ['已用号源', overview.usedSlots],
-      ['完成率', `${formatRate(overview.completionRate)}%`],
-      ['利用率', `${formatRate(overview.utilization)}%`]
+      ['核心指标', '', ''],
+      ['总预约数', overview.totalAppointments, ''],
+      ['已完成', overview.completedAppointments, ''],
+      ['已取消', overview.cancelledAppointments, ''],
+      ['爽约数', overview.noShowAppointments, ''],
+      ['完成率', overview.completionRate, '计算公式：已完成/总预约数'],
+      [],
+      ['号源概况', '', ''],
+      ['总号源数', overview.totalSlots, ''],
+      ['可用号源', overview.availableSlots, ''],
+      ['已用号源', overview.usedSlots, '号源利用率：' + formatRate(overview.utilization) + '%']
     ]
     const overviewWs = XLSX.utils.aoa_to_sheet(overviewData)
-    overviewWs['!cols'] = [{ wch: 15 }, { wch: 20 }]
-    XLSX.utils.book_append_sheet(wb, overviewWs, '概览统计')
+    // 设置列宽
+    overviewWs['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 35 }]
+    // 设置完成率为百分比格式
+    if (overviewWs['B9']) {
+      overviewWs['B9'].z = '0.00%'
+      overviewWs['B9'].t = 'n'
+    }
+    // 设置表头样式（加粗）
+    ['A1', 'B1', 'C1', 'A4', 'A11'].forEach(cell => {
+      if (overviewWs[cell]) {
+        overviewWs[cell].s = { font: { bold: true }, fill: { fgColor: { rgb: 'E0E0E0' } } }
+      }
+    })
+    XLSX.utils.book_append_sheet(wb, overviewWs, '统计概览')
     
-    // 2. 预约趋势工作表
-    const appointmentTrendData = [
-      ['日期', '总预约', '已完成', '已取消']
+    // ==================== Sheet 2: 每日趋势明细 ====================
+    const dailyTrendData = [
+      ['日期', '总预约数', '已完成数', '已取消数', '爽约数', '总收入(元)', '环比增长(%)']
     ]
     const appointmentTrend = trendData.value.appointmentTrend || []
-    appointmentTrend.forEach(item => {
-      appointmentTrendData.push([
-        item.date || '',
-        item.totalCount || 0,
-        item.completedCount || 0,
-        item.cancelledCount || 0
-      ])
-    })
-    const appointmentTrendWs = XLSX.utils.aoa_to_sheet(appointmentTrendData)
-    appointmentTrendWs['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, appointmentTrendWs, '预约趋势')
-    
-    // 3. 收入趋势工作表
-    const revenueTrendData = [
-      ['日期', '收入(元)']
-    ]
     const revenueTrend = trendData.value.revenueTrend || []
+    
+    // 创建收入映射
+    const revenueMap = new Map()
     revenueTrend.forEach(item => {
       const revenue = item.totalRevenue !== undefined ? item.totalRevenue : 
                      (item.revenue !== undefined ? item.revenue : 
                      (item.amount !== undefined ? item.amount : 0))
-      revenueTrendData.push([
-        item.date || '',
-        typeof revenue === 'number' ? revenue : parseFloat(revenue) || 0
-      ])
+      revenueMap.set(item.date, revenue)
     })
-    const revenueTrendWs = XLSX.utils.aoa_to_sheet(revenueTrendData)
-    revenueTrendWs['!cols'] = [{ wch: 12 }, { wch: 15 }]
-    XLSX.utils.book_append_sheet(wb, revenueTrendWs, '收入趋势')
     
-    // 4. 科室预约统计工作表
-    const departmentStatsData = [
-      ['科室名称', '预约人次', '占比(%)']
+    // 合并趋势数据
+    let prevRevenue = 0
+    appointmentTrend.forEach(item => {
+      const revenue = revenueMap.get(item.date) || 0
+      const growth = prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) : 0
+      dailyTrendData.push([
+        item.date || '',
+        item.totalCount || 0,
+        item.completedCount || 0,
+        item.cancelledCount || 0,
+        item.noShowCount || 0,
+        revenue,
+        growth
+      ])
+      prevRevenue = revenue
+    })
+    
+    // 添加合计行
+    const totals = dailyTrendData.slice(1).reduce((acc, row) => {
+      acc[1] += row[1] || 0
+      acc[2] += row[2] || 0
+      acc[3] += row[3] || 0
+      acc[4] += row[4] || 0
+      acc[5] += row[5] || 0
+      return acc
+    }, ['合计', 0, 0, 0, 0, 0, ''])
+    dailyTrendData.push(totals)
+    
+    const dailyTrendWs = XLSX.utils.aoa_to_sheet(dailyTrendData)
+    dailyTrendWs['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
+    // 设置环比增长为百分比格式
+    for (let i = 2; i <= dailyTrendData.length; i++) {
+      const cell = `G${i}`
+      if (dailyTrendWs[cell] && typeof dailyTrendWs[cell].v === 'number') {
+        dailyTrendWs[cell].z = '0.00%'
+        dailyTrendWs[cell].t = 'n'
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, dailyTrendWs, '每日趋势明细')
+    
+    // ==================== Sheet 3: 科室数据统计 ====================
+    const deptStatsData = [
+      ['排名', '科室名称', '总预约人次', '占比(%)', '已完成', '已取消', '退号率(%)', '产生收入(元)']
     ]
-    departmentStatsList.value.forEach(item => {
-      departmentStatsData.push([
+    
+    // 获取科室退号率数据
+    const deptCancellationMap = new Map()
+    rawStatsData.value.cancellationRateByDept.forEach(item => {
+      deptCancellationMap.set(item.departmentName, item.cancellationRate || 0)
+    })
+    
+    departmentStatsList.value.forEach((item, index) => {
+      const cancellationRate = deptCancellationMap.get(item.departmentName) || 0
+      deptStatsData.push([
+        index + 1,
         item.departmentName || '未知科室',
         item.totalAppointments || 0,
-        item.percentage ? item.percentage.toFixed(2) : 0
+        (item.percentage || 0) / 100,
+        item.completedCount || 0,
+        item.cancelledCount || 0,
+        cancellationRate,
+        item.revenue || 0
       ])
     })
-    const departmentStatsWs = XLSX.utils.aoa_to_sheet(departmentStatsData)
-    departmentStatsWs['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, departmentStatsWs, '科室预约统计')
     
-    // 5. 号别分布工作表
-    const slotTypeData = [
-      ['号别类型', '预约数量']
-    ]
-    rawStatsData.value.slotTypeDistribution.forEach(item => {
-      slotTypeData.push([
-        getSlotTypeName(item.slotType),
-        item.appointmentCount || 0
-      ])
-    })
-    const slotTypeWs = XLSX.utils.aoa_to_sheet(slotTypeData)
-    slotTypeWs['!cols'] = [{ wch: 15 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, slotTypeWs, '号别分布')
+    const deptStatsWs = XLSX.utils.aoa_to_sheet(deptStatsData)
+    deptStatsWs['!cols'] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }]
+    // 设置占比和退号率为百分比格式
+    for (let i = 2; i <= deptStatsData.length; i++) {
+      if (deptStatsWs[`D${i}`]) {
+        deptStatsWs[`D${i}`].z = '0.00%'
+        deptStatsWs[`D${i}`].t = 'n'
+      }
+      if (deptStatsWs[`G${i}`]) {
+        deptStatsWs[`G${i}`].z = '0.00%'
+        deptStatsWs[`G${i}`].t = 'n'
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, deptStatsWs, '科室数据统计')
     
-    // 6. 时间段分布工作表
-    const timeSlotData = [
-      ['时间段', '预约数量']
+    // ==================== Sheet 4: 医生绩效统计 ====================
+    const doctorStatsData = [
+      ['医生姓名', '所属科室', '职称/号别', '总预约数', '已完成', '退号数', '退号率(%)']
     ]
-    rawStatsData.value.timeSlotDistribution.forEach(item => {
-      timeSlotData.push([
-        getTimeSlotName(item.timeSlot),
-        item.appointmentCount || 0
-      ])
-    })
-    const timeSlotWs = XLSX.utils.aoa_to_sheet(timeSlotData)
-    timeSlotWs['!cols'] = [{ wch: 15 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, timeSlotWs, '时间段分布')
     
-    // 7. 科室退号率工作表
-    const cancellationRateDeptData = [
-      ['科室名称', '退号率(%)']
-    ]
-    rawStatsData.value.cancellationRateByDept.forEach(item => {
-      cancellationRateDeptData.push([
-        item.departmentName || '未知',
-        item.cancellationRate ? (item.cancellationRate * 100).toFixed(2) : 0
-      ])
-    })
-    const cancellationRateDeptWs = XLSX.utils.aoa_to_sheet(cancellationRateDeptData)
-    cancellationRateDeptWs['!cols'] = [{ wch: 20 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, cancellationRateDeptWs, '科室退号率')
-    
-    // 8. 医生退号率工作表
-    const cancellationRateDoctorData = [
-      ['医生姓名', '退号率(%)']
-    ]
-    // 使用过滤后的数据（与图表显示一致）
     const targetDeptId = selectedDepartmentForDoctor.value || selectedDepartment.value
     const filteredDoctorData = targetDeptId
       ? rawStatsData.value.cancellationRateByDoctor.filter(item => {
@@ -1598,24 +1604,144 @@ const exportReport = async () => {
           return itemDeptId && String(itemDeptId) === String(targetDeptId)
         })
       : rawStatsData.value.cancellationRateByDoctor
+    
     filteredDoctorData.forEach(item => {
-      cancellationRateDoctorData.push([
+      const deptName = item.departmentName || getDeptNameById(extractDeptId(item)) || '未知'
+      const totalAppts = item.totalAppointments || 0
+      const completed = item.completedCount || 0
+      const cancelled = item.cancelledCount || 0
+      const cancellationRate = item.cancellationRate || 0
+      
+      doctorStatsData.push([
         item.doctorName || '未知',
-        item.cancellationRate ? (item.cancellationRate * 100).toFixed(2) : 0
+        deptName,
+        item.slotType || item.title || '普通',
+        totalAppts,
+        completed,
+        cancelled,
+        cancellationRate
       ])
     })
-    const cancellationRateDoctorWs = XLSX.utils.aoa_to_sheet(cancellationRateDoctorData)
-    cancellationRateDoctorWs['!cols'] = [{ wch: 20 }, { wch: 12 }]
-    XLSX.utils.book_append_sheet(wb, cancellationRateDoctorWs, '医生退号率')
+    
+    const doctorStatsWs = XLSX.utils.aoa_to_sheet(doctorStatsData)
+    doctorStatsWs['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+    // 设置退号率为百分比格式
+    for (let i = 2; i <= doctorStatsData.length; i++) {
+      if (doctorStatsWs[`G${i}`]) {
+        doctorStatsWs[`G${i}`].z = '0.00%'
+        doctorStatsWs[`G${i}`].t = 'n'
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, doctorStatsWs, '医生绩效统计')
+    
+    // ==================== Sheet 5: 属性分布统计 ====================
+    const distributionData = [
+      ['号别分布', '', ''],
+      ['号别类型', '预约人次', '占比(%)'],
+    ]
+    
+    // 计算号别总数
+    const slotTypeTotal = rawStatsData.value.slotTypeDistribution.reduce((sum, item) => sum + (item.appointmentCount || 0), 0)
+    rawStatsData.value.slotTypeDistribution.forEach(item => {
+      const count = item.appointmentCount || 0
+      const percentage = slotTypeTotal > 0 ? count / slotTypeTotal : 0
+      distributionData.push([
+        getSlotTypeName(item.slotType),
+        count,
+        percentage
+      ])
+    })
+    
+    distributionData.push([])
+    distributionData.push(['时段分布', '', ''])
+    distributionData.push(['时间段', '预约人次', '占比(%)'])
+    
+    // 计算时段总数
+    const timeSlotTotal = rawStatsData.value.timeSlotDistribution.reduce((sum, item) => sum + (item.appointmentCount || 0), 0)
+    rawStatsData.value.timeSlotDistribution.forEach(item => {
+      const count = item.appointmentCount || 0
+      const percentage = timeSlotTotal > 0 ? count / timeSlotTotal : 0
+      distributionData.push([
+        getTimeSlotName(item.timeSlot),
+        count,
+        percentage
+      ])
+    })
+    
+    const distributionWs = XLSX.utils.aoa_to_sheet(distributionData)
+    distributionWs['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 12 }]
+    // 设置占比为百分比格式
+    for (let i = 1; i <= distributionData.length; i++) {
+      if (distributionWs[`C${i}`] && typeof distributionWs[`C${i}`].v === 'number') {
+        distributionWs[`C${i}`].z = '0.00%'
+        distributionWs[`C${i}`].t = 'n'
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, distributionWs, '属性分布统计')
+    
+    // ==================== Sheet 6: 预约原始明细 ====================
+    const rawDetailData = [
+      ['预约ID', '患者姓名', '联系电话', '科室', '医生', '号别', '预约日期', '时间段', '状态', '挂号费(元)', '实际费用(元)', '预约时间', '来源']
+    ]
+    
+    // 调用后端API获取预约明细数据
+    try {
+      const params = getQueryParams()
+      const rawDetailsRes = await getAppointmentRawDetails(params)
+      const rawDetails = rawDetailsRes?.data || []
+      
+      // 状态映射
+      const statusMap = {
+        'SCHEDULED': '待就诊',
+        'COMPLETED': '已完成',
+        'CANCELLED': '已取消',
+        'NO_SHOW': '未到诊'
+      }
+      
+      // 来源映射
+      const sourceMap = {
+        'ONLINE': '线上',
+        'OFFLINE': '线下',
+        'WECHAT': '微信',
+        'APP': 'APP'
+      }
+      
+      rawDetails.forEach(item => {
+        rawDetailData.push([
+          item.appointmentId || '',
+          item.patientName || '',
+          item.patientPhone || '',
+          item.departmentName || '',
+          item.doctorName || '',
+          getSlotTypeName(item.slotType),
+          item.appointmentDate || '',
+          getTimeSlotName(item.timeSlot),
+          statusMap[item.status] || item.status || '',
+          item.registrationFee || 0,
+          item.actualFee || 0,
+          item.appointmentTime ? new Date(item.appointmentTime).toLocaleString('zh-CN') : '',
+          sourceMap[item.sourceType] || item.sourceType || ''
+        ])
+      })
+    } catch (error) {
+      console.error('获取预约明细失败:', error)
+      rawDetailData.push(['获取数据失败，请稍后重试'])
+    }
+    
+    const rawDetailWs = XLSX.utils.aoa_to_sheet(rawDetailData)
+    rawDetailWs['!cols'] = [
+      { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+      { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 12 }, { wch: 18 }, { wch: 10 }
+    ]
+    XLSX.utils.book_append_sheet(wb, rawDetailWs, '预约原始明细')
     
     // 生成文件名
-    const dateStr = dateRange.value && dateRange.value.length === 2
-      ? `${dateRange.value[0]}_${dateRange.value[1]}`
-      : '全部'
+    const dateStr = `${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}`
     const deptStr = selectedDepartment.value
-      ? (departmentList.value.find(d => d.id === selectedDepartment.value)?.name || '')
-      : '全部科室'
-    const filename = `统计报表_${dateStr}_${deptStr}.xlsx`
+      ? `_${deptName}`
+      : ''
+    const filename = `统计报表_${dateStr}${deptStr}.xlsx`
     
     // 导出文件
     XLSX.writeFile(wb, filename)
@@ -1625,287 +1751,6 @@ const exportReport = async () => {
     ElMessage.error('导出报表失败: ' + (error?.message || '未知错误'))
   } finally {
     exporting.value = false
-  }
-}
-
-// 导出为PDF（包含图表）
-const exportToPDF = async () => {
-  try {
-    exportingPDF.value = true
-    
-    // 检查是否有数据
-    if (!dateRange.value || dateRange.value.length !== 2) {
-      ElMessage.warning('请先选择日期范围并查询数据')
-      return
-    }
-    
-    // 创建PDF实例（A4纸张，横向）
-    const pdf = new jsPDF('landscape', 'mm', 'a4')
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 10
-    const contentWidth = pageWidth - 2 * margin
-    const contentHeight = pageHeight - 2 * margin
-    
-    let yPos = margin
-    
-    // 辅助函数：添加新页面
-    const addNewPage = () => {
-      pdf.addPage()
-      yPos = margin
-    }
-    
-    // 辅助函数：检查是否需要新页面
-    const checkNewPage = (requiredHeight) => {
-      if (yPos + requiredHeight > pageHeight - margin) {
-        addNewPage()
-        return true
-      }
-      return false
-    }
-    
-    // 1. 添加标题和基本信息
-    pdf.setFontSize(20)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text('统计报表', margin, yPos)
-    yPos += 10
-    
-    pdf.setFontSize(12)
-    pdf.setFont('helvetica', 'normal')
-    const dateStr = dateRange.value && dateRange.value.length === 2
-      ? `${dateRange.value[0]} 至 ${dateRange.value[1]}`
-      : '全部'
-    const deptStr = selectedDepartment.value
-      ? (departmentList.value.find(d => d.id === selectedDepartment.value)?.name || '全部')
-      : '全部科室'
-    
-    pdf.text(`日期范围: ${dateStr}`, margin, yPos)
-    yPos += 6
-    pdf.text(`筛选科室: ${deptStr}`, margin, yPos)
-    yPos += 6
-    pdf.text(`导出时间: ${new Date().toLocaleString('zh-CN')}`, margin, yPos)
-    yPos += 10
-    
-    // 2. 添加概览统计表格
-    pdf.setFontSize(14)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text('概览统计', margin, yPos)
-    yPos += 8
-    
-    pdf.setFontSize(10)
-    pdf.setFont('helvetica', 'normal')
-    
-    // 创建概览统计表格数据
-    const overviewTableData = [
-      ['指标', '数值'],
-      ['总预约数', overview.totalAppointments],
-      ['已完成', overview.completedAppointments],
-      ['已取消', overview.cancelledAppointments],
-      ['爽约', overview.noShowAppointments],
-      ['总号源数', overview.totalSlots],
-      ['可用号源', overview.availableSlots],
-      ['已用号源', overview.usedSlots],
-      ['完成率', `${formatRate(overview.completionRate)}%`],
-      ['利用率', `${formatRate(overview.utilization)}%`]
-    ]
-    
-    // 绘制表格
-    const cellHeight = 6
-    const colWidth = contentWidth / 2
-    overviewTableData.forEach((row, rowIndex) => {
-      checkNewPage(cellHeight)
-      const isHeader = rowIndex === 0
-      pdf.setFont('helvetica', isHeader ? 'bold' : 'normal')
-      
-      // 绘制单元格
-      pdf.rect(margin, yPos - 4, colWidth, cellHeight)
-      pdf.rect(margin + colWidth, yPos - 4, colWidth, cellHeight)
-      
-      // 添加文本
-      pdf.text(row[0], margin + 2, yPos)
-      pdf.text(String(row[1]), margin + colWidth + 2, yPos)
-      yPos += cellHeight
-    })
-    
-    yPos += 5
-    
-    // 3. 获取并添加图表
-    const chartWidth = (contentWidth - 10) / 2 // 两个图表并排，留10mm间距
-    const chartHeight = 60 // 图表高度
-    
-    // 等待图表渲染完成
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 获取图表图片
-    const getChartImage = async (chartRef) => {
-      if (!chartRef?.value?.chart) return null
-      try {
-        const chartInstance = chartRef.value.chart
-        return chartInstance.getDataURL({
-          type: 'png',
-          pixelRatio: 2,
-          backgroundColor: '#fff'
-        })
-      } catch (error) {
-        console.error('获取图表图片失败:', error)
-        return null
-      }
-    }
-    
-    // 添加图片到PDF的辅助函数
-    const addImageToPDF = async (imageData, title, width, height) => {
-      if (!imageData) return false
-      
-      checkNewPage(height + 15)
-      
-      // 添加标题
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text(title, margin, yPos)
-      yPos += 8
-      
-      // 添加图片
-      try {
-        pdf.addImage(imageData, 'PNG', margin, yPos, width, height)
-        yPos += height + 5
-        return true
-      } catch (error) {
-        console.error('添加图片失败:', error)
-        return false
-      }
-    }
-    
-    // 添加预约趋势图
-    const appointmentTrendImg = await getChartImage(appointmentTrendChartRef)
-    if (appointmentTrendImg) {
-      await addImageToPDF(appointmentTrendImg, '预约趋势', chartWidth, chartHeight)
-    }
-    
-    // 添加收入趋势图
-    const revenueTrendImg = await getChartImage(revenueTrendChartRef)
-    if (revenueTrendImg) {
-      await addImageToPDF(revenueTrendImg, '收入趋势', chartWidth, chartHeight)
-    }
-    
-    // 添加号别分布图
-    const slotTypeImg = await getChartImage(slotTypeChartRef)
-    if (slotTypeImg) {
-      await addImageToPDF(slotTypeImg, '号别分布', chartWidth, chartHeight)
-    }
-    
-    // 添加时间段分布图
-    const timeSlotImg = await getChartImage(timeSlotChartRef)
-    if (timeSlotImg) {
-      await addImageToPDF(timeSlotImg, '时间段分布', chartWidth, chartHeight)
-    }
-    
-    // 添加科室退号率图
-    const cancellationRateDeptImg = await getChartImage(cancellationRateDeptChartRef)
-    if (cancellationRateDeptImg) {
-      await addImageToPDF(cancellationRateDeptImg, '科室退号率', chartWidth, chartHeight)
-    }
-    
-    // 添加医生退号率图
-    const cancellationRateDoctorImg = await getChartImage(cancellationRateDoctorChartRef)
-    if (cancellationRateDoctorImg) {
-      await addImageToPDF(cancellationRateDoctorImg, '医生退号率', chartWidth, chartHeight)
-    }
-    
-    // 4. 添加详细数据表格
-    addNewPage()
-    yPos = margin
-    
-    // 预约趋势数据表
-    pdf.setFontSize(14)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text('预约趋势数据', margin, yPos)
-    yPos += 8
-    
-    pdf.setFontSize(9)
-    pdf.setFont('helvetica', 'normal')
-    const trendTableCols = ['日期', '总预约', '已完成', '已取消']
-    const trendColWidth = contentWidth / 4
-    
-    // 表头
-    checkNewPage(cellHeight)
-    pdf.setFont('helvetica', 'bold')
-    trendTableCols.forEach((col, index) => {
-      pdf.rect(margin + index * trendColWidth, yPos - 4, trendColWidth, cellHeight)
-      pdf.text(col, margin + index * trendColWidth + 2, yPos)
-    })
-    yPos += cellHeight
-    
-    // 数据行（最多显示20行）
-    pdf.setFont('helvetica', 'normal')
-    const appointmentTrend = trendData.value.appointmentTrend || []
-    const maxTrendRows = Math.min(20, appointmentTrend.length)
-    for (let i = 0; i < maxTrendRows; i++) {
-      checkNewPage(cellHeight)
-      const item = appointmentTrend[i]
-      const rowData = [
-        item.date || '',
-        item.totalCount || 0,
-        item.completedCount || 0,
-        item.cancelledCount || 0
-      ]
-      rowData.forEach((cell, index) => {
-        pdf.rect(margin + index * trendColWidth, yPos - 4, trendColWidth, cellHeight)
-        pdf.text(String(cell), margin + index * trendColWidth + 2, yPos)
-      })
-      yPos += cellHeight
-    }
-    
-    yPos += 10
-    
-    // 科室预约统计表
-    pdf.setFontSize(14)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text('科室预约统计', margin, yPos)
-    yPos += 8
-    
-    pdf.setFontSize(9)
-    pdf.setFont('helvetica', 'normal')
-    const deptTableCols = ['科室名称', '预约人次', '占比(%)']
-    const deptColWidth = contentWidth / 3
-    
-    // 表头
-    checkNewPage(cellHeight)
-    pdf.setFont('helvetica', 'bold')
-    deptTableCols.forEach((col, index) => {
-      pdf.rect(margin + index * deptColWidth, yPos - 4, deptColWidth, cellHeight)
-      pdf.text(col, margin + index * deptColWidth + 2, yPos)
-    })
-    yPos += cellHeight
-    
-    // 数据行
-    pdf.setFont('helvetica', 'normal')
-    departmentStatsList.value.forEach(item => {
-      checkNewPage(cellHeight)
-      const rowData = [
-        item.departmentName || '未知科室',
-        item.totalAppointments || 0,
-        item.percentage ? item.percentage.toFixed(2) : 0
-      ]
-      rowData.forEach((cell, index) => {
-        pdf.rect(margin + index * deptColWidth, yPos - 4, deptColWidth, cellHeight)
-        pdf.text(String(cell), margin + index * deptColWidth + 2, yPos)
-      })
-      yPos += cellHeight
-    })
-    
-    // 生成文件名并保存
-    const dateStrForFile = dateRange.value && dateRange.value.length === 2
-      ? `${dateRange.value[0]}_${dateRange.value[1]}`
-      : '全部'
-    const filename = `统计报表_${dateStrForFile}_${deptStr}.pdf`
-    
-    pdf.save(filename)
-    ElMessage.success('PDF报表导出成功')
-  } catch (error) {
-    console.error('导出PDF失败:', error)
-    ElMessage.error('导出PDF失败: ' + (error?.message || '未知错误'))
-  } finally {
-    exportingPDF.value = false
   }
 }
 

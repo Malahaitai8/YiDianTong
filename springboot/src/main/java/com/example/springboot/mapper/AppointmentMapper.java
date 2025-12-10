@@ -99,4 +99,11 @@ public interface AppointmentMapper {
     List<Map<String, Object>> getAppointmentTrend(@Param("startDate") Date startDate,
                                                   @Param("endDate") Date endDate,
                                                   @Param("departmentId") Long departmentId);
+
+    /**
+     * 获取预约原始明细列表（用于Excel导出）
+     */
+    List<Map<String, Object>> getAppointmentRawDetails(@Param("startDate") Date startDate,
+                                                       @Param("endDate") Date endDate,
+                                                       @Param("departmentId") Long departmentId);
 }

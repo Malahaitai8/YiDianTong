@@ -14,12 +14,17 @@
                 <el-option label="全部" value="" />
                 <el-option label="上午" value="MORNING" />
                 <el-option label="下午" value="AFTERNOON" />
-                <el-option label="晚上" value="EVENING" />
+              </el-select>
+              <el-select v-model="todayStatusFilter" placeholder="状态筛选" size="small" style="width: 120px; margin-left: 10px" clearable @change="reload">
+                <el-option label="全部" value="" />
+                <el-option label="待就诊" value="待就诊" />
+                <el-option label="已完成" value="已完成" />
+                <el-option label="已取消" value="已取消" />
+                <el-option label="未到诊" value="未到诊" />
               </el-select>
               <div class="today-stats">
                 <el-tag type="warning" effect="light">上午：{{ morningCount }}</el-tag>
                 <el-tag type="success" effect="light">下午：{{ afternoonCount }}</el-tag>
-                <el-tag type="info" effect="light">晚上：{{ eveningCount }}</el-tag>
                 <el-tag type="primary" effect="light">合计：{{ pagination.total }}</el-tag>
               </div>
             </template>
@@ -46,6 +51,7 @@
                 <el-option label="待就诊" value="待就诊" />
                 <el-option label="已完成" value="已完成" />
                 <el-option label="已取消" value="已取消" />
+                <el-option label="未到诊" value="未到诊" />
               </el-select>
             </template>
           </div>
@@ -61,7 +67,7 @@
       >
         <el-table-column prop="name" label="患者姓名" min-width="150" />
         <el-table-column prop="phone" label="联系电话" min-width="150" />
-        <el-table-column prop="appointmentDate" label="预约日期" min-width="150" sortable="custom">
+        <el-table-column v-if="viewMode !== 'today'" prop="appointmentDate" label="预约日期" min-width="150" sortable="custom">
           <template #default="scope">
             {{ formatDateOnly(scope.row.appointmentDate) }}
           </template>
@@ -78,17 +84,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right" align="center">
-          <template #default="scope">
-            <el-button
-              type="info"
-              size="small"
-              @click="viewPatientDetail(scope.row)"
-            >
-              查看详情
-            </el-button>
-          </template>
-        </el-table-column>
       </el-table>
 
       <!-- 分页 -->
@@ -99,72 +94,56 @@
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
+          :prev-text="'上一页'"
+          :next-text="'下一页'"
+          background
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
-        />
+        >
+          <template #total="{ total }">
+            共 {{ total }} 条
+          </template>
+        </el-pagination>
       </div>
     </el-card>
 
-    <!-- 患者详情对话框 -->
+    <!-- 预约详情对话框 -->
     <el-dialog
       v-model="patientDialogVisible"
-      title="患者详情"
+      title="预约详情"
       width="800px"
     >
       <div v-if="selectedPatient" class="patient-detail">
-        <el-tabs v-model="activeTab">
-          <!-- 患者信息 -->
-          <el-tab-pane label="患者信息" name="basic">
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="患者姓名">
-                {{ selectedPatient.patientName || selectedPatient.name }}
-              </el-descriptions-item>
-              <el-descriptions-item label="联系电话">
-                {{ selectedPatient.phoneNumber || selectedPatient.phone }}
-              </el-descriptions-item>
-              <el-descriptions-item label="身份证号">
-                {{ maskIdCard(selectedPatient.idCardNumber || selectedPatient.idCard) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="具体角色">
-                {{ getSpecificRoleText(selectedPatient.specificRole) }}
-              </el-descriptions-item>
-            </el-descriptions>
-          </el-tab-pane>
-
-          <!-- 预约信息 -->
-          <el-tab-pane label="预约信息" name="appointment">
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="预约状态">
-                <el-tag :type="getStatusType(selectedPatient.statusName || selectedPatient.status)" size="small">
-                  {{ getAppointmentStatusText(selectedPatient.statusName || selectedPatient.status) }}
-                </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="排班日期">
-                {{ formatDateOnly(selectedPatient.scheduleDate || selectedPatient.appointmentDate) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="预约时段">
-                {{ selectedPatient.timeSlotName || formatTimeSlot(selectedPatient.timeSlot) || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="预约时间">
-                {{ formatDateTime(selectedPatient.appointmentTime) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="创建时间">
-                {{ formatDateTime(selectedPatient.createdAt) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="挂号费用">
-                ¥{{ formatMoney(selectedPatient.fee) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="实际费用">
-                <span style="color: #67c23a; font-weight: 600;">
-                  ¥{{ formatMoney(selectedPatient.actualFee) }}
-                </span>
-              </el-descriptions-item>
-              <el-descriptions-item label="来源类型">
-                {{ getSourceTypeText(selectedPatient.sourceType) }}
-              </el-descriptions-item>
-            </el-descriptions>
-          </el-tab-pane>
-        </el-tabs>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="患者姓名">
+            {{ selectedPatient.patientName || selectedPatient.name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="联系电话">
+            {{ selectedPatient.phoneNumber || selectedPatient.phone }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预约状态">
+            <el-tag :type="getStatusType(selectedPatient.statusName || selectedPatient.status)" size="small">
+              {{ getAppointmentStatusText(selectedPatient.statusName || selectedPatient.status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="排班日期">
+            {{ formatDateOnly(selectedPatient.scheduleDate || selectedPatient.appointmentDate) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预约时段">
+            {{ selectedPatient.timeSlotName || formatTimeSlot(selectedPatient.timeSlot) || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预约时间">
+            {{ formatDateTime(selectedPatient.appointmentTime) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="挂号费用">
+            ¥{{ formatMoney(selectedPatient.fee) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="实际费用">
+            <span style="color: #67c23a; font-weight: 600;">
+              ¥{{ formatMoney(selectedPatient.actualFee) }}
+            </span>
+          </el-descriptions-item>
+        </el-descriptions>
       </div>
 
       <template #footer>
@@ -183,6 +162,7 @@ import { formatDate } from '@/utils'
 
 const viewMode = ref('today')
 const timeSlotFilter = ref('')
+const todayStatusFilter = ref('')
 const morningCount = ref(0)
 const afternoonCount = ref(0)
 const eveningCount = ref(0)
@@ -205,7 +185,6 @@ const pagination = reactive({
   total: 0
 })
 
-
 // 实际患者数据
 const patientList = ref([])
 
@@ -219,14 +198,16 @@ const getAppointmentStatusText = (status) => {
     return status
   }
   
-  // 将英文状态转换为中文（根据数据库定义：scheduled/cancelled/completed）
+  // 将英文状态转换为中文（根据数据库定义：scheduled/cancelled/completed/no_show）
   const statusMap = {
     'SCHEDULED': '待就诊',
     'scheduled': '待就诊',
     'COMPLETED': '已完成',
     'completed': '已完成',
     'CANCELLED': '已取消',
-    'cancelled': '已取消'
+    'cancelled': '已取消',
+    'NO_SHOW': '未到诊',
+    'no_show': '未到诊'
   }
   
   // 转换为大写进行匹配（不区分大小写）
@@ -260,11 +241,12 @@ const formatDateOnly = (dateStr) => {
 const loadPatients = async () => {
   try {
     loading.value = true
-    // 将中文状态映射为后端状态码（根据数据库定义：scheduled/cancelled/completed）
+    // 将中文状态映射为后端状态码（根据数据库定义：scheduled/cancelled/completed/no_show）
     const statusMap = {
       '待就诊': 'scheduled',
       '已完成': 'completed',
-      '已取消': 'cancelled'
+      '已取消': 'cancelled',
+      '未到诊': 'no_show'
     }
     
     const params = {
@@ -336,11 +318,31 @@ const loadToday = async () => {
     loading.value = true
     const params = { timeSlot: timeSlotFilter.value || undefined }
     const resp = await getTodayPatients(params)
-    const rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
-    morningCount.value = Number(resp?.data?.morningCount || 0)
-    afternoonCount.value = Number(resp?.data?.afternoonCount || 0)
-    eveningCount.value = Number(resp?.data?.eveningCount || 0)
-    pagination.total = Number(resp?.data?.total || rawList.length || 0)
+    let rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
+    
+    // 统计上午下午人数（从全部数据中统计）
+    morningCount.value = rawList.filter(item => {
+      const slot = String(item.timeSlot || '').toUpperCase()
+      return slot === 'MORNING'
+    }).length
+    afternoonCount.value = rawList.filter(item => {
+      const slot = String(item.timeSlot || '').toUpperCase()
+      return slot === 'AFTERNOON'
+    }).length
+    
+    // 根据状态筛选过滤
+    if (todayStatusFilter.value) {
+      const statusMap = {
+        '待就诊': ['SCHEDULED', 'scheduled', '待就诊'],
+        '已完成': ['COMPLETED', 'completed', '已完成'],
+        '已取消': ['CANCELLED', 'cancelled', '已取消'],
+        '未到诊': ['NO_SHOW', 'no_show', '未到诊']
+      }
+      const targetStatuses = statusMap[todayStatusFilter.value] || []
+      rawList = rawList.filter(item => targetStatuses.includes(item.status || item.statusName))
+    }
+    
+    pagination.total = rawList.length
     patientList.value = rawList.map(item => {
       // 处理预约日期：从 scheduleDate 或 appointmentTime 中提取日期部分
       let appointmentDate = item.scheduleDate || ''
@@ -417,7 +419,8 @@ const getStatusType = (status) => {
   const statusMap = {
     '待就诊': 'warning',      // 橙色/黄色
     '已完成': 'success',      // 绿色
-    '已取消': 'danger'        // 红色
+    '已取消': 'danger',       // 红色
+    '未到诊': 'info'          // 灰色
   }
   
   return statusMap[chineseStatus] || 'info'

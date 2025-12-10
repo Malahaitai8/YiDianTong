@@ -34,48 +34,73 @@
 
         <div class="profile-details">
           <el-row :gutter="20">
+            <!-- 基本信息卡片 -->
             <el-col :span="12">
-              <div class="info-item">
-                <label class="info-label">姓名：</label>
-                <span class="info-value">{{ doctorInfo.name || '未设置' }}</span>
-              </div>
+              <el-card class="sub-card" shadow="never">
+                <div class="sub-card-header">
+                  <span class="sub-card-bar"></span>
+                  <span class="sub-card-title">基本信息</span>
+                </div>
+                <div class="sub-card-body">
+                  <div class="info-item">
+                    <label class="info-label">姓名：</label>
+                    <span class="info-value">{{ doctorInfo.name || '未设置' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label class="info-label">职称：</label>
+                    <span class="info-value">{{ doctorInfo.title || '未设置' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label class="info-label">科室：</label>
+                    <span class="info-value">{{ doctorInfo.department || '未设置' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label class="info-label">医生ID：</label>
+                    <span class="info-value">{{ doctorInfo.id || '未知' }}</span>
+                  </div>
+                </div>
+              </el-card>
             </el-col>
+
+            <!-- 右侧列：擅长领域 + 个人简介 -->
             <el-col :span="12">
-              <div class="info-item">
-                <label class="info-label">职称：</label>
-                <span class="info-value">{{ doctorInfo.title || '未设置' }}</span>
-              </div>
+              <!-- 擅长领域卡片 -->
+              <el-card class="sub-card" shadow="never">
+                <div class="sub-card-header">
+                  <span class="sub-card-bar"></span>
+                  <span class="sub-card-title">擅长领域</span>
+                </div>
+                <div class="sub-card-body">
+                  <div class="specialty-row">
+                    <div class="specialty-content">
+                      <el-tag
+                        v-if="doctorInfo.specialty"
+                        class="specialty-tag"
+                        type="primary"
+                        effect="dark"
+                      >
+                        {{ doctorInfo.specialty }}
+                      </el-tag>
+                      <span v-else class="specialty-empty">未设置擅长领域</span>
+                    </div>
+                  </div>
+                </div>
+              </el-card>
+
+              <!-- 个人简介卡片 -->
+              <el-card class="sub-card" shadow="never" style="margin-top: 20px;">
+                <div class="sub-card-header">
+                  <span class="sub-card-bar"></span>
+                  <span class="sub-card-title">个人简介</span>
+                </div>
+                <div class="sub-card-body">
+                  <div class="bio-card">
+                    {{ doctorInfo.bio || '暂无个人简介' }}
+                  </div>
+                </div>
+              </el-card>
             </el-col>
           </el-row>
-
-          <el-row :gutter="20">
-            <el-col :span="12">
-              <div class="info-item">
-                <label class="info-label">科室：</label>
-                <span class="info-value">{{ doctorInfo.department || '未设置' }}</span>
-              </div>
-            </el-col>
-            <el-col :span="12">
-              <div class="info-item">
-                <label class="info-label">医生ID：</label>
-                <span class="info-value">{{ doctorInfo.id || '未知' }}</span>
-              </div>
-            </el-col>
-          </el-row>
-
-          <div class="info-item full-width">
-            <label class="info-label">擅长领域：</label>
-            <div class="info-value">
-              {{ doctorInfo.specialty || '未设置擅长领域' }}
-            </div>
-          </div>
-
-          <div class="info-item full-width">
-            <label class="info-label">个人简介：</label>
-            <div class="info-value bio-content">
-              {{ doctorInfo.bio || '暂无个人简介' }}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -114,7 +139,7 @@
             v-model="applyForm.reason"
             type="textarea"
             :rows="3"
-            placeholder="可选，填写申请原因"
+            placeholder="必填，说明修改原因"
           />
         </el-form-item>
       </el-form>
@@ -274,7 +299,8 @@ const applyRules = {
   newValue: [
     { required: true, message: '请输入新值', trigger: ['blur', 'change'] },
     { validator: validateNewValue, trigger: ['blur', 'change'] }
-  ]
+  ],
+  reason: [{ required: true, message: '请输入申请原因', trigger: 'blur' }]
 }
 watch(
   () => applyForm.fieldName,
@@ -459,6 +485,71 @@ const closeApplyDialog = () => {
   font-size: 14px;
   line-height: 1.5;
   flex: 1;
+}
+
+.sub-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(31, 45, 61, 0.06);
+}
+
+.sub-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sub-card-bar {
+  width: 4px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+  margin-right: 8px;
+}
+
+.sub-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.sub-card-body {
+  padding-top: 4px;
+}
+
+.specialty-bio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.specialty-row {
+  display: flex;
+  align-items: center;
+}
+
+.specialty-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.specialty-tag {
+  border-radius: 999px;
+}
+
+.specialty-empty {
+  color: #909399;
+}
+
+.bio-card {
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #4a5568;
+  font-size: 14px;
+  line-height: 1.6;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.06);
+  white-space: pre-wrap;
 }
 
 .bio-content {

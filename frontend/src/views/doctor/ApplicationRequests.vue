@@ -35,7 +35,7 @@
                 label-width="110px"
                 class="apply-form"
               >
-                <el-form-item label="关联排班" prop="scheduleId">
+                <el-form-item label="原排班" prop="scheduleId">
                   <el-select
                     v-model="scheduleForm.scheduleId"
                     placeholder="请选择需要调整的排班"
@@ -58,12 +58,6 @@
                     <el-radio-button label="CANCEL">取消排班</el-radio-button>
                     <el-radio-button label="SLOTS_ADJUST">号源调整</el-radio-button>
                   </el-radio-group>
-                </el-form-item>
-                <el-form-item label="原排班信息">
-                  <div class="info-readonly">
-                    {{ scheduleForm.originalDate || '未选择' }} ·
-                    {{ timeSlotText[scheduleForm.originalTimeSlot] || scheduleForm.originalTimeSlot || '-' }}
-                  </div>
                 </el-form-item>
                 <el-form-item
                   label="新日期"
@@ -105,14 +99,14 @@
                     style="width: 100%"
                   />
                 </el-form-item>
-                <el-form-item label="申请原因">
+                <el-form-item label="申请原因" prop="reason">
                   <el-input
                     v-model="scheduleForm.reason"
                     type="textarea"
                     :rows="3"
                     maxlength="200"
                     show-word-limit
-                    placeholder="选填，说明调班原因"
+                    placeholder="必填，说明调班原因"
                   />
                 </el-form-item>
                 <el-form-item>
@@ -157,14 +151,14 @@
                 <el-form-item label="新值" prop="newValue">
                   <el-input v-model="infoForm.newValue" placeholder="请输入新的值" />
                 </el-form-item>
-                <el-form-item label="申请原因">
+                <el-form-item label="申请原因" prop="reason">
                   <el-input
                     v-model="infoForm.reason"
                     type="textarea"
                     :rows="3"
                     maxlength="200"
                     show-word-limit
-                    placeholder="选填，说明修改原因"
+                    placeholder="必填，说明修改原因"
                   />
                 </el-form-item>
                 <el-form-item>
@@ -235,7 +229,7 @@
             <el-table-column label="摘要" min-width="220">
               <template #default="{ row }">
                 <div v-if="row.requestType === 'SCHEDULE_CHANGE'">
-                  排班 {{ row.scheduleId }} · {{ changeTypeText[row.changeType] || '未知' }}
+                  排班 · {{ changeTypeText[row.changeType] || '未知' }}
                 </div>
                 <div v-else>
                   {{ fieldNameText[row.fieldName] || row.fieldName }} → {{ row.newValue }}
@@ -308,11 +302,11 @@
               {{ detailDrawer.data.changeTypeName }}
             </el-descriptions-item>
             <el-descriptions-item label="原排班">
-              {{ detailDrawer.data.originalDate }} · {{ detailDrawer.data.originalTimeSlotName }}
+              {{ detailDrawer.data.originalDate }} · {{ getTimeSlotText(detailDrawer.data.originalTimeSlot) }}
             </el-descriptions-item>
             <el-descriptions-item label="新排班">
               <span v-if="detailDrawer.data.newDate">
-                {{ detailDrawer.data.newDate }} · {{ detailDrawer.data.newTimeSlotName }}
+                {{ detailDrawer.data.newDate }} · {{ getTimeSlotText(detailDrawer.data.newTimeSlot) }}
               </span>
               <span v-else>无</span>
             </el-descriptions-item>
@@ -338,16 +332,13 @@
           <el-divider content-position="left">审核信息</el-divider>
           <el-descriptions :column="1" border label-width="100px">
             <el-descriptions-item label="审核人">
-              {{ detailDrawer.data.reviewerUsername || '未审核' }}
+              {{ detailDrawer.data.reviewerName || '未知' }}
             </el-descriptions-item>
             <el-descriptions-item label="审核时间">
               {{ detailDrawer.data.reviewedAt || '-' }}
             </el-descriptions-item>
-            <el-descriptions-item label="拒绝原因">
-              {{ detailDrawer.data.rejectionReason || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="更新时间">
-              {{ detailDrawer.data.updatedAt || '-' }}
+            <el-descriptions-item v-if="detailDrawer.data.status === 'REJECTED'" label="拒绝原因">
+              {{ detailDrawer.data.rejectionReason || '未填写' }}
             </el-descriptions-item>
           </el-descriptions>
         </template>
@@ -396,8 +387,7 @@ const timeSlotText = {
 
 const timeSlotOptions = [
   { label: '上午', value: 'MORNING' },
-  { label: '下午', value: 'AFTERNOON' },
-  { label: '夜间', value: 'EVENING' }
+  { label: '下午', value: 'AFTERNOON' }
 ]
 
 const changeTypeText = {
@@ -480,7 +470,8 @@ const scheduleRules = {
   changeType: [{ required: true, message: '请选择变更类型', trigger: 'change' }],
   newDate: [{ validator: validators.rescheduleDate, trigger: 'change' }],
   newTimeSlot: [{ validator: validators.rescheduleSlot, trigger: 'change' }],
-  slotsAdjustment: [{ validator: validators.slotAdjust, trigger: 'blur' }]
+  slotsAdjustment: [{ validator: validators.slotAdjust, trigger: 'blur' }],
+  reason: [{ required: true, message: '请输入申请原因', trigger: 'blur' }]
 }
 
 const infoForm = reactive({
@@ -492,7 +483,8 @@ const infoForm = reactive({
 
 const infoRules = {
   fieldName: [{ required: true, message: '请选择字段', trigger: 'change' }],
-  newValue: [{ required: true, message: '请输入新值', trigger: 'blur' }]
+  newValue: [{ required: true, message: '请输入新值', trigger: 'blur' }],
+  reason: [{ required: true, message: '请输入申请原因', trigger: 'blur' }]
 }
 
 watch(
@@ -564,7 +556,7 @@ const loadMyData = async () => {
 
 const formatScheduleOption = (item) => {
   const date = item.scheduleDate || item.date || '-'
-  const slot = timeSlotText[item.timeSlot] || item.timeSlot || '-'
+  const slot = getTimeSlotText(item.timeSlot)
   const clinic = item.clinicName || item.department || ''
   return `${date} · ${slot}${clinic ? ` · ${clinic}` : ''} · 号源 ${item.availableSlots ?? '-'}`
 }
@@ -744,6 +736,21 @@ const getFieldNameChinese = (fieldName) => {
     'workExperience': '工作经验'
   }
   return fieldMap[fieldName] || fieldName
+}
+
+const getTimeSlotText = (timeSlot) => {
+  if (!timeSlot) return '-'
+  const upperSlot = String(timeSlot).toUpperCase()
+  const timeSlotMap = {
+    'MORNING': '上午',
+    'AFTERNOON': '下午',
+    'EVENING': '晚上'
+  }
+  // 如果已经是中文，直接返回
+  if (['上午', '下午', '晚上'].includes(timeSlot)) {
+    return timeSlot
+  }
+  return timeSlotMap[upperSlot] || timeSlot
 }
 
 onMounted(async () => {

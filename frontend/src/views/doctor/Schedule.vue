@@ -250,10 +250,10 @@
             :data="selectedSchedule.patients || []"
             style="width: 100%"
             max-height="300"
+            empty-text="无预约"
           >
-            <el-table-column prop="name" label="患者姓名" min-width="150" />
-            <el-table-column prop="phone" label="联系电话" min-width="150" />
-            <el-table-column prop="status" label="状态" min-width="120" align="center">
+            <el-table-column prop="name" label="患者姓名" />
+            <el-table-column prop="status" label="状态" align="center">
               <template #default="scope">
                 <el-tag
                   :type="getPatientStatusType(scope.row.status)"

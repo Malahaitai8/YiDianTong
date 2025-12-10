@@ -157,3 +157,18 @@ export const getTrendStats = (params) => {
   })
 }
 
+/**
+ * 获取预约原始明细（用于Excel导出）
+ * @param {Object} params - 查询参数
+ * @param {string} params.startDate - 开始日期 yyyy-MM-dd
+ * @param {string} params.endDate - 结束日期 yyyy-MM-dd
+ * @param {number} params.departmentId - 科室ID（可选）
+ */
+export const getAppointmentRawDetails = (params) => {
+  return request({
+    url: '/api/admin/stats/appointments/raw-details',
+    method: 'get',
+    params
+  })
+}
+

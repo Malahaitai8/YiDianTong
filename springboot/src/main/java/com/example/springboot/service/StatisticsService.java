@@ -351,5 +351,12 @@ public class StatisticsService {
             return BigDecimal.ZERO;
         }
     }
+
+    /**
+     * 获取预约原始明细列表（用于Excel导出）
+     */
+    public List<Map<String, Object>> getAppointmentRawDetails(Date startDate, Date endDate, Long departmentId) {
+        return appointmentMapper.getAppointmentRawDetails(startDate, endDate, departmentId);
+    }
 }
 

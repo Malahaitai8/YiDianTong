@@ -12,8 +12,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 @Tag(name = "管理端统计报表", description = "提供全局统计数据报表")
 @RestController
@@ -201,6 +199,23 @@ public class AdminStatisticsController {
             return Result.success(statisticsService.getTrendStatistics(startDate, endDate, departmentId));
         } catch (Exception e) {
             return Result.error("获取趋势统计失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取预约原始明细", description = "获取预约的详细记录列表，用于Excel导出")
+    @GetMapping("/appointments/raw-details")
+    public Result getAppointmentRawDetails(
+            @Parameter(description = "开始日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @Parameter(description = "结束日期，格式：yyyy-MM-dd") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @Parameter(description = "科室ID，可选") @RequestParam(required = false) Long departmentId) {
+        try {
+            if (startDate == null || endDate == null) {
+                endDate = new Date();
+                startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
+            }
+            return Result.success(statisticsService.getAppointmentRawDetails(startDate, endDate, departmentId));
+        } catch (Exception e) {
+            return Result.error("获取预约明细失败: " + e.getMessage());
         }
     }
 }

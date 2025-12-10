@@ -39,99 +39,89 @@
       </el-col>
     </el-row>
 
+    <!-- 核心筛选器 - 横向布局 -->
+    <el-card class="filter-bar">
+      <el-form :inline="true" class="filter-form">
+        <el-form-item label="科室">
+          <el-select
+            v-model="filters.departmentId"
+            placeholder="全部科室"
+            clearable
+            @change="handleDepartmentChange"
+            style="width: 180px"
+          >
+            <el-option label="全部科室" value="" />
+            <el-option
+              v-for="dept in departmentList"
+              :key="dept.id"
+              :label="dept.name"
+              :value="dept.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="医生">
+          <el-select
+            v-model="filters.doctorId"
+            :placeholder="filteredDoctorList.length === 0 && filters.departmentId ? '该科室暂无医生' : '全部医生'"
+            clearable
+            filterable
+            style="width: 180px"
+            :disabled="false"
+            @change="handleDoctorChange"
+          >
+            <el-option label="全部医生" value="" />
+            <el-option
+              v-for="doctor in filteredDoctorList"
+              :key="doctor.id"
+              :label="doctor.name"
+              :value="doctor.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="日期范围">
+          <el-date-picker
+            v-model="filters.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 280px"
+            @change="handleDateRangeChange"
+          />
+        </el-form-item>
+
+        <el-form-item label="时间段">
+          <el-select
+            v-model="filters.timeSlot"
+            placeholder="全部时间段"
+            clearable
+            style="width: 140px"
+            @change="handleTimeSlotChange"
+          >
+            <el-option label="全部时间段" value="" />
+            <el-option label="上午" value="morning" />
+            <el-option label="下午" value="afternoon" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button @click="resetFilters">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <!-- 页面主体：左右分栏 -->
     <div class="content-grid">
-    <!-- 左侧筛选与操作区 -->
+    <!-- 左侧操作区 -->
     <div class="filter-sidebar">
       <el-card class="filter-card">
-        <!-- 筛选内容区域 -->
-        <div class="filter-content">
-        <!-- 核心筛选器 -->
-        <div class="filter-section">
-          <div class="filter-section-header">
-            <h4>核心筛选</h4>
-            <el-button size="small" @click="resetFilters">
-              <el-icon><Refresh /></el-icon>
-              重置
-            </el-button>
-          </div>
-          
-          <!-- 科室选择器 -->
-          <div class="filter-item">
-            <label>科室</label>
-            <el-select
-              v-model="filters.departmentId"
-              placeholder="全部科室"
-              clearable
-              @change="handleDepartmentChange"
-              style="width: 100%"
-            >
-              <el-option label="全部科室" value="" />
-              <el-option
-                v-for="dept in departmentList"
-                :key="dept.id"
-                :label="dept.name"
-                :value="dept.id"
-              />
-            </el-select>
-          </div>
-
-          <!-- 医生选择器 -->
-          <div class="filter-item">
-            <label>医生</label>
-            <el-select
-              v-model="filters.doctorId"
-              :placeholder="filteredDoctorList.length === 0 && filters.departmentId ? '该科室暂无医生' : '全部医生'"
-              clearable
-              filterable
-              style="width: 100%"
-              :disabled="false"
-              @change="handleDoctorChange"
-            >
-              <el-option label="全部医生" value="" />
-              <el-option
-                v-for="doctor in filteredDoctorList"
-                :key="doctor.id"
-                :label="doctor.name"
-                :value="doctor.id"
-              />
-            </el-select>
-          </div>
-
-          <!-- 日期范围选择器 -->
-          <div class="filter-item">
-            <label>日期范围</label>
-            <el-date-picker
-              v-model="filters.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
-              style="width: 100%"
-              @change="handleDateRangeChange"
-            />
-          </div>
-
-          <!-- 时间段选择器 -->
-          <div class="filter-item">
-            <label>时间段</label>
-            <el-select
-              v-model="filters.timeSlot"
-              placeholder="全部时间段"
-              clearable
-              style="width: 100%"
-              @change="handleTimeSlotChange"
-            >
-              <el-option label="全部时间段" value="" />
-              <el-option label="上午" value="morning" />
-              <el-option label="下午" value="afternoon" />
-            </el-select>
-          </div>
-
-        </div>
-
         <!-- 视图切换器 -->
         <div class="filter-section">
           <h4>视图模式</h4>
@@ -174,9 +164,6 @@
             </el-button>
           </div>
         </div>
-
-            </div>
-
       </el-card>
     </div>
 
@@ -593,16 +580,6 @@
             :min="isEdit ? Math.max(1, editBookedCount) : 1" 
             :max="100" 
             :disabled="isEdit"
-            style="width: 100%" 
-          />
-        </el-form-item>
-        <el-form-item label="可用号源" prop="availableSlots">
-          <el-input-number 
-            v-model="formData.availableSlots" 
-            :min="0" 
-            :max="formData.totalSlots || 100" 
-            :controls="false"
-            :disabled="true"
             style="width: 100%" 
           />
         </el-form-item>
@@ -2658,6 +2635,36 @@ onMounted(async () => {
   min-height: 100vh; /* 与 QA 管理页保持整体高度 */
 }
 
+/* 横向筛选栏样式 */
+.filter-bar {
+  margin-bottom: 20px;
+}
+
+.filter-bar .el-card__body {
+  padding: 16px 20px;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+}
+
+.filter-form .el-form-item {
+  margin-bottom: 0;
+  margin-right: 24px;
+}
+
+.filter-form .el-form-item:last-child {
+  margin-right: 0;
+}
+
+.filter-form .el-form-item__label {
+  font-weight: 500;
+  color: #606266;
+}
+
 /* 主体左右分栏容器 */
 .content-grid {
   display: flex;
@@ -3966,6 +3973,10 @@ onMounted(async () => {
     width: 240px;
   }
   
+  .filter-form .el-form-item {
+    margin-right: 16px;
+  }
+  
   .week-header-cell,
   .week-row-header {
     padding: 8px;
@@ -3980,6 +3991,30 @@ onMounted(async () => {
   .schedule-management {
     flex-direction: column;
     height: auto;
+  }
+  
+  .filter-bar .el-card__body {
+    padding: 12px 16px;
+  }
+  
+  .filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-form .el-form-item {
+    margin-right: 0;
+    margin-bottom: 12px;
+    width: 100%;
+  }
+  
+  .filter-form .el-form-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .filter-form .el-select,
+  .filter-form .el-date-picker {
+    width: 100% !important;
   }
   
   .filter-sidebar {
