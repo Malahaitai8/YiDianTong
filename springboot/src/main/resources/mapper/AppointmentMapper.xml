@@ -138,7 +138,7 @@
             SUM(CASE WHEN a.status = 'SCHEDULED' THEN 1 ELSE 0 END) AS scheduledCount,
             SUM(a.actual_fee) AS totalRevenue
         FROM appointment a
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         GROUP BY DATE(a.appointment_time)
         ORDER BY date
     </select>
@@ -160,7 +160,7 @@
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
         LEFT JOIN schedule s ON a.schedule_id = s.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         GROUP BY dept.id, dept.name
         ORDER BY totalCount DESC
     </select>
@@ -184,7 +184,7 @@
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
         LEFT JOIN schedule s ON a.schedule_id = s.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="doctorId != null">
             AND d.id = #{doctorId}
         </if>
@@ -204,7 +204,7 @@
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         AND a.status != 'CANCELLED'
         <if test="departmentId != null">
             AND dept.id = #{departmentId}
@@ -226,7 +226,7 @@
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         AND a.status != 'CANCELLED'
         GROUP BY dept.id, dept.name
         ORDER BY totalRevenue DESC
@@ -244,7 +244,7 @@
         LEFT JOIN schedule s ON a.schedule_id = s.id
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="departmentId != null">
             AND c.department_id = #{departmentId}
         </if>
@@ -264,7 +264,7 @@
         LEFT JOIN schedule s ON a.schedule_id = s.id
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="departmentId != null">
             AND c.department_id = #{departmentId}
         </if>
@@ -288,7 +288,7 @@
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         GROUP BY dept.id, dept.name
         HAVING totalCount > 0
         ORDER BY cancellationRate DESC
@@ -313,7 +313,7 @@
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="doctorId != null">
             AND d.id = #{doctorId}
         </if>
@@ -341,7 +341,7 @@
         LEFT JOIN doctor d ON a.doctor_id = d.id
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="departmentId != null">
             AND dept.id = #{departmentId}
         </if>
@@ -371,7 +371,7 @@
         LEFT JOIN clinic c ON d.clinic_id = c.id
         LEFT JOIN department dept ON c.department_id = dept.id
         LEFT JOIN schedule s ON a.schedule_id = s.id
-        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt;= #{endDate}
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
         <if test="departmentId != null">
             AND dept.id = #{departmentId}
         </if>

@@ -154,7 +154,7 @@ const routes = [
         path: 'schedule-settings',
         name: 'AdminScheduleSettings',
         component: AdminScheduleSettings,
-        meta: { title: '号源管理' }
+        meta: { title: '费用设置' }
       },
       {
         path: 'reports',

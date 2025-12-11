@@ -62,6 +62,7 @@ public class ScheduleRuleDetailDTO {
     
     // 审计信息
     private String createdBy;
+    private String createdByName; // 创建人姓名
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createdAt;

@@ -5,9 +5,9 @@ spring:
     username: root
     password: 123456
     # 本地数据库配置（用于演示）
-    url: jdbc:mysql://localhost:3306/yi_dian_tong_2?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    # url: jdbc:mysql://localhost:3306/yi_dian_tong_2?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
     # 云数据库配置（已注释，用于生产环境）
-    # url: jdbc:mysql://120.46.206.75:3306/yi_dian_tong?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    url: jdbc:mysql://120.46.206.75:3306/yi_dian_tong?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
     # 数据库连接池优化（HikariCP）
     hikari:
       maximum-pool-size: 20  # 最大连接数

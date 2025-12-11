@@ -32,6 +32,12 @@ public class ScheduleRuleService {
     @Resource
     private ClinicMapper clinicMapper;
 
+    @Resource
+    private UserMapper userMapper;
+
+    @Resource
+    private AdminMapper adminMapper;
+
     /**
      * 创建排班规则
      */
@@ -415,6 +421,22 @@ public class ScheduleRuleService {
         dto.setPriority(rule.getPriority());
         dto.setDescription(rule.getDescription());
         dto.setCreatedBy(rule.getCreatedBy());
+        
+        // 查询创建人姓名：先通过username查User表获取userId，再查Admin表获取name
+        if (rule.getCreatedBy() != null) {
+            User creator = userMapper.selectByUsername(rule.getCreatedBy());
+            if (creator != null) {
+                // 通过userId查询Admin表获取管理员姓名
+                Admin admin = adminMapper.selectByUserId(creator.getId());
+                if (admin != null && admin.getName() != null) {
+                    dto.setCreatedByName(admin.getName());
+                } else {
+                    // 如果没有找到管理员信息，使用username
+                    dto.setCreatedByName(creator.getUsername());
+                }
+            }
+        }
+        
         dto.setCreatedAt(rule.getCreatedAt());
         dto.setUpdatedAt(rule.getUpdatedAt());
         
