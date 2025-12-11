@@ -9,10 +9,15 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
     restart: unless-stopped
     networks:
       - ydt-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   # SpringBoot后端服务
   backend:
@@ -24,22 +29,23 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DB_HOST=${DB_HOST:-120.46.206.75}
+      - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT:-3306}
       - DB_NAME=${DB_NAME:-yi_dian_tong}
-      - DB_USERNAME=${DB_USERNAME:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-Ydt123456}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - JWT_SECRET=${JWT_SECRET:-YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-sk-6803552ef4384e0aa49251069fd95bdd}
-      - WECHAT_APPID=${WECHAT_APPID:-}
-      - WECHAT_SECRET=${WECHAT_SECRET:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - WECHAT_APPID=${WECHAT_APPID}
+      - WECHAT_SECRET=${WECHAT_SECRET}
     volumes:
       - ./springboot/logs:/app/logs
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - ydt-network
@@ -48,7 +54,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   # 前端管理界面
   frontend:
@@ -71,3 +77,4 @@ volumes:
 networks:
   ydt-network:
     driver: bridge
+

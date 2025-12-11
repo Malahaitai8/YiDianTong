@@ -4,8 +4,13 @@ import { useUserStore } from '@/stores/user'
 import router from '@/router'
 
 // 创建axios实例
+// 生产环境通过Nginx代理，使用相对路径 /api
+// 开发环境直接连接后端
+const baseURL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.MODE === 'production' ? '/api' : 'http://localhost:8080')
+
 const request = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: baseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
