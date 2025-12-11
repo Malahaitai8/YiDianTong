@@ -20,3 +20,24 @@ public class WaitlistCountRequest {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
