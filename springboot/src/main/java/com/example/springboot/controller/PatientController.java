@@ -1,5 +1,6 @@
 package com.example.springboot.controller;
 
+import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.ChangePasswordRequest;
 import com.example.springboot.dto.UpdatePatientProfileRequest;
@@ -48,6 +49,7 @@ public class PatientController {
     @Operation(summary = "新增患者", description = "仅管理员可创建患者记录")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 仅管理员 (假设)
+    @AuditLog(operationType = "CREATE", operationModule = "PATIENT", operationDesc = "新增患者")
     public Result create(@jakarta.validation.Valid @RequestBody Patient patient) {
         patientService.create(patient);
         return Result.success();
@@ -56,6 +58,7 @@ public class PatientController {
     @Operation(summary = "更新患者", description = "管理员或本人可更新患者信息")
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
+    @AuditLog(operationType = "UPDATE", operationModule = "PATIENT", operationDesc = "更新患者信息")
     public Result update(
             @Parameter(description = "患者ID", required = true) @PathVariable Long id,
             @jakarta.validation.Valid @RequestBody Patient patient) {
@@ -67,6 +70,7 @@ public class PatientController {
     @Operation(summary = "删除患者", description = "仅管理员可删除患者记录")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')") // <-- [新增] 仅管理员
+    @AuditLog(operationType = "DELETE", operationModule = "PATIENT", operationDesc = "删除患者", recordResponse = false)
     public Result delete(
             @Parameter(description = "患者ID", required = true) @PathVariable Long id) {
         patientService.delete(id);
@@ -78,6 +82,7 @@ public class PatientController {
     @Operation(summary = "获取当前患者个人信息", description = "获取当前登录患者的个人信息（包括用户信息和患者信息）")
     @GetMapping("/profile")
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "QUERY", operationModule = "PATIENT", operationDesc = "获取患者个人信息", recordResponse = false)
     public Result getProfile() {
         try {
             Patient patient = patientService.getCurrentPatientProfile();
@@ -90,6 +95,7 @@ public class PatientController {
     @Operation(summary = "更新当前患者个人信息", description = "更新当前登录患者的个人信息（只能更新手机号等允许的字段，不能修改认证相关字段）")
     @PutMapping("/profile")
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "UPDATE", operationModule = "PATIENT", operationDesc = "更新患者个人信息")
     public Result updateProfile(@jakarta.validation.Valid @RequestBody UpdatePatientProfileRequest request) {
         try {
             patientService.updateCurrentPatientProfile(request.getPhoneNumber());
@@ -102,6 +108,7 @@ public class PatientController {
     @Operation(summary = "修改密码", description = "修改当前登录患者的密码（需要验证旧密码）")
     @PutMapping("/password")
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "UPDATE", operationModule = "USER", operationDesc = "修改密码", recordResponse = false)
     public Result changePassword(@jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
         try {
             userService.changePassword(request.getOldPassword(), request.getNewPassword());

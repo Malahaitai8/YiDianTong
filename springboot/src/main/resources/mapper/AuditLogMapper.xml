@@ -92,6 +92,9 @@
             <if test="operationModule != null and operationModule != ''">
                 AND operation_module = #{operationModule}
             </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
             <if test="username != null and username != ''">
                 AND username = #{username}
             </if>
@@ -129,6 +132,9 @@
             </if>
             <if test="operationModule != null and operationModule != ''">
                 AND operation_module = #{operationModule}
+            </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
             </if>
             <if test="username != null and username != ''">
                 AND username = #{username}

@@ -1,6 +1,7 @@
 package com.example.springboot.controller;
 
 
+import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.dto.CreateWaitlistRequest;
 import com.example.springboot.dto.WaitlistInfoDTO;
@@ -56,6 +57,7 @@ public class WaitlistController {
     @Operation(summary = "加入候补队列", description = "当号源已满时，患者可加入候补队列")
     @PostMapping
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "CREATE", operationModule = "WAITLIST", operationDesc = "加入候补队列")
     public Result addToQueue(@jakarta.validation.Valid @RequestBody CreateWaitlistRequest request) {
         Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
         Patient patient = patientMapper.selectByUserId(userId);
@@ -101,6 +103,7 @@ public class WaitlistController {
     @Operation(summary = "查看我的候补", description = "查看当前登录患者的候补记录 (包含排名)")
     @GetMapping("/me")
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "QUERY", operationModule = "WAITLIST", operationDesc = "查看我的候补", recordResponse = false)
     public Result myQueue() {
         Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
         Patient patient = patientMapper.selectByUserId(userId);
@@ -149,6 +152,7 @@ public class WaitlistController {
     @Operation(summary = "退出候补队列", description = "患者从指定排班的候补队列中移除自身，同步删除候补记录和预支付订单")
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("hasRole('PATIENT')")
+    @AuditLog(operationType = "DELETE", operationModule = "WAITLIST", operationDesc = "退出候补队列", recordResponse = false)
     public Result cancel(@PathVariable Long scheduleId) {
         Long userId = com.example.springboot.config.SecurityUtils.getCurrentUserId();
         Patient patient = patientMapper.selectByUserId(userId);
