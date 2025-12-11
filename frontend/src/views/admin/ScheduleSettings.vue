@@ -1,391 +1,143 @@
 <template>
-  <div class="schedule-settings-page">
+  <div class="fee-settings-page">
+    <!-- 顶部标题卡片 -->
     <div class="header-card">
       <div class="header-left">
-        <h1 class="header-title">号源管理</h1>
-        <p class="header-subtitle">统一管理号源上限、挂号费配置、号别设置和统计信息</p>
+        <h1 class="header-title">费用设置</h1>
+        <p class="header-subtitle">统一管理挂号费用和报销比例配置</p>
       </div>
     </div>
 
-    <el-tabs v-model="activeTab" type="border-card" class="settings-tabs">
-      <!-- 号源上限管理 -->
-      <el-tab-pane label="号源上限管理" name="limits">
-        <el-tabs v-model="limitSubTab" type="card" class="sub-tabs">
-          <!-- 全局配置 -->
-          <el-tab-pane label="全局配置" name="global">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>全局上限配置</span>
-                <el-button type="primary" @click="openEditGlobal">编辑配置</el-button>
-              </div>
-            </template>
-            <div v-loading="globalLoading" class="settings-display">
-              <el-descriptions :column="2" border>
-                <el-descriptions-item label="允许的号别">
-                  <el-tag v-for="type in globalSettings.allowedSlotTypes" :key="type" class="slot-type-tag">
-                    {{ mapSlotType(type) }}
-                  </el-tag>
-                </el-descriptions-item>
-                <el-descriptions-item label="默认总号源">
-                  {{ globalSettings.defaultTotalSlots || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单条排班最大号源">
-                  {{ globalSettings.maxSlotsPerSchedule || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单医生单日预约上限">
-                  {{ globalSettings.maxAppointmentsPerDayPerDoctor || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单患者单日预约上限">
-                  {{ globalSettings.maxAppointmentsPerDayPerPatient || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单医生单日VIP号上限">
-                  {{ globalSettings.vipDailyLimitPerDoctor || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="周末启用严格限制">
-                  {{ globalSettings.enforceWeekendLimits ? '是' : '否' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="覆盖策略">
-                  {{ mapOverrideStrategy(globalSettings.overrideStrategy) }}
-                </el-descriptions-item>
-                <el-descriptions-item label="最晚取消时间（小时）" :span="2">
-                  {{ globalSettings.cancelPolicy?.latestCancelHours || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="逾期取消惩罚" :span="2">
-                  {{ globalSettings.cancelPolicy?.penaltyEnabled ? '启用' : '禁用' }}
-                </el-descriptions-item>
-              </el-descriptions>
+    <!-- 提示信息卡片 -->
+    <el-card class="tips-card">
+      <div class="tips-header">
+        <el-icon color="#E6A23C" :size="20"><Warning /></el-icon>
+        <span class="tips-title">提示</span>
+      </div>
+      <ul class="tips-list">
+        <li>费用等级应为递增关系：普通号 < 专家号 < 特需号</li>
+        <li>报销比例应在 0-100% 之间</li>
+        <li>所有改动需要点击"保存设置"才会生效</li>
+      </ul>
+    </el-card>
+
+    <!-- 挂号费用设置卡片 -->
+    <el-card class="settings-card">
+      <div class="card-title-wrapper">
+        <h3 class="card-title">挂号费用设置</h3>
+        <p class="card-subtitle">配置不同等级的挂号费用</p>
+      </div>
+      
+      <el-row :gutter="32" class="fee-row">
+        <el-col :span="8">
+          <div class="fee-item">
+            <div class="fee-label">普通号</div>
+            <div class="fee-input-wrapper">
+              <el-input-number
+                v-model="feeConfig.normalFee"
+                :min="0"
+                :precision="2"
+                :step="0.1"
+                :controls="false"
+                class="fee-input"
+              />
+              <span class="fee-unit">元</span>
             </div>
-          </el-card>
-        </div>
-          </el-tab-pane>
-
-          <!-- 医生级配置 -->
-          <el-tab-pane label="医生级配置" name="doctor">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>医生级上限配置</span>
-                <div class="header-actions">
-                  <el-select
-                    v-model="selectedDoctorId"
-                    placeholder="请选择医生"
-                    filterable
-                    clearable
-                    style="width: 300px; margin-right: 12px;"
-                    @change="loadDoctorSettings"
-                  >
-                    <el-option
-                      v-for="doctor in doctorList"
-                      :key="doctor.id"
-                      :label="`${doctor.name} (${doctor.title || ''})`"
-                      :value="doctor.id"
-                    />
-                  </el-select>
-                  <el-button
-                    type="primary"
-                    :disabled="!selectedDoctorId"
-                    @click="openEditDoctor"
-                  >
-                    编辑配置
-                  </el-button>
-                </div>
-              </div>
-            </template>
-            <div v-loading="doctorLoading" class="settings-display">
-              <div v-if="!selectedDoctorId" class="empty-state">
-                <el-empty description="请先选择医生" />
-              </div>
-              <el-descriptions v-else :column="2" border>
-                <el-descriptions-item label="医生ID">
-                  {{ doctorSettings.doctorId || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="覆盖策略">
-                  {{ mapOverrideStrategy(doctorSettings.overrideStrategy) }}
-                </el-descriptions-item>
-                <el-descriptions-item label="允许的号别">
-                  <el-tag v-for="type in doctorSettings.allowedSlotTypes" :key="type" class="slot-type-tag">
-                    {{ mapSlotType(type) }}
-                  </el-tag>
-                  <span v-if="!doctorSettings.allowedSlotTypes || doctorSettings.allowedSlotTypes.length === 0">继承全局</span>
-                </el-descriptions-item>
-                <el-descriptions-item label="默认总号源">
-                  {{ doctorSettings.defaultTotalSlots || '继承全局' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单条排班最大号源">
-                  {{ doctorSettings.maxSlotsPerSchedule || '继承全局' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单医生单日VIP号上限">
-                  {{ doctorSettings.vipDailyLimitPerDoctor || '继承全局' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="生效开始日期" :span="2">
-                  {{ formatDate(doctorSettings.effectiveStartDate) || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="生效结束日期" :span="2">
-                  {{ formatDate(doctorSettings.effectiveEndDate) || '无限制' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="描述" :span="2">
-                  {{ doctorSettings.description || '-' }}
-                </el-descriptions-item>
-              </el-descriptions>
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="fee-item">
+            <div class="fee-label">专家号</div>
+            <div class="fee-input-wrapper">
+              <el-input-number
+                v-model="feeConfig.expertFee"
+                :min="0"
+                :precision="2"
+                :step="0.1"
+                :controls="false"
+                class="fee-input"
+              />
+              <span class="fee-unit">元</span>
             </div>
-          </el-card>
-        </div>
-          </el-tab-pane>
-
-          <!-- 门诊级配置 -->
-          <el-tab-pane label="门诊级配置" name="clinic">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>门诊级上限配置</span>
-                <div class="header-actions">
-                  <el-select
-                    v-model="selectedClinicId"
-                    placeholder="请选择门诊"
-                    filterable
-                    clearable
-                    style="width: 300px; margin-right: 12px;"
-                    @change="loadClinicSettings"
-                  >
-                    <el-option
-                      v-for="clinic in clinicList"
-                      :key="clinic.id"
-                      :label="clinic.name"
-                      :value="clinic.id"
-                    />
-                  </el-select>
-                  <el-button
-                    type="primary"
-                    :disabled="!selectedClinicId"
-                    @click="openEditClinic"
-                  >
-                    编辑配置
-                  </el-button>
-                </div>
-              </div>
-            </template>
-            <div v-loading="clinicLoading" class="settings-display">
-              <div v-if="!selectedClinicId" class="empty-state">
-                <el-empty description="请先选择门诊" />
-              </div>
-              <el-descriptions v-else :column="2" border>
-                <el-descriptions-item label="门诊ID">
-                  {{ clinicSettings.clinicId || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="覆盖策略">
-                  {{ mapOverrideStrategy(clinicSettings.overrideStrategy) }}
-                </el-descriptions-item>
-                <el-descriptions-item label="允许的号别">
-                  <el-tag v-for="type in clinicSettings.allowedSlotTypes" :key="type" class="slot-type-tag">
-                    {{ mapSlotType(type) }}
-                  </el-tag>
-                  <span v-if="!clinicSettings.allowedSlotTypes || clinicSettings.allowedSlotTypes.length === 0">继承全局</span>
-                </el-descriptions-item>
-                <el-descriptions-item label="默认总号源">
-                  {{ clinicSettings.defaultTotalSlots || '继承全局' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="单条排班最大号源">
-                  {{ clinicSettings.maxSlotsPerSchedule || '继承全局' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="生效开始日期" :span="2">
-                  {{ formatDate(clinicSettings.effectiveStartDate) || '-' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="生效结束日期" :span="2">
-                  {{ formatDate(clinicSettings.effectiveEndDate) || '无限制' }}
-                </el-descriptions-item>
-              </el-descriptions>
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="fee-item">
+            <div class="fee-label">特需号</div>
+            <div class="fee-input-wrapper">
+              <el-input-number
+                v-model="feeConfig.vipFee"
+                :min="0"
+                :precision="2"
+                :step="0.1"
+                :controls="false"
+                class="fee-input"
+              />
+              <span class="fee-unit">元</span>
             </div>
-          </el-card>
-        </div>
-          </el-tab-pane>
-        </el-tabs>
-      </el-tab-pane>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
 
-      <!-- 挂号费配置 -->
-      <el-tab-pane label="挂号费配置" name="fees">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>挂号费配置</span>
-                <el-button type="primary" @click="saveFeeConfig" :loading="feeSaving">
-                  保存配置
-                </el-button>
-              </div>
-            </template>
-            <el-form :model="feeConfig" label-width="150px" class="fee-config-form">
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="普通号挂号费">
-                    <el-input-number
-                      v-model="feeConfig.normalFee"
-                      :min="0"
-                      :precision="2"
-                      :step="0.1"
-                      controls-position="right"
-                      style="width: 200px;"
-                    />
-                    <span class="unit">元</span>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="专家号挂号费">
-                    <el-input-number
-                      v-model="feeConfig.expertFee"
-                      :min="0"
-                      :precision="2"
-                      :step="0.1"
-                      controls-position="right"
-                      style="width: 200px;"
-                    />
-                    <span class="unit">元</span>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="特需号挂号费">
-                    <el-input-number
-                      v-model="feeConfig.vipFee"
-                      :min="0"
-                      :precision="2"
-                      :step="0.1"
-                      controls-position="right"
-                      style="width: 200px;"
-                    />
-                    <span class="unit">元</span>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-row :gutter="20">
-                <el-col :span="12">
-                  <el-form-item label="学生报销比例">
-                    <el-input-number
-                      v-model="feeConfig.studentReimbursement"
-                      :min="0"
-                      :max="100"
-                      :precision="0"
-                      :step="1"
-                      controls-position="right"
-                      style="width: 200px;"
-                    />
-                    <span class="unit">%</span>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="教师报销比例">
-                    <el-input-number
-                      v-model="feeConfig.teacherReimbursement"
-                      :min="0"
-                      :max="100"
-                      :precision="0"
-                      :step="1"
-                      controls-position="right"
-                      style="width: 200px;"
-                    />
-                    <span class="unit">%</span>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </el-form>
-          </el-card>
-        </div>
-      </el-tab-pane>
+    <!-- 报销比例设置卡片 -->
+    <el-card class="settings-card">
+      <div class="card-title-wrapper">
+        <h3 class="card-title">报销比例设置</h3>
+        <p class="card-subtitle">配置不同身份的报销比例</p>
+      </div>
+      
+      <el-row :gutter="32" class="reimbursement-row">
+        <el-col :span="12">
+          <div class="reimbursement-item">
+            <div class="reimbursement-label">学生报销比例</div>
+            <div class="reimbursement-input-wrapper">
+              <el-input-number
+                v-model="feeConfig.studentReimbursement"
+                :min="0"
+                :max="100"
+                :precision="0"
+                :step="1"
+                :controls="false"
+                class="reimbursement-input"
+              />
+              <span class="reimbursement-unit">%</span>
+            </div>
+            <div class="reimbursement-desc">在校学生享受的报销比例</div>
+          </div>
+        </el-col>
+        <el-col :span="12">
+          <div class="reimbursement-item">
+            <div class="reimbursement-label">教师报销比例</div>
+            <div class="reimbursement-input-wrapper">
+              <el-input-number
+                v-model="feeConfig.teacherReimbursement"
+                :min="0"
+                :max="100"
+                :precision="0"
+                :step="1"
+                :controls="false"
+                class="reimbursement-input"
+              />
+              <span class="reimbursement-unit">%</span>
+            </div>
+            <div class="reimbursement-desc">教职员工享受的报销比例</div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
 
-      <!-- 号别管理 -->
-      <el-tab-pane label="号别管理" name="slotTypes">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>号别管理</span>
-                <el-button type="primary" @click="showAddSlotTypeDialog">
-                  添加号别
-                </el-button>
-              </div>
-            </template>
-            <el-table :data="slotTypes" style="width: 100%" v-loading="slotTypesLoading">
-              <el-table-column prop="type" label="号别类型" width="150">
-                <template #default="scope">
-                  <el-tag :type="getSlotTypeTagType(scope.row.type)">
-                    {{ mapSlotType(scope.row.type) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="号别名称" />
-              <el-table-column prop="description" label="描述" />
-              <el-table-column prop="fee" label="挂号费" width="100">
-                <template #default="scope">
-                  ¥{{ scope.row.fee }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="isActive" label="状态" width="100">
-                <template #default="scope">
-                  <el-switch
-                    v-model="scope.row.isActive"
-                    @change="toggleSlotTypeStatus(scope.row)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="150">
-                <template #default="scope">
-                  <el-button type="primary" size="small" @click="editSlotType(scope.row)">
-                    编辑
-                  </el-button>
-                  <el-button type="danger" size="small" @click="deleteSlotType(scope.row)">
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </div>
-      </el-tab-pane>
-
-      <!-- 号源统计 -->
-      <el-tab-pane label="号源统计" name="stats">
-        <div class="tab-content">
-          <el-card class="settings-card">
-            <template #header>
-              <div class="card-header">
-                <span>号源统计</span>
-                <el-button type="primary" @click="refreshStats">
-                  刷新统计
-                </el-button>
-              </div>
-            </template>
-            <el-row :gutter="20">
-              <el-col :span="6">
-                <div class="stat-item">
-                  <div class="stat-number">{{ slotStats.totalSlots }}</div>
-                  <div class="stat-label">总号源数</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-item">
-                  <div class="stat-number">{{ slotStats.bookedSlots }}</div>
-                  <div class="stat-label">已预约号源</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-item">
-                  <div class="stat-number">{{ slotStats.availableSlots }}</div>
-                  <div class="stat-label">可用号源</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-item">
-                  <div class="stat-number">{{ slotStats.utilizationRate }}%</div>
-                  <div class="stat-label">利用率</div>
-                </div>
-              </el-col>
-            </el-row>
-          </el-card>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+    <!-- 底部操作按钮 -->
+    <div class="footer-actions">
+      <el-button size="large" @click="resetConfig">
+        <el-icon><RefreshLeft /></el-icon>
+        取消更改
+      </el-button>
+      <el-button type="primary" size="large" @click="saveFeeConfig" :loading="feeSaving">
+        <el-icon><Check /></el-icon>
+        保存设置
+      </el-button>
+    </div>
 
     <!-- 全局配置编辑对话框 -->
     <el-dialog
@@ -661,68 +413,13 @@
         <el-button type="primary" @click="saveClinicSettings" :loading="clinicSaving">保存</el-button>
       </template>
     </el-dialog>
-
-    <!-- 号别添加/编辑对话框 -->
-    <el-dialog
-      :title="slotTypeDialogTitle"
-      v-model="slotTypeDialogVisible"
-      width="500px"
-      @close="resetSlotTypeForm"
-    >
-      <el-form
-        :model="slotTypeForm"
-        :rules="slotTypeRules"
-        ref="slotTypeFormRef"
-        label-width="100px"
-      >
-        <el-form-item label="号别类型" prop="type">
-          <el-select v-model="slotTypeForm.type" placeholder="请选择号别类型" style="width: 100%">
-            <el-option label="普通号" value="normal" />
-            <el-option label="专家号" value="expert" />
-            <el-option label="特需号" value="vip" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="号别名称" prop="name">
-          <el-input v-model="slotTypeForm.name" placeholder="请输入号别名称" />
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="slotTypeForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入号别描述"
-          />
-        </el-form-item>
-        <el-form-item label="挂号费" prop="fee">
-          <el-input-number
-            v-model="slotTypeForm.fee"
-            :min="0"
-            :precision="2"
-            :step="0.1"
-            controls-position="right"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="状态" prop="isActive">
-          <el-switch v-model="slotTypeForm.isActive" />
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="slotTypeDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveSlotType" :loading="slotTypeSaving">
-            确定
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Check, RefreshLeft, Warning } from '@element-plus/icons-vue'
 import {
   getGlobalScheduleSettings,
   updateGlobalScheduleSettings,
@@ -734,9 +431,6 @@ import {
 import { getDoctorList } from '@/api/doctor'
 import { getClinicList } from '@/api/clinic'
 import { systemConfigApi } from '@/api/systemConfig'
-
-const activeTab = ref('limits')
-const limitSubTab = ref('global')
 
 // 全局配置
 const globalLoading = ref(false)
@@ -853,41 +547,6 @@ const feeConfig = ref({
   vipFee: 0,
   studentReimbursement: 0,
   teacherReimbursement: 0
-})
-
-// 号别管理
-const slotTypesLoading = ref(false)
-const slotTypes = ref([])
-const slotTypeDialogVisible = ref(false)
-const slotTypeDialogTitle = ref('添加号别')
-const slotTypeSaving = ref(false)
-const slotTypeFormRef = ref()
-const slotTypeForm = ref({
-  id: null,
-  type: '',
-  name: '',
-  description: '',
-  fee: 0,
-  isActive: true
-})
-const slotTypeRules = {
-  type: [
-    { required: true, message: '请选择号别类型', trigger: 'change' }
-  ],
-  name: [
-    { required: true, message: '请输入号别名称', trigger: 'blur' }
-  ],
-  fee: [
-    { required: true, message: '请输入挂号费', trigger: 'blur' }
-  ]
-}
-
-// 号源统计
-const slotStats = ref({
-  totalSlots: 0,
-  bookedSlots: 0,
-  availableSlots: 0,
-  utilizationRate: 0
 })
 
 // 加载全局配置
@@ -1108,183 +767,16 @@ const saveFeeConfig = async () => {
   }
 }
 
-// 加载号别列表
-const loadSlotTypes = async () => {
-  slotTypesLoading.value = true
-  try {
-    // 模拟数据，实际应该从后端获取
-    slotTypes.value = [
-      {
-        id: 1,
-        type: 'normal',
-        name: '普通号',
-        description: '普通门诊号源',
-        fee: feeConfig.value.normalFee,
-        isActive: true
-      },
-      {
-        id: 2,
-        type: 'expert',
-        name: '专家号',
-        description: '专家门诊号源',
-        fee: feeConfig.value.expertFee,
-        isActive: true
-      },
-      {
-        id: 3,
-        type: 'vip',
-        name: '特需号',
-        description: '特需门诊号源',
-        fee: feeConfig.value.vipFee,
-        isActive: true
-      }
-    ]
-  } catch (error) {
-    console.error('加载号别列表失败:', error)
-    ElMessage.error('加载号别列表失败')
-  } finally {
-    slotTypesLoading.value = false
-  }
-}
-
-// 显示添加号别对话框
-const showAddSlotTypeDialog = () => {
-  slotTypeDialogTitle.value = '添加号别'
-  slotTypeDialogVisible.value = true
-  resetSlotTypeForm()
-}
-
-// 编辑号别
-const editSlotType = (row) => {
-  slotTypeDialogTitle.value = '编辑号别'
-  slotTypeDialogVisible.value = true
-  slotTypeForm.value = { ...row }
-}
-
-// 保存号别
-const saveSlotType = async () => {
-  try {
-    await slotTypeFormRef.value.validate()
-    slotTypeSaving.value = true
-    
-    // 这里应该调用后端API保存号别
-    // 目前只是模拟操作
-    if (slotTypeForm.value.id) {
-      // 更新
-      const index = slotTypes.value.findIndex(item => item.id === slotTypeForm.value.id)
-      if (index !== -1) {
-        slotTypes.value[index] = { ...slotTypeForm.value }
-      }
-      ElMessage.success('号别更新成功')
-    } else {
-      // 新增
-      slotTypeForm.value.id = Date.now()
-      slotTypes.value.push({ ...slotTypeForm.value })
-      ElMessage.success('号别添加成功')
-    }
-    
-    slotTypeDialogVisible.value = false
-  } catch (error) {
-    console.error('保存号别失败:', error)
-  } finally {
-    slotTypeSaving.value = false
-  }
-}
-
-// 切换号别状态
-const toggleSlotTypeStatus = async (row) => {
-  try {
-    // 这里应该调用后端API更新状态
-    ElMessage.success(`号别${row.isActive ? '启用' : '禁用'}成功`)
-  } catch (error) {
-    console.error('更新号别状态失败:', error)
-    ElMessage.error('更新号别状态失败')
-    // 回滚状态
-    row.isActive = !row.isActive
-  }
-}
-
-// 删除号别
-const deleteSlotType = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除号别"${row.name}"吗？`,
-      '确认删除',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    // 这里应该调用后端API删除
-    const index = slotTypes.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      slotTypes.value.splice(index, 1)
-    }
-    ElMessage.success('号别删除成功')
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除号别失败:', error)
-      ElMessage.error('删除号别失败')
-    }
-  }
-}
-
-// 重置号别表单
-const resetSlotTypeForm = () => {
-  slotTypeForm.value = {
-    id: null,
-    type: '',
-    name: '',
-    description: '',
-    fee: 0,
-    isActive: true
-  }
-  if (slotTypeFormRef.value) {
-    slotTypeFormRef.value.clearValidate()
-  }
-}
-
-// 获取号别类型标签样式
-const getSlotTypeTagType = (type) => {
-  const typeMap = {
-    normal: '',
-    expert: 'warning',
-    vip: 'danger'
-  }
-  return typeMap[type] || ''
-}
-
-// 加载统计信息
-const loadStats = async () => {
-  try {
-    // 这里应该调用后端API获取统计信息
-    // 目前使用模拟数据
-    slotStats.value = {
-      totalSlots: 1200,
-      bookedSlots: 850,
-      availableSlots: 350,
-      utilizationRate: 71
-    }
-  } catch (error) {
-    console.error('加载统计信息失败:', error)
-    ElMessage.error('加载统计信息失败')
-  }
-}
-
-// 刷新统计
-const refreshStats = () => {
-  loadStats()
-  ElMessage.success('统计信息已刷新')
+// 重置配置
+const resetConfig = async () => {
+  await loadFeeConfig()
+  ElMessage.info('已恢复到上次保存的配置')
 }
 
 // 初始化
 onMounted(async () => {
   await loadGlobalSettings()
   await loadFeeConfig()
-  await loadSlotTypes()
-  await loadStats()
   try {
     const [docsRes, clinicsRes] = await Promise.all([getDoctorList(), getClinicList()])
     doctorList.value = Array.isArray(docsRes?.data) ? docsRes.data : (docsRes?.data?.list || [])
@@ -1296,20 +788,22 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.schedule-settings-page {
+.fee-settings-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  padding: 0;
 }
 
+/* 顶部标题卡片 */
 .header-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px;
+  padding: 24px 32px;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .header-left {
@@ -1324,82 +818,184 @@ onMounted(async () => {
   line-height: 1.2;
   font-weight: 600;
   color: #303133;
-  text-align: left;
 }
 
 .header-subtitle {
   margin: 0;
   font-size: 14px;
-  color: #606266;
-  text-align: left;
-}
-
-.settings-tabs {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.tab-content {
-  padding: 20px;
-}
-
-.settings-card {
-  border: none;
-  box-shadow: none;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  color: #909399;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
-.settings-display {
-  min-height: 200px;
+/* 设置卡片 */
+.settings-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
 }
 
-.empty-state {
-  padding: 40px 0;
-  text-align: center;
+:deep(.settings-card .el-card__body) {
+  padding: 32px;
 }
 
-.slot-type-tag {
-  margin-right: 8px;
-  margin-bottom: 4px;
+/* 卡片标题 */
+.card-title-wrapper {
+  margin-bottom: 32px;
 }
 
-.form-hint {
+.card-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.card-subtitle {
+  margin: 0;
+  font-size: 14px;
   color: #909399;
-  font-size: 12px;
-  margin-top: 4px;
 }
 
-:deep(.el-descriptions__label) {
+/* 挂号费用项 */
+.fee-row {
+  margin: 0;
+}
+
+.fee-item {
+  text-align: left;
+}
+
+.fee-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.fee-input-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fee-input {
+  flex: 1;
+}
+
+:deep(.fee-input .el-input__inner) {
+  height: 48px;
+  font-size: 16px;
+  text-align: left;
+  padding-left: 16px;
+}
+
+.fee-unit {
+  margin-left: 12px;
+  font-size: 16px;
+  color: #606266;
   font-weight: 500;
 }
 
-:deep(.el-descriptions__content) {
-  color: #606266;
-}
-
-.sub-tabs {
-  margin-top: 0;
-}
-
-.unit {
-  margin-left: 8px;
+.fee-desc {
+  font-size: 13px;
   color: #909399;
-  font-size: 14px;
+  margin-top: 4px;
 }
 
-.fee-config-form {
-  padding: 20px 0;
+/* 报销比例项 */
+.reimbursement-row {
+  margin: 0;
+}
+
+.reimbursement-item {
+  text-align: left;
+}
+
+.reimbursement-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.reimbursement-input-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reimbursement-input {
+  flex: 1;
+}
+
+:deep(.reimbursement-input .el-input__inner) {
+  height: 48px;
+  font-size: 16px;
+  text-align: left;
+  padding-left: 16px;
+}
+
+.reimbursement-unit {
+  margin-left: 12px;
+  font-size: 16px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.reimbursement-desc {
+  font-size: 13px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+/* 底部操作按钮 */
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* 提示卡片 */
+.tips-card {
+  border-radius: 8px;
+  background: #FEF9E7;
+  border: 1px solid #F9E79F;
+}
+
+:deep(.tips-card .el-card__body) {
+  padding: 20px 24px;
+}
+
+.tips-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tips-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #E6A23C;
+}
+
+.tips-list {
+  margin: 0;
+  padding-left: 28px;
+  list-style: disc;
+}
+
+.tips-list li {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.8;
+  text-align: left;
 }
 
 .stat-item {

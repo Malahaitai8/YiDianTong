@@ -74,7 +74,7 @@ const menuItems = ref([
   { path: '/admin/departments', name: '科室管理' },
   { path: '/admin/schedule', name: '排班管理' },
   { path: '/admin/schedule-rules', name: '排班规则' },
-  { path: '/admin/schedule-settings', name: '号源管理' },
+  { path: '/admin/schedule-settings', name: '费用设置' },
   
   // 四、业务管理
   { path: '/admin/appointments', name: '预约管理' },

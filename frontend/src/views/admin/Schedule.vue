@@ -6,7 +6,21 @@
         <h1 class="header-title">排班管理</h1>
         <p class="header-subtitle">医生和科室排班统计—管理平台</p>
       </div>
+      <div class="header-actions">
+        <el-button type="primary" @click="showCreateDialog" size="default">
+          <el-icon><Plus /></el-icon>
+          新增排班
+        </el-button>
+        <el-button type="warning" @click="exportSchedules" :loading="exporting" size="default">
+          <el-icon><Download /></el-icon>
+          导出
+        </el-button>
+        <el-button @click="showSettingsDialog" size="default">
+          <el-icon><Setting /></el-icon>
+          号源设置
+        </el-button>
       </div>
+    </div>
 
     <!-- 统计信息卡片 -->
     <el-row :gutter="20" class="stats-row">
@@ -39,136 +53,105 @@
       </el-col>
     </el-row>
 
-    <!-- 核心筛选器 - 横向布局 -->
-    <el-card class="filter-bar">
-      <el-form :inline="true" class="filter-form">
-        <el-form-item label="科室">
-          <el-select
-            v-model="filters.departmentId"
-            placeholder="全部科室"
-            clearable
-            @change="handleDepartmentChange"
-            style="width: 180px"
-          >
-            <el-option label="全部科室" value="" />
-            <el-option
-              v-for="dept in departmentList"
-              :key="dept.id"
-              :label="dept.name"
-              :value="dept.id"
-            />
-          </el-select>
-        </el-form-item>
+    <!-- 筛选和操作栏 -->
+    <el-card class="filter-bar" shadow="never">
+      <div class="filter-bar-content">
+        <!-- 第一行：科室、医生、时间段、重置 -->
+        <div class="filter-row">
+          <div class="filter-item">
+            <label>科室</label>
+            <el-select
+              v-model="filters.departmentId"
+              placeholder="全部科室"
+              clearable
+              @change="handleDepartmentChange"
+              size="default"
+            >
+              <el-option label="全部科室" value="" />
+              <el-option
+                v-for="dept in departmentList"
+                :key="dept.id"
+                :label="dept.name"
+                :value="dept.id"
+              />
+            </el-select>
+          </div>
 
-        <el-form-item label="医生">
-          <el-select
-            v-model="filters.doctorId"
-            :placeholder="filteredDoctorList.length === 0 && filters.departmentId ? '该科室暂无医生' : '全部医生'"
-            clearable
-            filterable
-            style="width: 180px"
-            :disabled="false"
-            @change="handleDoctorChange"
-          >
-            <el-option label="全部医生" value="" />
-            <el-option
-              v-for="doctor in filteredDoctorList"
-              :key="doctor.id"
-              :label="doctor.name"
-              :value="doctor.id"
-            />
-          </el-select>
-        </el-form-item>
+          <div class="filter-item">
+            <label>医生</label>
+            <el-select
+              v-model="filters.doctorId"
+              :placeholder="filteredDoctorList.length === 0 && filters.departmentId ? '该科室暂无医生' : '全部医生'"
+              clearable
+              filterable
+              size="default"
+              :disabled="false"
+              @change="handleDoctorChange"
+            >
+              <el-option label="全部医生" value="" />
+              <el-option
+                v-for="doctor in filteredDoctorList"
+                :key="doctor.id"
+                :label="doctor.name"
+                :value="doctor.id"
+              />
+            </el-select>
+          </div>
 
-        <el-form-item label="日期范围">
-          <el-date-picker
-            v-model="filters.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            style="width: 280px"
-            @change="handleDateRangeChange"
-          />
-        </el-form-item>
+          <div class="filter-item">
+            <label>时间段</label>
+            <el-select
+              v-model="filters.timeSlot"
+              placeholder="全部时间段"
+              clearable
+              size="default"
+              @change="handleTimeSlotChange"
+            >
+              <el-option label="全部时间段" value="" />
+              <el-option label="上午" value="morning" />
+              <el-option label="下午" value="afternoon" />
+            </el-select>
+          </div>
 
-        <el-form-item label="时间段">
-          <el-select
-            v-model="filters.timeSlot"
-            placeholder="全部时间段"
-            clearable
-            style="width: 140px"
-            @change="handleTimeSlotChange"
-          >
-            <el-option label="全部时间段" value="" />
-            <el-option label="上午" value="morning" />
-            <el-option label="下午" value="afternoon" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item>
-          <el-button @click="resetFilters">
+          <el-button @click="resetFilters" size="default" circle>
             <el-icon><Refresh /></el-icon>
-            重置
           </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+        </div>
 
-    <!-- 页面主体：左右分栏 -->
-    <div class="content-grid">
-    <!-- 左侧操作区 -->
-    <div class="filter-sidebar">
-      <el-card class="filter-card">
-        <!-- 视图切换器 -->
-        <div class="filter-section">
-          <h4>视图模式</h4>
-          <el-radio-group v-model="currentView" @change="handleViewChange" class="view-toggle">
-            <el-radio-button label="calendar">
+        <!-- 第二行：日期范围 + 视图切换 -->
+        <div class="action-row">
+          <div class="filter-item">
+            <label>日期范围</label>
+            <el-date-picker
+              v-model="filters.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              size="default"
+              style="width: 450px"
+              @change="handleDateRangeChange"
+            />
+          </div>
+
+          <el-radio-group v-model="currentView" @change="handleViewChange" size="default">
+            <el-radio-button value="calendar">
               <el-icon><Calendar /></el-icon>
-              日历视图
+              日历
             </el-radio-button>
-            <el-radio-button label="list">
+            <el-radio-button value="list">
               <el-icon><List /></el-icon>
-              列表视图
+              列表
             </el-radio-button>
           </el-radio-group>
         </div>
+      </div>
+    </el-card>
 
-        <!-- 批量操作区 -->
-        <div class="filter-section">
-          <h4>批量操作</h4>
-          <div class="batch-actions">
-            <el-button type="primary" @click="showCreateDialog" style="width: 100%">
-              <el-icon><Plus /></el-icon>
-              新增排班
-            </el-button>
-            <el-button 
-              type="warning" 
-              @click="exportSchedules" 
-              style="width: 100%"
-              :loading="exporting"
-            >
-              <el-icon><Download /></el-icon>
-              导出排班表
-            </el-button>
-            <el-button 
-              type="info" 
-              @click="showSettingsDialog" 
-              style="width: 100%"
-            >
-              <el-icon><Setting /></el-icon>
-              号源设置管理
-            </el-button>
-          </div>
-        </div>
-      </el-card>
-    </div>
-
-    <!-- 右侧主展示区 -->
-    <div class="main-content">
+    <!-- 主展示区 -->
+    <div class="main-content-full">
       <!-- 日历视图 -->
       <div v-if="currentView === 'calendar'" class="calendar-view">
         <el-card>
@@ -413,8 +396,6 @@
             <div class="schedule-item-info">
               <span>总号源：{{ schedule.totalSlots || 0 }}</span>
               <span>剩余：{{ schedule.availableSlots || 0 }}</span>
-              <span v-if="getWaitlistCount(schedule) > 0" class="waitlist-info">候补：{{ getWaitlistCount(schedule) }}</span>
-              <el-button v-if="canAddSlots(schedule)" class="add-slots-btn" type="warning" size="small" @click.stop="openAddSlotsDialog(schedule)">加号</el-button>
             </div>
           </div>
         </div>
@@ -530,7 +511,6 @@
           </div>
         </el-card>
       </div>
-    </div>
     </div>
 
     <!-- 创建/编辑排班对话框 -->
@@ -747,15 +727,11 @@
             <el-form-item label="强制执行周末限制" prop="enforceWeekendLimits">
               <el-switch v-model="globalSettings.enforceWeekendLimits" />
             </el-form-item>
-            <el-form-item label="取消策略">
-              <div style="width: 100%">
-                <el-form-item label="最晚取消时间(小时)" prop="cancelPolicy.latestCancelHours" style="margin-bottom: 10px">
-                  <el-input-number v-model="globalSettings.cancelPolicy.latestCancelHours" :min="0" :max="48" />
-                </el-form-item>
-                <el-form-item label="启用取消惩罚" prop="cancelPolicy.penaltyEnabled">
-                  <el-switch v-model="globalSettings.cancelPolicy.penaltyEnabled" />
-                </el-form-item>
-              </div>
+            <el-form-item label="最晚取消时间(小时)" prop="cancelPolicy.latestCancelHours">
+              <el-input-number v-model="globalSettings.cancelPolicy.latestCancelHours" :min="0" :max="48" />
+            </el-form-item>
+            <el-form-item label="启用取消惩罚" prop="cancelPolicy.penaltyEnabled">
+              <el-switch v-model="globalSettings.cancelPolicy.penaltyEnabled" />
             </el-form-item>
             <el-form-item label="覆盖策略" prop="overrideStrategy">
               <el-select v-model="globalSettings.overrideStrategy" style="width: 100%">
@@ -957,6 +933,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Refresh, Plus, DocumentAdd, Delete, Calendar, List, 
@@ -2608,6 +2585,8 @@ const saveSettings = async () => {
 }
 
 // 组件挂载时加载数据
+const route = useRoute()
+
 onMounted(async () => {
   try {
     await Promise.all([
@@ -2615,6 +2594,29 @@ onMounted(async () => {
       loadClinicList(),
       loadDoctorList()
     ])
+    
+    // 从路由参数中读取筛选条件
+    if (route.query.doctorId) {
+      filters.doctorId = Number(route.query.doctorId)
+    }
+    if (route.query.departmentId) {
+      filters.departmentId = Number(route.query.departmentId)
+    }
+    if (route.query.clinicId) {
+      filters.clinicId = Number(route.query.clinicId)
+    }
+    if (route.query.timeSlots) {
+      // timeSlots可能是逗号分隔的字符串，需要解析
+      const slots = String(route.query.timeSlots).split(',')
+      filters.timeSlot = slots[0] || '' // 只取第一个时段
+    }
+    if (route.query.startDate && route.query.endDate) {
+      filters.dateRange = [route.query.startDate, route.query.endDate]
+    } else if (route.query.startDate) {
+      // 如果只有开始日期，设置为单日范围
+      filters.dateRange = [route.query.startDate, route.query.startDate]
+    }
+    
     // 先加载所有排班数据用于统计
     await loadAllSchedules()
     // 然后加载筛选后的排班列表
@@ -2627,7 +2629,6 @@ onMounted(async () => {
 
 <style scoped>
 .schedule-management {
-  height: 100vh;
   display: flex;
   flex-direction: column; /* 让头部独占一行，主体在其下 */
   background-color: #f5f7fa;
@@ -2635,41 +2636,89 @@ onMounted(async () => {
   min-height: 100vh; /* 与 QA 管理页保持整体高度 */
 }
 
-/* 横向筛选栏样式 */
+/* 横向筛选栏样式 - 两行布局 */
 .filter-bar {
   margin-bottom: 20px;
+  border: 1px solid #e4e7ed;
 }
 
-.filter-bar .el-card__body {
+.filter-bar :deep(.el-card__body) {
   padding: 16px 20px;
 }
 
-.filter-form {
+.filter-bar-content {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 第一行：筛选条件 */
+.filter-row {
+  display: flex;
   align-items: center;
-  gap: 0;
+  gap: 12px;
+  flex-wrap: nowrap;
+  flex: 1;
 }
 
-.filter-form .el-form-item {
-  margin-bottom: 0;
-  margin-right: 24px;
-}
-
-.filter-form .el-form-item:last-child {
-  margin-right: 0;
-}
-
-.filter-form .el-form-item__label {
-  font-weight: 500;
-  color: #606266;
-}
-
-/* 主体左右分栏容器 */
-.content-grid {
+.filter-item {
   display: flex;
-  gap: 24px;
-  align-items: flex-start; /* 确保顶部对齐 */
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.filter-item label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+  min-width: fit-content;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.filter-item .el-select {
+  flex: 1;
+  min-width: 120px;
+}
+
+.filter-item .el-date-picker {
+  flex: 1;
+  min-width: 260px;
+}
+
+.filter-row .el-button {
+  flex-shrink: 0;
+  margin-top: -10px;
+}
+
+/* 第二行：操作按钮 */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.action-row .el-radio-group {
+  margin-left: 150px;
+  margin-top: -17px;
+}
+
+.action-row .filter-item {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.action-row .filter-item .el-date-picker {
+  width: 400px !important;
+  max-width: 400px;
+}
+
+/* 主展示区 - 全宽 */
+.main-content-full {
+  flex: 1;
+  width: 100%;
 }
 
 /* 筛选与操作区 */
@@ -2981,6 +3030,8 @@ onMounted(async () => {
   /* 统计卡片样式 */
   .stats-row {
     margin-bottom: 20px;
+    position: relative;
+    z-index: 0;
   }
 
   .stat-card {
@@ -3049,6 +3100,12 @@ onMounted(async () => {
     text-align: left; /* 确保文字左对齐 */
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
   .header-title {
     margin: 0 0 8px 0; /* 与 QA 页标题一致 */
     font-size: 24px; /* 与 QA 页标题一致 */
@@ -3087,7 +3144,17 @@ onMounted(async () => {
     .header-card {
       flex-direction: column;
       align-items: flex-start;
-      gap: 12px;
+      gap: 16px;
+    }
+    
+    .header-actions {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    
+    .header-actions .el-button {
+      flex: 1;
+      min-width: 100px;
     }
     .header-right {
       width: 100%;
@@ -3474,6 +3541,7 @@ onMounted(async () => {
   display: flex;
   gap: 16px;
   align-items: center;
+  justify-content: center;
   font-size: 12px;
   color: #909399;
   flex-wrap: wrap;
@@ -3968,13 +4036,27 @@ onMounted(async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
-  .filter-sidebar {
-    width: 240px;
+@media (max-width: 1400px) {
+  .filter-row {
+    flex-wrap: wrap;
   }
   
-  .filter-form .el-form-item {
-    margin-right: 16px;
+  .filter-item .el-select {
+    width: 140px;
+  }
+  
+  .filter-item .el-date-picker {
+    width: 260px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .filter-item .el-select {
+    width: 130px;
+  }
+  
+  .filter-item .el-date-picker {
+    width: 240px;
   }
   
   .week-header-cell,
@@ -3991,42 +4073,49 @@ onMounted(async () => {
   .schedule-management {
     flex-direction: column;
     height: auto;
+    padding: 12px;
   }
   
-  .filter-bar .el-card__body {
-    padding: 12px 16px;
+  .filter-bar :deep(.el-card__body) {
+    padding: 12px;
   }
   
-  .filter-form {
+  .filter-bar-content {
+    gap: 12px;
+  }
+  
+  .filter-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
   
-  .filter-form .el-form-item {
-    margin-right: 0;
-    margin-bottom: 12px;
-    width: 100%;
+  .filter-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
   }
   
-  .filter-form .el-form-item:last-child {
-    margin-bottom: 0;
+  .filter-item label {
+    font-size: 13px;
   }
   
-  .filter-form .el-select,
-  .filter-form .el-date-picker {
+  .filter-item .el-select,
+  .filter-item .el-date-picker {
     width: 100% !important;
   }
   
-  .filter-sidebar {
-    width: 100%;
+  .action-row {
+    gap: 8px;
   }
   
-  .filter-content {
-    max-height: 300px;
+  .action-row .el-button {
+    flex: 1;
+    min-width: 100px;
   }
   
-  .main-content {
-    padding: 16px;
+  .main-content-full {
+    padding: 0;
   }
   
   .calendar-controls {

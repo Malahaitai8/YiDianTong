@@ -56,7 +56,7 @@ export const createConfig = (data) => {
  */
 export const updateConfigValue = (key, value) => {
   return request({
-    url: `/api/systemConfig/${key}`,
+    url: `/api/systemConfig/key/${key}`,
     method: 'put',
     data: { value }
   })
@@ -64,9 +64,9 @@ export const updateConfigValue = (key, value) => {
 
 // 挂号费相关配置
 export const FEE_CONFIG_KEYS = {
-  NORMAL_FEE: 'NORMAL_SLOT_FEE',      // 普通号挂号费
-  EXPERT_FEE: 'EXPERT_SLOT_FEE',      // 专家号挂号费
-  VIP_FEE: 'VIP_SLOT_FEE',            // 特需号挂号费
+  NORMAL_FEE: 'FEE_NORMAL',      // 普通号挂号费
+  EXPERT_FEE: 'FEE_EXPERT',      // 专家号挂号费
+  VIP_FEE: 'FEE_VIP',            // 特需号挂号费
   STUDENT_DISCOUNT: 'STUDENT_REIMBURSEMENT_RATE',  // 学生报销比例
   TEACHER_DISCOUNT: 'TEACHER_REIMBURSEMENT_RATE'   // 教师报销比例
 }
@@ -113,8 +113,8 @@ export const systemConfigApi = {
         normalFee: parseFloat(configs.NORMAL_FEE || 0),
         expertFee: parseFloat(configs.EXPERT_FEE || 0),
         vipFee: parseFloat(configs.VIP_FEE || 0),
-        studentReimbursement: parseInt(configs.STUDENT_DISCOUNT || 0),
-        teacherReimbursement: parseInt(configs.TEACHER_DISCOUNT || 0)
+        studentReimbursement: Math.round(parseFloat(configs.STUDENT_DISCOUNT || 0) * 100),
+        teacherReimbursement: Math.round(parseFloat(configs.TEACHER_DISCOUNT || 0) * 100)
       }
     } catch (error) {
       console.error('获取挂号费配置失败:', error)
@@ -129,8 +129,8 @@ export const systemConfigApi = {
         NORMAL_FEE: feeConfig.normalFee.toString(),
         EXPERT_FEE: feeConfig.expertFee.toString(),
         VIP_FEE: feeConfig.vipFee.toString(),
-        STUDENT_DISCOUNT: feeConfig.studentReimbursement.toString(),
-        TEACHER_DISCOUNT: feeConfig.teacherReimbursement.toString()
+        STUDENT_DISCOUNT: (feeConfig.studentReimbursement / 100).toString(),
+        TEACHER_DISCOUNT: (feeConfig.teacherReimbursement / 100).toString()
       }
       await updateFeeConfigs(configData)
       return { success: true }

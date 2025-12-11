@@ -59,55 +59,40 @@
       </el-col>
     </el-row>
 
-    <!-- 图表和列表 -->
-    <el-row :gutter="20" class="content-row">
-      <!-- 预约趋势图 -->
-      <el-col :span="12">
-        <el-card class="chart-card">
+    <!-- 快捷操作 -->
+    <el-row :gutter="20" class="quick-actions-row">
+      <el-col :span="24">
+        <el-card class="quick-actions-card">
           <template #header>
             <div class="card-header">
-              <span>预约趋势</span>
-              <el-select v-model="chartPeriod" size="small" style="width: 100px">
-                <el-option label="本周" value="week" />
-                <el-option label="本月" value="month" />
-                <el-option label="本年" value="year" />
-              </el-select>
+              <span>快捷操作</span>
             </div>
           </template>
-          <div class="chart-container">
-            <div class="chart-placeholder">
-              <el-icon size="60" color="#dcdfe6"><TrendCharts /></el-icon>
-              <p>预约趋势图表</p>
-              <p class="chart-note">（此处可集成 ECharts 或其他图表库）</p>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <!-- 科室统计 -->
-      <el-col :span="12">
-        <el-card class="chart-card">
-          <template #header>
-            <span>科室预约统计</span>
-          </template>
-          <div class="department-stats">
-            <div
-              v-for="dept in departmentStats"
-              :key="dept.name"
-              class="dept-item"
-            >
-              <div class="dept-info">
-                <div class="dept-name">{{ dept.name }}</div>
-                <div class="dept-count">{{ dept.appointments }} 人次</div>
-              </div>
-              <div class="dept-progress">
-                <el-progress
-                  :percentage="dept.percentage"
-                  :color="dept.color"
-                  :show-text="false"
-                />
-              </div>
-            </div>
+          <div class="quick-actions">
+            <el-button type="primary" @click="router.push('/admin/schedule')" class="action-btn">
+              <el-icon><Calendar /></el-icon>
+              <span>排班管理</span>
+            </el-button>
+            <el-button type="success" @click="router.push('/admin/schedule-rules')" class="action-btn">
+              <el-icon><Setting /></el-icon>
+              <span>排班规则</span>
+            </el-button>
+            <el-button type="warning" @click="router.push('/admin/appointments')" class="action-btn">
+              <el-icon><Document /></el-icon>
+              <span>预约管理</span>
+            </el-button>
+            <el-button type="info" @click="router.push('/admin/doctors')" class="action-btn">
+              <el-icon><UserFilled /></el-icon>
+              <span>医生管理</span>
+            </el-button>
+            <el-button type="primary" plain @click="router.push('/admin/patients')" class="action-btn">
+              <el-icon><User /></el-icon>
+              <span>患者管理</span>
+            </el-button>
+            <el-button type="success" plain @click="router.push('/admin/reports')" class="action-btn">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>报表统计</span>
+            </el-button>
           </div>
         </el-card>
       </el-col>
@@ -115,74 +100,78 @@
 
     <!-- 今日概况 -->
     <el-row :gutter="20" class="content-row">
-      <!-- 今日排班 -->
+      <!-- 待办事项 -->
       <el-col :span="12">
-        <el-card class="schedule-card">
+        <el-card class="todo-card">
           <template #header>
             <div class="card-header">
-              <span>今日排班</span>
-              <el-button type="primary" size="small" @click="manageSchedule">
-                管理排班
-              </el-button>
+              <span>待办事项</span>
+              <el-tag type="danger" size="small">{{ todoList.length }}</el-tag>
             </div>
           </template>
           
-          <div class="schedule-list">
+          <div class="todo-list">
+            <el-empty v-if="todoList.length === 0" description="暂无待办事项" :image-size="80" />
             <div
-              v-for="schedule in todaySchedules"
-              :key="schedule.id"
-              class="schedule-item"
+              v-for="todo in todoList"
+              :key="todo.id"
+              class="todo-item"
             >
-              <div class="schedule-doctor">
-                <div class="doctor-name">{{ schedule.doctorName }}</div>
-                <div class="doctor-dept">{{ schedule.department }}</div>
+              <div class="todo-icon">
+                <el-icon :color="getTodoIconColor(todo.type)" :size="20">
+                  <component :is="getTodoIcon(todo.type)" />
+                </el-icon>
               </div>
-              <div class="schedule-time">
-                {{ schedule.startTime }} - {{ schedule.endTime }}
+              <div class="todo-content">
+                <div class="todo-title">{{ todo.title }}</div>
+                <div class="todo-desc">{{ todo.description }}</div>
               </div>
-              <div class="schedule-room">{{ schedule.room }}</div>
-              <div class="schedule-patients">
-                {{ schedule.currentPatients }}/{{ schedule.maxPatients }}
-              </div>
-              <div class="schedule-status">
-                <el-tag :type="getScheduleStatusType(schedule.status)">
-                  {{ schedule.status }}
-                </el-tag>
+              <div class="todo-action">
+                <el-button type="primary" size="small" text @click="handleTodo(todo)">
+                  处理
+                </el-button>
               </div>
             </div>
           </div>
         </el-card>
       </el-col>
 
-      <!-- 系统通知 -->
+      <!-- 当前排班 -->
       <el-col :span="12">
-        <el-card class="notice-card">
+        <el-card class="schedule-card">
           <template #header>
             <div class="card-header">
-              <span>系统通知</span>
-              <el-button type="primary" size="small" @click="manageNotices">
-                管理通知
-              </el-button>
+              <span>当前排班</span>
+              <el-tag type="success" size="small">{{ currentSchedules.length }}个</el-tag>
             </div>
           </template>
           
-          <div class="notice-list">
+          <div class="schedule-list-container">
+            <el-empty v-if="currentSchedules.length === 0" description="暂无进行中的排班" :image-size="80" />
             <div
-              v-for="notice in systemNotices"
-              :key="notice.id"
-              class="notice-item"
+              v-for="schedule in currentSchedules"
+              :key="schedule.id"
+              class="schedule-item-card"
             >
-              <div class="notice-icon">
-                <el-icon :color="getNoticeIconColor(notice.type)">
-                  <component :is="getNoticeIcon(notice.type)" />
-                </el-icon>
+              <div class="schedule-doctor-info">
+                <div class="doctor-avatar">
+                  <el-icon><UserFilled /></el-icon>
+                </div>
+                <div class="doctor-details">
+                  <div class="doctor-name-title">{{ schedule.doctorName }}</div>
+                  <div class="doctor-dept">{{ schedule.departmentName }}</div>
+                </div>
               </div>
-              <div class="notice-content">
-                <div class="notice-title">{{ notice.title }}</div>
-                <div class="notice-time">{{ notice.time }}</div>
-              </div>
-              <div class="notice-status">
-                <el-tag v-if="notice.isNew" type="danger" size="small">新</el-tag>
+              <div class="schedule-info">
+                <div class="schedule-time">
+                  <el-icon><Clock /></el-icon>
+                  <span>{{ formatTimeSlot(schedule.timeSlot) }}</span>
+                </div>
+                <div class="schedule-slots">
+                  <el-tag :type="getSlotTagType(schedule)" size="small">
+                    {{ schedule.availableSlots }}/{{ schedule.totalSlots }}
+                  </el-tag>
+                </div>
               </div>
             </div>
           </div>
@@ -195,129 +184,252 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { getDoctorList } from '@/api/doctor'
+import { getPatientList } from '@/api/patient'
+import { getAppointmentStats, getRevenueStats } from '@/api/statistics'
+import { getPendingApplicationRequests } from '@/api/applicationRequest'
+import { getScheduleList } from '@/api/schedule'
 
 const router = useRouter()
-const chartPeriod = ref('week')
 
 // 统计数据
 const stats = reactive({
-  totalDoctors: 25,
-  todayAppointments: 156,
-  totalPatients: 1248,
-  monthlyRevenue: '12.5万'
+  // ...
+  totalDoctors: 0,
+  todayAppointments: 0,
+  totalPatients: 0,
+  monthlyRevenue: '0'
 })
 
-// 科室统计
-const departmentStats = ref([
-  { name: '内科', appointments: 45, percentage: 80, color: '#409eff' },
-  { name: '外科', appointments: 32, percentage: 60, color: '#67c23a' },
-  { name: '儿科', appointments: 28, percentage: 50, color: '#e6a23c' },
-  { name: '妇科', appointments: 25, percentage: 45, color: '#f56c6c' },
-  { name: '骨科', appointments: 20, percentage: 35, color: '#909399' }
-])
-
-// 今日排班
-const todaySchedules = ref([
-  {
-    id: 1,
-    doctorName: '张医生',
-    department: '内科',
-    startTime: '08:00',
-    endTime: '12:00',
-    room: '诊室1',
-    currentPatients: 8,
-    maxPatients: 20,
-    status: '进行中'
-  },
-  {
-    id: 2,
-    doctorName: '李医生',
-    department: '外科',
-    startTime: '09:00',
-    endTime: '17:00',
-    room: '诊室2',
-    currentPatients: 5,
-    maxPatients: 15,
-    status: '正常'
-  },
-  {
-    id: 3,
-    doctorName: '王医生',
-    department: '儿科',
-    startTime: '14:00',
-    endTime: '18:00',
-    room: '诊室3',
-    currentPatients: 12,
-    maxPatients: 12,
-    status: '已满'
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+    
+    // 并行加载所有统计数据
+    const [doctorsRes, patientsRes, todayAppointmentsRes, monthlyRevenueRes] = await Promise.all([
+      getDoctorList().catch(() => ({ data: [] })),
+      getPatientList().catch(() => ({ data: [] })),
+      getAppointmentStats({ startDate: today, endDate: today }).catch(() => ({ data: {} })),
+      getRevenueStats({ startDate: monthStart, endDate: monthEnd }).catch(() => ({ data: {} }))
+    ])
+    
+    // 统计医生数量
+    const doctorList = Array.isArray(doctorsRes?.data) ? doctorsRes.data : (doctorsRes?.data?.list || [])
+    stats.totalDoctors = doctorList.length
+    
+    // 统计患者数量
+    const patientList = Array.isArray(patientsRes?.data) ? patientsRes.data : (patientsRes?.data?.list || [])
+    stats.totalPatients = patientList.length
+    
+    // 今日预约数量（从统计接口获取，返回的是列表，需要汇总）
+    const todayAppointmentsList = Array.isArray(todayAppointmentsRes?.data) ? todayAppointmentsRes.data : []
+    stats.todayAppointments = todayAppointmentsList.reduce((sum, item) => sum + (item.totalAppointments || 0), 0)
+    
+    // 本月收入（从统计接口获取，返回的是列表，需要汇总）
+    const monthlyRevenueList = Array.isArray(monthlyRevenueRes?.data) ? monthlyRevenueRes.data : []
+    const monthlyRevenue = monthlyRevenueList.reduce((sum, item) => {
+      const revenue = item.totalRevenue || item.actualFee || 0
+      return sum + Number(revenue)
+    }, 0)
+    
+    if (monthlyRevenue >= 10000) {
+      stats.monthlyRevenue = (monthlyRevenue / 10000).toFixed(1) + '万'
+    } else {
+      stats.monthlyRevenue = monthlyRevenue.toFixed(2)
+    }
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+    ElMessage.error('加载统计数据失败')
   }
-])
-
-// 系统通知
-const systemNotices = ref([
-  {
-    id: 1,
-    type: 'warning',
-    title: '系统维护通知：明日凌晨2:00-4:00进行系统维护',
-    time: '2小时前',
-    isNew: true
-  },
-  {
-    id: 2,
-    type: 'info',
-    title: '新增医生：李医生已加入外科团队',
-    time: '1天前',
-    isNew: false
-  },
-  {
-    id: 3,
-    type: 'success',
-    title: '系统更新：预约系统已升级到v2.1版本',
-    time: '3天前',
-    isNew: false
-  }
-])
-
-const getScheduleStatusType = (status) => {
-  const statusMap = {
-    '进行中': 'success',
-    '正常': 'primary',
-    '已满': 'warning',
-    '已结束': 'info'
-  }
-  return statusMap[status] || 'info'
 }
 
-const getNoticeIcon = (type) => {
+// 待办事项
+const todoList = ref([])
+
+// 加载待办事项（待审核的申请）
+const loadTodoList = async () => {
+  try {
+    const response = await getPendingApplicationRequests()
+    const pendingRequests = Array.isArray(response?.data) ? response.data : []
+    
+    // 将待审核申请转换为待办事项格式
+    todoList.value = pendingRequests.map(request => {
+      let title = ''
+      let description = ''
+      let type = 'pending'
+      
+      // 根据申请类型设置标题和描述
+      if (request.requestType === 'SCHEDULE_CHANGE') {
+        title = '调班申请'
+        type = 'urgent'
+        
+        // 调班类型说明
+        const changeTypeMap = {
+          'CANCEL': '取消排班',
+          'RESCHEDULE': '调整时间',
+          'ADJUST_SLOTS': '调整号源'
+        }
+        const changeTypeText = changeTypeMap[request.changeType] || '调班'
+        description = `${request.applicantName || '医生'} - ${changeTypeText}`
+        
+      } else if (request.requestType === 'INFO_UPDATE') {
+        title = '信息修改申请'
+        type = 'review'
+        
+        // 字段名映射
+        const fieldNameMap = {
+          'name': '姓名',
+          'title': '职称',
+          'specialty': '专长',
+          'bio': '简介',
+          'phone': '电话',
+          'email': '邮箱'
+        }
+        const fieldText = fieldNameMap[request.fieldName] || request.fieldName
+        description = `${request.applicantName || '医生'} - 修改${fieldText}`
+        
+      } else {
+        title = '待审核申请'
+        type = 'pending'
+        description = `${request.applicantName || '医生'} - ${request.reason || '待审核'}`
+      }
+      
+      return {
+        id: request.id,
+        requestId: request.id,
+        title: title,
+        description: description,
+        type: type,
+        rawData: request
+      }
+    })
+  } catch (error) {
+    console.error('加载待办事项失败:', error)
+  }
+}
+
+// 当前排班
+const currentSchedules = ref([])
+
+// 加载当前正在进行的排班
+const loadCurrentSchedules = async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const response = await getScheduleList({
+      startDate: today,
+      endDate: today
+    })
+    
+    console.log('排班API返回数据:', response)
+    
+    const scheduleList = Array.isArray(response?.data) ? response.data : (response?.data?.list || [])
+    
+    console.log('解析后的排班列表:', scheduleList)
+    
+    // 打印第一个排班的所有字段，看看数据结构
+    if (scheduleList.length > 0) {
+      console.log('第一个排班的数据:', scheduleList[0])
+      console.log('timeSlot字段值:', scheduleList[0].timeSlot)
+    }
+    
+    // 筛选出当前正在进行的排班（根据时间段判断）
+    const now = new Date()
+    const currentHour = now.getHours()
+    
+    console.log('当前小时:', currentHour)
+    
+    let currentTimeSlot = ''
+    if (currentHour >= 8 && currentHour < 12) {
+      currentTimeSlot = 'morning'
+    } else if (currentHour >= 14 && currentHour < 18) {
+      currentTimeSlot = 'afternoon'
+    } else if (currentHour >= 18 && currentHour < 21) {
+      currentTimeSlot = 'evening'
+    }
+    
+    console.log('当前时间段:', currentTimeSlot)
+    
+    // 如果不在工作时间段，显示所有今天的排班
+    if (!currentTimeSlot) {
+      console.log('当前不在工作时间，显示今天所有排班')
+      currentSchedules.value = scheduleList
+    } else {
+      // 筛选当前时间段的排班
+      const filtered = scheduleList.filter(schedule => {
+        console.log(`比较: schedule.timeSlot="${schedule.timeSlot}" vs currentTimeSlot="${currentTimeSlot}"`)
+        return schedule.timeSlot === currentTimeSlot
+      })
+      
+      console.log('筛选后的排班:', filtered)
+      
+      // 如果当前时间段没有排班，显示今天所有排班
+      if (filtered.length === 0) {
+        console.log('当前时间段无排班，显示今天所有排班')
+        currentSchedules.value = scheduleList
+      } else {
+        currentSchedules.value = filtered
+      }
+    }
+  } catch (error) {
+    console.error('加载当前排班失败:', error)
+  }
+}
+
+// 根据号源情况返回标签类型
+const getSlotTagType = (schedule) => {
+  const ratio = schedule.availableSlots / schedule.totalSlots
+  if (ratio > 0.5) return 'success'
+  if (ratio > 0.2) return 'warning'
+  return 'danger'
+}
+
+// 将英文时间段转换为中文
+const formatTimeSlot = (timeSlot) => {
+  const timeSlotMap = {
+    'morning': '上午',
+    'afternoon': '下午',
+    'evening': '晚上'
+  }
+  return timeSlotMap[timeSlot] || timeSlot
+}
+
+const getTodoIcon = (type) => {
   const iconMap = {
-    'warning': 'Warning',
-    'info': 'InfoFilled',
-    'success': 'SuccessFilled',
-    'error': 'CircleCloseFilled'
+    'pending': 'Clock',
+    'urgent': 'Warning',
+    'review': 'Document',
+    'approval': 'CircleCheck'
   }
   return iconMap[type] || 'InfoFilled'
 }
 
-const getNoticeIconColor = (type) => {
+const getTodoIconColor = (type) => {
   const colorMap = {
-    'warning': '#e6a23c',
-    'info': '#409eff',
-    'success': '#67c23a',
-    'error': '#f56c6c'
+    'pending': '#409eff',
+    'urgent': '#f56c6c',
+    'review': '#e6a23c',
+    'approval': '#67c23a'
   }
-  return colorMap[type] || '#409eff'
+  return colorMap[type] || '#909399'
 }
 
-const manageSchedule = () => {
-  router.push('/admin/schedule')
-}
-
-const manageNotices = () => {
-  // TODO: 打开通知管理页面
+const handleTodo = (todo) => {
+  // 跳转到申请管理页面，并自动筛选为待审核状态
+  router.push({
+    path: '/admin/doctor-change',
+    query: { status: 'PENDING' }
+  })
 }
 
 onMounted(() => {
-  // TODO: 加载实际数据
+  loadStats()
+  loadTodoList()
+  loadCurrentSchedules()
 })
 </script>
 
@@ -544,5 +656,166 @@ onMounted(() => {
   width: 40px;
   display: flex;
   justify-content: center;
+}
+
+/* 快捷操作样式 */
+.quick-actions-row {
+  margin-bottom: 20px;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 140px;
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.action-btn .el-icon {
+  font-size: 24px;
+}
+
+/* 待办事项样式 */
+.todo-card,
+.schedule-card {
+  height: 450px;
+}
+
+.todo-card :deep(.el-card__body),
+.schedule-card :deep(.el-card__body) {
+  height: calc(100% - 56px);
+  overflow-y: auto;
+}
+
+.todo-list {
+  padding: 10px 0;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.todo-item:hover {
+  background: #e8edf3;
+  transform: translateX(4px);
+}
+
+.todo-icon {
+  margin-right: 12px;
+  margin-top: 2px;
+}
+
+.todo-content {
+  flex: 1;
+}
+
+.todo-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 6px;
+}
+
+.todo-desc {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.todo-action {
+  margin-left: 12px;
+}
+
+/* 当前排班样式 */
+.schedule-list-container {
+  padding: 10px 0;
+}
+
+.schedule-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.schedule-item-card:hover {
+  background: #e8edf3;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-doctor-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.doctor-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.doctor-details {
+  flex: 1;
+}
+
+.doctor-name-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.schedule-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.schedule-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.schedule-time .el-icon {
+  font-size: 16px;
+  color: #909399;
+}
+
+.schedule-slots {
+  min-width: 60px;
+  text-align: right;
 }
 </style>

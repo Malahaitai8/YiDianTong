@@ -91,18 +91,18 @@
     </div>
 
     <el-table :data="pagedRules" v-loading="loading" border style="width: 100%">
-      <el-table-column type="index" label="序号" width="80" />
-      <el-table-column label="规则名称" min-width="200">
+      <el-table-column type="index" label="序号" width="60" />
+      <el-table-column label="规则名称" width="180">
         <template #default="scope">
           <el-link type="primary" @click="viewDetail(scope.row)">{{ scope.row.ruleName }}</el-link>
         </template>
       </el-table-column>
-      <el-table-column label="规则类型" width="140">
+      <el-table-column label="规则类型" width="110">
         <template #default="scope">
           <el-tag>{{ mapRuleType(scope.row.ruleType) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="医生/科室" min-width="160">
+      <el-table-column label="医生/科室" width="150">
         <template #default="scope">
           <div>
             <span>{{ scope.row.doctorName || scope.row.doctor?.name || scope.row.departmentName || scope.row.department?.name || '-' }}</span>
@@ -110,13 +110,13 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="120">
+      <el-table-column prop="status" label="状态" width="90">
         <template #default="scope">
           <el-tag :type="statusTagType(scope.row.status)">{{ scope.row.statusName || scope.row.status }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="priority" label="优先级" width="110" />
-      <el-table-column label="操作" width="420" fixed="right">
+      <el-table-column prop="priority" label="优先级" width="80" />
+      <el-table-column label="操作" min-width="420">
         <template #default="scope">
           <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
           <el-button size="small" type="primary" @click="openEdit(scope.row)">编辑</el-button>
@@ -156,6 +156,7 @@
                   placeholder="请输入规则名称" 
                   maxlength="30"
                   show-word-limit
+                  clearable
                   @input="validateRuleName"
                 />
                 <div v-if="ruleNameError" class="error-message">{{ ruleNameError }}</div>
@@ -169,11 +170,6 @@
                   <el-option label="轮班制" value="ROTATION" />
                   <el-option label="自定义" value="CUSTOM" />
                 </el-select>
-                <div class="rule-type-tips">
-                  <div>- 固定周排班：每周固定某几天</div>
-                  <div>- 轮班制：医生按顺序轮流</div>
-                  <div>- 自定义：灵活定义</div>
-                </div>
                 <div v-if="ruleTypeError" class="error-message">{{ ruleTypeError }}</div>
               </div>
             </div>
@@ -217,15 +213,13 @@
               <div class="kv-value">
                 <el-select 
                   v-model.number="form.doctorId" 
-                  placeholder="请选择医生（需先选科室）" 
-                  :disabled="!form.departmentId" 
+                  placeholder="请选择医生（可选）" 
                   clearable 
                   @change="handleDoctorSelected" 
                   style="width:100%"
                 >
                   <el-option v-for="doc in formDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
                 </el-select>
-                <div v-if="!form.departmentId && form.doctorId" class="error-message">请先选择科室</div>
               </div>
             </div>
           </div>
@@ -244,35 +238,31 @@
                         {{ weekOptions[n] }}
                       </el-checkbox>
                     </div>
-                    <div class="weekday-row">
-                      <el-checkbox v-for="n in [6,7]" :key="n" :label="n" class="weekday-checkbox">
-                        {{ weekOptions[n] }}
-                      </el-checkbox>
-                    </div>
                   </div>
                 </el-checkbox-group>
                 <div v-if="weekDaysError" class="error-message">{{ weekDaysError }}</div>
               </div>
             </div>
             <div class="kv-row">
-              <div class="kv-label">时段</div>
+              <div class="kv-label">时段<span class="required-mark">*</span></div>
               <div class="kv-value">
-                <el-checkbox-group v-model="timeSlots">
+                <el-checkbox-group v-model="timeSlots" @change="validateTimeSlots">
                   <el-checkbox label="morning">上午</el-checkbox>
                   <el-checkbox label="afternoon">下午</el-checkbox>
                   <el-checkbox label="evening">晚间</el-checkbox>
                 </el-checkbox-group>
+                <div v-if="timeSlotsError" class="error-message">{{ timeSlotsError }}</div>
               </div>
             </div>
             <div class="kv-row">
-              <div class="kv-label">生效日期</div>
+              <div class="kv-label">生效日期<span class="required-mark">*</span></div>
               <div class="kv-value">
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" :disabled-date="disableBeforeToday" />
+                  <el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" :disabled-date="disableBeforeToday" @change="validateStartDate" />
                   <span>至</span>
-                  <el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" :disabled-date="disableEndBeforeStart" />
+                  <el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期（可选）" :disabled-date="disableEndBeforeStart" @change="validateStartDate" />
                 </div>
-                <div class="hint-text">日期范围至少包含一周，以确保排班规则完整生效</div>
+                <div v-if="startDateError" class="error-message">{{ startDateError }}</div>
               </div>
             </div>
           </div>
@@ -282,13 +272,14 @@
           <div class="section-title">号源配置</div>
           <div class="kv">
             <div class="kv-row">
-              <div class="kv-label">号别类型</div>
+              <div class="kv-label">号别类型<span class="required-mark">*</span></div>
               <div class="kv-value">
-                <el-radio-group v-model="form.slotType">
+                <el-radio-group v-model="form.slotType" @change="validateSlotType">
                   <el-radio label="normal">普通号</el-radio>
                   <el-radio label="expert">专家号</el-radio>
                   <el-radio label="vip">特需号</el-radio>
                 </el-radio-group>
+                <div v-if="slotTypeError" class="error-message">{{ slotTypeError }}</div>
               </div>
             </div>
             <div class="kv-row">
@@ -370,20 +361,23 @@
         <div class="apply-form-container">
           <div class="form-row">
             <div class="form-label">应用日期范围：</div>
-            <div class="form-value date-range">
-              <el-date-picker v-model="applyForm.applyStartDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" />
-              <span class="date-separator">至</span>
-              <el-date-picker v-model="applyForm.applyEndDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
-              <span class="required-mark">（必填）</span>
+            <div class="form-value">
+              <div class="date-range">
+                <el-date-picker v-model="applyForm.applyStartDate" type="date" value-format="YYYY-MM-DD" placeholder="开始日期（可选）" clearable :disabled-date="disableApplyStartDate" />
+                <span class="date-separator">至</span>
+                <el-date-picker v-model="applyForm.applyEndDate" type="date" value-format="YYYY-MM-DD" placeholder="结束日期（可选）" clearable :disabled-date="disableApplyEndDate" />
+              </div>
+              <div class="hint-text" style="margin-top: 4px;">不填则使用规则自身的日期范围。可填写部分日期来缩小应用范围。</div>
             </div>
           </div>
           
           <div class="form-row">
-            <div class="form-label"></div>
+            <div class="form-label">是否覆盖已有排班：</div>
             <div class="form-value">
-              <el-checkbox v-model="applyForm.overwriteExisting" class="overwrite-checkbox">
-                覆盖已有排班（谨慎使用）
-              </el-checkbox>
+              <el-radio-group v-model="applyForm.overwriteExisting">
+                <el-radio :label="true">是</el-radio>
+                <el-radio :label="false">否</el-radio>
+              </el-radio-group>
             </div>
           </div>
           
@@ -391,7 +385,7 @@
             <div class="form-label">排除日期（可选）：</div>
             <div class="form-value">
               <div class="exclude-date-input">
-                <el-date-picker v-model="applyExcludeInput" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
+                <el-date-picker v-model="applyExcludeInput" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" :disabled-date="disableExcludeDate" />
                 <el-button size="small" @click="addExcludeDate" class="add-date-btn">+ 添加日期</el-button>
               </div>
               <div class="exclude-date-tags">
@@ -415,9 +409,24 @@
       <div class="apply-tips">
         <div class="tips-title">⚠️ 提示：</div>
         <div class="tips-content">
-          <div>- 生成的排班将立即生效</div>
-          <div>- 如果选择覆盖，将删除该时间范围内的现有排班</div>
-          <div>- 建议先检测冲突：<el-button size="small" @click="checkConflicts(currentRuleData)" class="conflict-btn">检测冲突</el-button></div>
+          <div> 生成的排班将立即生效</div>
+          <div> 如果选择覆盖，将删除该时间范围内的现有排班</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span> 建议先检测冲突：</span>
+            <el-button size="small" @click="checkConflicts(currentRuleData)" class="conflict-btn" :loading="conflictChecking">检测冲突</el-button>
+            <span v-if="conflictCheckResult === 'success'" style="color: #67c23a; font-size: 14px;">✔ 无冲突</span>
+            <el-popover v-else-if="conflictCheckResult === 'conflict'" placement="top" :width="300" trigger="hover">
+              <template #reference>
+                <span style="color: #f56c6c; font-size: 14px; cursor: pointer;">⚠️ 存在 {{ conflicts.length }} 个冲突</span>
+              </template>
+              <div style="max-height: 300px; overflow-y: auto;">
+                <div v-for="(c, idx) in conflicts" :key="idx" style="margin-bottom: 8px; padding: 8px; background: #fef0f0; border-radius: 4px;">
+                  <div style="font-weight: 600; color: #f56c6c;">{{ c.conflictRuleName }}</div>
+                  <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ c.reason }}</div>
+                </div>
+              </div>
+            </el-popover>
+          </div>
         </div>
       </div>
       
@@ -429,8 +438,8 @@
       </template>
     </el-dialog>
 
-    <!-- 规则详情对话框 -->
-    <el-dialog v-model="detailVisible" title="规则详情" width="720px" class="detail-dialog">
+    <!-- 规则详情抽屉 -->
+    <el-drawer v-model="detailVisible" title="规则详情" size="600px" direction="rtl">
       <div class="detail-grid">
         <div class="detail-section">
           <div class="section-title">基本信息</div>
@@ -477,72 +486,63 @@
         <div class="detail-section">
           <div class="section-title">审计信息</div>
           <div class="kv">
-            <div class="kv-row"><div class="kv-label">创建人</div><div class="kv-value">{{ detailData.createdBy || '-' }}</div></div>
+            <div class="kv-row"><div class="kv-label">创建人</div><div class="kv-value">{{ detailData.createdByName || detailData.createdBy || '-' }}</div></div>
             <div class="kv-row"><div class="kv-label">创建时间</div><div class="kv-value">{{ detailData.createdAt || '-' }}</div></div>
-            <div class="kv-row"><div class="kv-label">更新时间</div><div class="kv-value">{{ detailData.updatedAt || '-' }}</div></div>
+            <div class="kv-row" v-if="detailData.updatedAt && detailData.updatedAt !== detailData.createdAt"><div class="kv-label">更新时间</div><div class="kv-value">{{ detailData.updatedAt }}</div></div>
           </div>
         </div>
       </div>
       <template #footer>
         <div class="detail-footer">
-          <el-button @click="openEdit(detailData)">编辑</el-button>
-          <el-button type="success" :disabled="detailData.status!=='ACTIVE'" @click="openApply(detailData)">应用规则</el-button>
+          <el-button @click="detailVisible = false">关闭</el-button>
+          <el-button type="primary" @click="openEdit(detailData)">编辑</el-button>
           <el-button v-if="detailData.status!=='ACTIVE'" type="success" @click="doEnable(detailData)">启用</el-button>
-          <el-button v-else type="warning" @click="doDisable(detailData)">禁用</el-button>
-              <el-popconfirm title="确认删除该规则？" width="260" popper-class="popconfirm-wide" @confirm="doDelete(detailData)">
-                <template #reference>
-                  <el-button type="danger">删除</el-button>
-                </template>
-              </el-popconfirm>
+          <el-popconfirm title="确认删除该规则？" width="260" popper-class="popconfirm-wide" @confirm="doDelete(detailData)">
+            <template #reference>
+              <el-button type="danger">删除</el-button>
+            </template>
+          </el-popconfirm>
         </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- 应用结果提示 -->
-    <el-dialog v-model="applyResultVisible" title="排班生成结果" width="480px" class="result-dialog">
-      <div class="result-content">
-        <div class="result-header">
-          <el-icon class="success-icon"><CircleCheck /></el-icon>
-          <span class="result-title">排班生成成功</span>
+    <el-dialog v-model="applyResultVisible" title="排班生成结果" width="560px" class="result-dialog" :close-on-click-modal="false">
+      <div class="result-content-new">
+        <!-- 成功图标和标题 -->
+        <div class="result-header-new">
+          <div class="success-icon-wrapper">
+            <el-icon class="success-icon-new"><CircleCheck /></el-icon>
+          </div>
+          <div class="result-title-new">排班生成成功</div>
+          <div class="result-subtitle">所有数据已成功处理</div>
         </div>
-        <div class="result-stats">
-          <div class="stat-item">
-            <span class="stat-label">成功生成：</span>
-            <span class="stat-value success">{{ applyResultData.successCount || 0 }} 条</span>
+        
+        <!-- 统计卡片 -->
+        <div class="result-stats-cards">
+          <div class="stat-card stat-success">
+            <div class="stat-card-label">成功生成</div>
+            <div class="stat-card-value">{{ applyResultData.successCount || 0 }}<span class="stat-unit">条</span></div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">跳过：</span>
-            <span class="stat-value skip">{{ applyResultData.skipCount || 0 }} 条（已存在）</span>
+          <div class="stat-card stat-skip">
+            <div class="stat-card-label">跳过</div>
+            <div class="stat-card-value">{{ applyResultData.skipCount || 0 }}<span class="stat-unit">条</span></div>
+            <div class="stat-card-note">已存在</div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">失败：</span>
-            <span class="stat-value error">{{ applyResultData.errorCount || 0 }} 条</span>
-            <span v-if="(applyResultData.errors||[]).length" class="error-detail" @click="showErrorDetails">（查看详情）</span>
+          <div class="stat-card stat-error">
+            <div class="stat-card-label">失败</div>
+            <div class="stat-card-value">{{ applyResultData.errorCount || 0 }}<span class="stat-unit">条</span></div>
           </div>
+        </div>
+        
+        <!-- 按钮 -->
+        <div class="result-actions">
+          <el-button type="primary" size="large" @click="goToAdminSchedule" class="view-schedule-btn">查看生成的排班</el-button>
+          <el-button size="large" @click="applyResultVisible=false" class="close-btn">关闭</el-button>
         </div>
       </div>
-      <template #footer>
-        <div class="result-footer">
-          <el-button type="primary" @click="goToAdminSchedule">查看生成的排班</el-button>
-          <el-button @click="applyResultVisible=false">关闭</el-button>
-        </div>
-      </template>
     </el-dialog>
 
-    <!-- 冲突信息 -->
-    <el-drawer v-model="conflictVisible" title="规则冲突" size="40%" destroy-on-close>
-      <div v-if="conflicts?.length">
-        <el-alert type="warning" :closable="false" title="存在冲突的规则如下" />
-        <el-timeline>
-          <el-timeline-item v-for="(c,idx) in conflicts" :key="idx" :timestamp="c.conflictRuleId">
-            <p>{{ c.conflictRuleName }}：{{ c.reason }}</p>
-          </el-timeline-item>
-        </el-timeline>
-      </div>
-      <div v-else>
-        <el-result icon="success" title="无冲突" sub-title="该规则与其他启用规则不存在冲突" />
-      </div>
-    </el-drawer>
   </div>
 </template>
 
@@ -633,6 +633,8 @@ const currentRuleId = ref(null)
 
 const conflictVisible = ref(false)
 const conflicts = ref([])
+const conflictChecking = ref(false)
+const conflictCheckResult = ref('') // 'success' | 'conflict' | ''
 
 const totalRulesCount = computed(() => Array.isArray(rules.value) ? rules.value.length : 0)
 const activeRulesCount = computed(() => (rules.value||[]).filter(r => r.status === 'ACTIVE').length)
@@ -710,7 +712,21 @@ const formClinics = computed(() => {
   const did = Number(form.value.departmentId)
   return clinicList.value.filter(c => Number(c.departmentId) === did)
 })
-const handleDepartmentChange = () => { form.value.doctorId = null; form.value.clinicId = null }
+const handleDepartmentChange = () => { 
+  // 切换科室时，如果当前选择的医生/门诊不属于新科室，则清空
+  if (form.value.doctorId) {
+    const doctor = doctorList.value.find(d => d.id === form.value.doctorId)
+    if (doctor && form.value.departmentId && Number(doctor.clinic?.departmentId || doctor.departmentId) !== Number(form.value.departmentId)) {
+      form.value.doctorId = null
+    }
+  }
+  if (form.value.clinicId) {
+    const clinic = clinicList.value.find(c => c.id === form.value.clinicId)
+    if (clinic && form.value.departmentId && Number(clinic.departmentId) !== Number(form.value.departmentId)) {
+      form.value.clinicId = null
+    }
+  }
+}
 const handleDoctorSelected = async (val) => {
   try {
     const res = await getDoctorById(val)
@@ -735,13 +751,35 @@ const resetFilters = () => {
 const openCreate = () => {
   formMode.value = 'create'
   formVisible.value = true
+  // 重置表单为初始值
+  form.value = {
+    ruleName: '',
+    ruleType: 'FIXED_WEEKLY',
+    doctorId: null,
+    departmentId: null,
+    clinicId: null,
+    slotType: 'normal',
+    totalSlots: 20,
+    maxDailySchedules: null,
+    maxContinuousDays: null,
+    skipWeekends: false,
+    skipHolidays: false,
+    startDate: new Date().toISOString().slice(0,10),
+    endDate: null,
+    priority: 0,
+    description: ''
+  }
   weekDays.value = []
   timeSlots.value = []
+  currentRuleId.value = null
   // 重置验证错误
-  if (typeof ruleNameError !== 'undefined') ruleNameError.value = ''
-  if (typeof ruleTypeError !== 'undefined') ruleTypeError.value = ''
-  if (typeof weekDaysError !== 'undefined') weekDaysError.value = ''
-  if (typeof totalSlotsError !== 'undefined') totalSlotsError.value = ''
+  ruleNameError.value = ''
+  ruleTypeError.value = ''
+  weekDaysError.value = ''
+  timeSlotsError.value = ''
+  slotTypeError.value = ''
+  totalSlotsError.value = ''
+  startDateError.value = ''
 }
 
 const openEdit = async (row) => {
@@ -752,7 +790,7 @@ const openEdit = async (row) => {
     formVisible.value = true
     form.value = {
       ruleName: data.ruleName,
-      ruleType: data.ruleType,
+      ruleType: normalizeRuleType(data.ruleType),
       doctorId: data.doctorId,
       departmentId: data.departmentId,
       clinicId: data.clinicId,
@@ -774,7 +812,10 @@ const openEdit = async (row) => {
     ruleNameError.value = ''
     ruleTypeError.value = ''
     weekDaysError.value = ''
+    timeSlotsError.value = ''
+    slotTypeError.value = ''
     totalSlotsError.value = ''
+    startDateError.value = ''
   } catch (e) {
     ElMessage.error('加载规则详情失败')
   }
@@ -782,10 +823,13 @@ const openEdit = async (row) => {
 
 const submitForm = async () => {
   // 先执行自定义验证
-  if (typeof validateRuleName === 'function') validateRuleName()
-  if (typeof validateRuleType === 'function') validateRuleType()
-  if (typeof validateWeekDays === 'function') validateWeekDays()
-  if (typeof validateTotalSlots === 'function') validateTotalSlots()
+  validateRuleName()
+  validateRuleType()
+  validateWeekDays()
+  validateTimeSlots()
+  validateSlotType()
+  validateTotalSlots()
+  validateStartDate()
   
   // 检查是否有错误
   const isValid = ((typeof isFormValid !== 'undefined') && (isFormValid?.value === true)) || (typeof checkFormValid === 'function' && checkFormValid())
@@ -821,12 +865,88 @@ const disableBeforeToday = (date) => { const t = new Date(); t.setHours(0,0,0,0)
 const disableEndBeforeStart = (date) => { const s = form.value.startDate; if (!s) return false; const sd = new Date(s); sd.setHours(0,0,0,0); return date.getTime() <= sd.getTime() }
 watch(() => form.value.startDate, (s) => { const e = form.value.endDate; if (e && new Date(e).getTime() <= new Date(s).getTime()) { form.value.endDate = null } })
 
+// 应用规则时的日期限制：必须在规则的日期范围内
+const disableApplyStartDate = (date) => {
+  if (!currentRuleData.value) return false
+  const ruleStart = currentRuleData.value.startDate
+  const ruleEnd = currentRuleData.value.endDate
+  
+  if (ruleStart) {
+    const start = new Date(ruleStart)
+    start.setHours(0, 0, 0, 0)
+    if (date.getTime() < start.getTime()) return true
+  }
+  
+  if (ruleEnd) {
+    const end = new Date(ruleEnd)
+    end.setHours(0, 0, 0, 0)
+    if (date.getTime() > end.getTime()) return true
+  }
+  
+  return false
+}
+
+const disableApplyEndDate = (date) => {
+  if (!currentRuleData.value) return false
+  const ruleStart = currentRuleData.value.startDate
+  const ruleEnd = currentRuleData.value.endDate
+  const applyStart = applyForm.value.applyStartDate
+  
+  // 必须在规则的日期范围内
+  if (ruleStart) {
+    const start = new Date(ruleStart)
+    start.setHours(0, 0, 0, 0)
+    if (date.getTime() < start.getTime()) return true
+  }
+  
+  if (ruleEnd) {
+    const end = new Date(ruleEnd)
+    end.setHours(0, 0, 0, 0)
+    if (date.getTime() > end.getTime()) return true
+  }
+  
+  // 必须晚于开始日期
+  if (applyStart) {
+    const start = new Date(applyStart)
+    start.setHours(0, 0, 0, 0)
+    if (date.getTime() <= start.getTime()) return true
+  }
+  
+  return false
+}
+
+// 排除日期限制：必须在应用日期范围内
+const disableExcludeDate = (date) => {
+  if (!currentRuleData.value) return false
+  
+  // 获取应用日期范围（如果没填则使用规则的日期范围）
+  const applyStart = applyForm.value.applyStartDate || currentRuleData.value.startDate
+  const applyEnd = applyForm.value.applyEndDate || currentRuleData.value.endDate
+  
+  if (applyStart) {
+    const start = new Date(applyStart)
+    start.setHours(0, 0, 0, 0)
+    if (date.getTime() < start.getTime()) return true
+  }
+  
+  if (applyEnd) {
+    const end = new Date(applyEnd)
+    end.setHours(0, 0, 0, 0)
+    if (date.getTime() > end.getTime()) return true
+  }
+  
+  return false
+}
+
 const submitAndEnable = async () => {
   // 先执行自定义验证
-  if (typeof validateRuleName === 'function') validateRuleName()
-  if (typeof validateRuleType === 'function') validateRuleType()
-  if (typeof validateWeekDays === 'function') validateWeekDays()
-  if (typeof validateTotalSlots === 'function') validateTotalSlots()
+  validateRuleName()
+  validateRuleType()
+  validateWeekDays()
+  validateTimeSlots()
+  validateSlotType()
+  validateTotalSlots()
+  validateStartDate()
   
   // 检查是否有错误
   const isValid2 = ((typeof isFormValid !== 'undefined') && (isFormValid?.value === true)) || (typeof checkFormValid === 'function' && checkFormValid())
@@ -874,11 +994,28 @@ const doDisable = async (row) => {
 }
 
 const currentRuleData = ref(null)
-const openApply = (row) => { currentRuleId.value = row.id; currentRuleData.value = row; applyVisible.value = true }
+const openApply = (row) => { 
+  currentRuleId.value = row.id
+  currentRuleData.value = row
+  conflictCheckResult.value = '' // 重置冲突检测结果
+  applyVisible.value = true 
+}
 const estimatedApplyCount = computed(() => {
-  const s = applyForm.value.applyStartDate
-  const e = applyForm.value.applyEndDate
-  if (!s || !e || !currentRuleData.value) return 0
+  if (!currentRuleData.value) return 0
+  
+  // 使用用户填写的日期，如果没填则使用规则的日期
+  let s = applyForm.value.applyStartDate || currentRuleData.value.startDate
+  let e = applyForm.value.applyEndDate || currentRuleData.value.endDate
+  
+  if (!s) return 0
+  
+  // 如果没有结束日期，默认计算30天
+  if (!e) {
+    const tempEnd = new Date(s)
+    tempEnd.setDate(tempEnd.getDate() + 30)
+    e = tempEnd.toISOString().slice(0, 10)
+  }
+  
   const days = []
   const start = new Date(s)
   const end = new Date(e)
@@ -925,10 +1062,22 @@ const removeExcludeDate = (d) => {
 
 const checkConflicts = async (row) => {
   try {
+    conflictChecking.value = true
+    conflictCheckResult.value = ''
     const res = await detectScheduleRuleConflicts(row.id)
     conflicts.value = res?.data?.conflicts || res?.data || []
-    conflictVisible.value = true
-  } catch (e) { ElMessage.error('检测失败') }
+    
+    if (conflicts.value.length > 0) {
+      conflictCheckResult.value = 'conflict'
+    } else {
+      conflictCheckResult.value = 'success'
+    }
+  } catch (e) {
+    ElMessage.error('检测失败')
+    conflictCheckResult.value = ''
+  } finally {
+    conflictChecking.value = false
+  }
 }
 
 const detailVisible = ref(false)
@@ -965,7 +1114,46 @@ const normalizeTimeSlots = (val) => Array.isArray(val) ? val : String(val||'').s
 const getWeekDaysDisplay = (val) => normalizeWeekDays(val).map(n=>weekOptions[n]).join('、')
 const getTimeSlotsDisplay = (val) => normalizeTimeSlots(val).map(s=>mapTimeSlot(s)).join('、')
 
-const goToAdminSchedule = () => { router.push('/admin/schedule') }
+const goToAdminSchedule = () => {
+  // 构建查询参数
+  const query = {}
+  
+  // 获取应用日期范围（如果没填则使用规则的日期范围）
+  const startDate = applyForm.value.applyStartDate || currentRuleData.value?.startDate
+  const endDate = applyForm.value.applyEndDate || currentRuleData.value?.endDate
+  
+  if (startDate) query.startDate = startDate
+  if (endDate) query.endDate = endDate
+  
+  // 获取时间段
+  if (currentRuleData.value?.timeSlots) {
+    query.timeSlots = currentRuleData.value.timeSlots
+  }
+  
+  // 获取医生ID
+  if (currentRuleData.value?.doctorId) {
+    query.doctorId = currentRuleData.value.doctorId
+  }
+  
+  // 获取科室ID
+  if (currentRuleData.value?.departmentId) {
+    query.departmentId = currentRuleData.value.departmentId
+  }
+  
+  // 获取门诊ID
+  if (currentRuleData.value?.clinicId) {
+    query.clinicId = currentRuleData.value.clinicId
+  }
+  
+  // 关闭结果对话框
+  applyResultVisible.value = false
+  
+  // 跳转到排班管理页面，带上查询参数
+  router.push({ 
+    path: '/admin/schedule', 
+    query 
+  })
+}
 
 const showErrorDetails = () => {
   if (applyResultData.value.errors && applyResultData.value.errors.length > 0) {
@@ -981,7 +1169,10 @@ const showErrorDetails = () => {
 const ruleNameError = ref('')
 const ruleTypeError = ref('')
 const weekDaysError = ref('')
+const timeSlotsError = ref('')
+const slotTypeError = ref('')
 const totalSlotsError = ref('')
+const startDateError = ref('')
 
 // 验证规则名称
 const validateRuleName = () => {
@@ -1023,6 +1214,26 @@ const validateWeekDays = () => {
   return true
 }
 
+// 验证时段选择
+const validateTimeSlots = () => {
+  if (!timeSlots.value || timeSlots.value.length === 0) {
+    timeSlotsError.value = '请至少选择一个时段'
+    return false
+  }
+  timeSlotsError.value = ''
+  return true
+}
+
+// 验证号别类型
+const validateSlotType = () => {
+  if (!form.value.slotType) {
+    slotTypeError.value = '请选择号别类型'
+    return false
+  }
+  slotTypeError.value = ''
+  return true
+}
+
 // 验证总号源数
 const validateTotalSlots = () => {
   const slots = form.value.totalSlots
@@ -1031,6 +1242,29 @@ const validateTotalSlots = () => {
     return false
   }
   totalSlotsError.value = ''
+  return true
+}
+
+// 验证开始日期和日期范围
+const validateStartDate = () => {
+  if (!form.value.startDate) {
+    startDateError.value = '请选择开始日期'
+    return false
+  }
+  
+  // 如果填写了结束日期，检查日期范围是否至少一周
+  if (form.value.endDate) {
+    const start = new Date(form.value.startDate)
+    const end = new Date(form.value.endDate)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 7) {
+      startDateError.value = '日期范围至少需要7天，以确保排班规则完整生效'
+      return false
+    }
+  }
+  
+  startDateError.value = ''
   return true
 }
 
@@ -1049,10 +1283,18 @@ const isFormValid = computed(() => {
   const ruleTypeValid = !!form.value.ruleType
   const rt = normalizeRuleType(form.value.ruleType)
   const weekDaysValid = rt === 'FIXED_WEEKLY' ? (weekDays.value && weekDays.value.length > 0) : true
+  const timeSlotsValid = timeSlots.value && timeSlots.value.length > 0
+  const slotTypeValid = !!form.value.slotType
   const totalSlotsValid = form.value.totalSlots >= 1 && form.value.totalSlots <= 100
   const startValid = !!form.value.startDate
-  const endValid = !form.value.endDate || (new Date(form.value.endDate).getTime() > new Date(form.value.startDate).getTime())
-  return ruleNameValid && ruleTypeValid && weekDaysValid && totalSlotsValid && startValid && endValid
+  let dateRangeValid = true
+  if (form.value.startDate && form.value.endDate) {
+    const start = new Date(form.value.startDate)
+    const end = new Date(form.value.endDate)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    dateRangeValid = diffDays >= 7
+  }
+  return ruleNameValid && ruleTypeValid && weekDaysValid && timeSlotsValid && slotTypeValid && totalSlotsValid && startValid && dateRangeValid
 })
 
 const invalidReasons = computed(() => {
@@ -1062,10 +1304,17 @@ const invalidReasons = computed(() => {
   if (!form.value.ruleType) reasons.push('请选择规则类型')
   const rt = normalizeRuleType(form.value.ruleType)
   if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) reasons.push('固定周排班需至少选择一天')
+  if (!timeSlots.value || timeSlots.value.length === 0) reasons.push('请至少选择一个时段')
+  if (!form.value.slotType) reasons.push('请选择号别类型')
   const slots = form.value.totalSlots
   if (!(slots >= 1 && slots <= 100)) reasons.push('总号源数需为1–100的整数')
   if (!form.value.startDate) reasons.push('请选择开始日期')
-  if (form.value.endDate && new Date(form.value.endDate).getTime() <= new Date(form.value.startDate).getTime()) reasons.push('结束日期必须晚于开始日期')
+  if (form.value.startDate && form.value.endDate) {
+    const start = new Date(form.value.startDate)
+    const end = new Date(form.value.endDate)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays < 7) reasons.push('日期范围至少需要7天')
+  }
   return reasons
 })
 const invalidReasonsText = computed(() => {
@@ -1080,12 +1329,19 @@ function checkFormValid() {
   if (!form.value.ruleType) return false
   const rt = normalizeRuleType(form.value.ruleType)
   if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) return false
+  if (!timeSlots.value || timeSlots.value.length === 0) return false
+  if (!form.value.slotType) return false
   const slots = form.value.totalSlots
   if (!(slots >= 1 && slots <= 100)) return false
   const s = form.value.startDate
   if (!s) return false
   const e = form.value.endDate
-  if (e && new Date(e).getTime() <= new Date(s).getTime()) return false
+  if (s && e) {
+    const start = new Date(s)
+    const end = new Date(e)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays < 7) return false
+  }
   return true
 }
 
@@ -1097,12 +1353,19 @@ function buildInvalidReasonsText() {
   if (!form.value.ruleType) reasons.push('请选择规则类型')
   const rt = normalizeRuleType(form.value.ruleType)
   if (rt === 'FIXED_WEEKLY' && (!weekDays.value || weekDays.value.length === 0)) reasons.push('固定周排班需至少选择一天')
+  if (!timeSlots.value || timeSlots.value.length === 0) reasons.push('请至少选择一个时段')
+  if (!form.value.slotType) reasons.push('请选择号别类型')
   const slots = form.value.totalSlots
   if (!(slots >= 1 && slots <= 100)) reasons.push('总号源数需为1–100的整数')
   const s = form.value.startDate
   if (!s) reasons.push('请选择开始日期')
   const e = form.value.endDate
-  if (e && new Date(e).getTime() <= new Date(s).getTime()) reasons.push('结束日期必须晚于开始日期')
+  if (s && e) {
+    const start = new Date(s)
+    const end = new Date(e)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays < 7) reasons.push('日期范围至少需要7天')
+  }
   return reasons.length ? reasons.join('；') : '请完善必填项'
 }
 
@@ -1128,7 +1391,7 @@ watch(() => form.value.description, validateDescription)
 .stats-row { margin-bottom: 8px; }
 .stat-card { height: 110px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); transition: all .3s ease; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-.stat-content { display:flex; align-items:center; height:100%; padding:20px; }
+.stat-content { display:flex; align-items:center; height:100%; padding:0 20px; }
 .stat-icon { width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:16px; font-size:24px; color:#fff; }
 .stat-icon.total { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
 .stat-icon.week { background: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%); }
@@ -1143,7 +1406,7 @@ watch(() => form.value.description, validateDescription)
 .section-title { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #ebeef5; text-align: left; }
 .kv { padding: 12px 16px; }
 .kv-row { display: flex; align-items: flex-start; gap: 12px; margin: 6px 0; }
-.kv-label { width: 120px; color: #606266; text-align: left; }
+.kv-label { width: 140px; color: #606266; text-align: left; white-space: nowrap; flex-shrink: 0; }
 .kv-value { flex: 1; color: #303133; text-align: left; }
 .detail-footer { text-align: right; }
 .apply-dialog :deep(.el-dialog__body) { padding-top: 6px; }
@@ -1161,9 +1424,10 @@ watch(() => form.value.description, validateDescription)
 .apply-dialog :deep(.el-dialog__body) { padding-top: 6px; }
 .apply-intro { text-align: left; margin-bottom: 16px; color: #303133; font-size: 16px; font-weight: 500; }
 .apply-card { margin-bottom: 16px; border: 1px solid #ebeef5; }
-.apply-form-container { padding: 8px 0; }
-.form-row { display: flex; align-items: flex-start; margin-bottom: 16px; }
-.form-label { width: 140px; color: #606266; font-size: 14px; line-height: 32px; text-align: left; }
+.apply-card :deep(.el-card__body) { padding: 16px; }
+.apply-form-container { padding: 0; }
+.form-row { display: flex; align-items: flex-start; margin-bottom: 16px; gap: 4px !important; }
+.form-label { min-width: fit-content; color: #606266; font-size: 14px; line-height: 32px; text-align: left; white-space: nowrap; }
 .form-value { flex: 1; }
 .date-range { display: flex; align-items: center; gap: 8px; }
 .date-separator { color: #909399; font-size: 14px; }
@@ -1184,22 +1448,75 @@ watch(() => form.value.description, validateDescription)
 .conflict-btn:hover { background-color: #eebe77; }
 .dialog-footer { text-align: right; }
 
-/* 结果对话框样式 */
-.result-dialog :deep(.el-dialog__body) { padding: 24px; }
-.result-content { text-align: center; }
-.result-header { display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
-.success-icon { color: #67c23a; font-size: 24px; margin-right: 8px; }
-.result-title { color: #303133; font-size: 18px; font-weight: 600; }
-.result-stats { text-align: left; }
-.stat-item { margin-bottom: 12px; display: flex; align-items: center; }
-.stat-label { color: #606266; font-size: 14px; width: 80px; }
-.stat-value { font-size: 14px; font-weight: 500; }
-.stat-value.success { color: #67c23a; }
-.stat-value.skip { color: #909399; }
-.stat-value.error { color: #f56c6c; }
-.error-detail { color: #409eff; cursor: pointer; margin-left: 8px; font-size: 12px; }
-.error-detail:hover { text-decoration: underline; }
-.result-footer { text-align: right; }
+/* 结果对话框样式 - 新版 */
+.result-dialog :deep(.el-dialog__body) { padding: 32px 24px; }
+.result-dialog :deep(.el-dialog__header) { border-bottom: 1px solid #f0f0f0; padding-bottom: 16px; }
+.result-content-new { text-align: center; }
+
+.result-header-new { margin-bottom: 32px; padding-top: 8px; }
+.success-icon-wrapper { 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f0f9ff;
+  margin-bottom: 16px;
+}
+.success-icon-new { color: #67c23a; font-size: 32px; }
+.result-title-new { color: #303133; font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.result-subtitle { color: #909399; font-size: 14px; }
+
+.result-stats-cards { 
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  gap: 16px; 
+  margin-bottom: 32px; 
+}
+.stat-card { 
+  background: #f5f7fa; 
+  border-radius: 8px; 
+  padding: 20px 16px; 
+  text-align: center;
+  transition: transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); }
+.stat-card.stat-success { background: #f0f9ff; border: 1px solid #d0e8ff; }
+.stat-card.stat-skip { background: #fff7e6; border: 1px solid #ffe7ba; }
+.stat-card.stat-error { background: #fef0f0; border: 1px solid #fde2e2; }
+.stat-card-label { color: #606266; font-size: 14px; margin-bottom: 8px; }
+.stat-card-value { 
+  color: #303133; 
+  font-size: 32px; 
+  font-weight: 600; 
+  line-height: 1;
+}
+.stat-card.stat-success .stat-card-value { color: #67c23a; }
+.stat-card.stat-skip .stat-card-value { color: #e6a23c; }
+.stat-card.stat-error .stat-card-value { color: #f56c6c; }
+.stat-unit { font-size: 14px; font-weight: 400; margin-left: 4px; }
+.stat-card-note { color: #909399; font-size: 12px; margin-top: 4px; }
+
+.result-actions { 
+  display: flex; 
+  gap: 12px; 
+  justify-content: center;
+}
+.view-schedule-btn { 
+  flex: 1;
+  max-width: 200px;
+  background: #67c23a !important;
+  border-color: #67c23a !important;
+}
+.view-schedule-btn:hover { 
+  background: #85ce61 !important;
+  border-color: #85ce61 !important;
+}
+.close-btn { 
+  flex: 1;
+  max-width: 120px;
+}
 
 /* 规则表单样式 */
 .rule-form-drawer :deep(.el-drawer__header) {
@@ -1288,17 +1605,13 @@ watch(() => form.value.description, validateDescription)
 }
 
 /* 增强表单字段样式 */
-.form-section :deep(.el-input__inner),
-.form-section :deep(.el-textarea__inner) {
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-  transition: border-color 0.2s;
+.form-section :deep(.el-input__wrapper) {
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  transition: box-shadow 0.2s;
 }
 
-.form-section :deep(.el-input__inner:focus),
-.form-section :deep(.el-textarea__inner:focus) {
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+.form-section :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409eff inset;
 }
 
 .form-section :deep(.el-input-number) {

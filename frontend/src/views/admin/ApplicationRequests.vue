@@ -310,6 +310,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getAllApplicationRequests,
@@ -321,6 +322,8 @@ import {
   deleteApplicationRequest
 } from '@/api/applicationRequest'
 import { ChatLineRound } from '@element-plus/icons-vue'
+
+const route = useRoute()
 
 const loading = ref(false)
 const statLoading = ref(false)
@@ -620,7 +623,30 @@ const formatDate = (value) => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadStats(), loadRequests()])
+  // 读取URL参数，如果有status参数则自动筛选
+  const statusParam = route.query.status
+  if (statusParam) {
+    filters.status = statusParam
+    if (statusParam === 'PENDING') {
+      quickStatus.value = 'PENDING_ONLY'
+    } else {
+      quickStatus.value = 'CUSTOM'
+    }
+  }
+  
+  // 加载统计数据
+  await loadStats()
+  
+  // 根据是否有筛选条件选择加载模式
+  if (statusParam) {
+    if (statusParam === 'PENDING') {
+      await loadRequests('pending')
+    } else {
+      await loadRequests('status', statusParam)
+    }
+  } else {
+    await loadRequests()
+  }
 })
 </script>
 

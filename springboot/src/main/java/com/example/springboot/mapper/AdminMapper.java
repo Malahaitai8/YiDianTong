@@ -11,6 +11,8 @@ public interface AdminMapper {
 
     Admin selectById(Long id);
 
+    Admin selectByUserId(Long userId);
+
     int insert(Admin admin);
 
     int update(Admin admin);
