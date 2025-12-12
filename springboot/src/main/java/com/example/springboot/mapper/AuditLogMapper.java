@@ -62,6 +62,7 @@ public interface AuditLogMapper {
      */
     List<AuditLog> selectByConditions(@Param("operationType") String operationType,
                                       @Param("operationModule") String operationModule,
+                                      @Param("userId") Long userId,
                                       @Param("username") String username,
                                       @Param("userRole") String userRole,
                                       @Param("status") String status,
@@ -77,6 +78,7 @@ public interface AuditLogMapper {
      */
     Long countByConditions(@Param("operationType") String operationType,
                            @Param("operationModule") String operationModule,
+                           @Param("userId") Long userId,
                            @Param("username") String username,
                            @Param("userRole") String userRole,
                            @Param("status") String status,

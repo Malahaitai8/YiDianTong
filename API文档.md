@@ -5064,6 +5064,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 **查询参数**:
 - `operationType` (可选): 操作类型（CREATE/UPDATE/DELETE/APPROVE/REJECT/QUERY 等）
 - `operationModule` (可选): 操作模块（SCHEDULE/APPOINTMENT/WAITLIST/AUDIT 等）
+- `userId` (可选，管理员端): 操作人用户ID
 - `username` (可选): 操作人用户名
 - `userRole` (可选): 操作人角色（patient/doctor/admin）
 - `status` (可选): 操作状态（SUCCESS/FAILURE）
@@ -5143,6 +5144,7 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
 ### 9.3 自动审计说明
 
 - 系统提供 `@AuditLog` 注解，已在排班创建、更新、删除、加号等关键接口启用。
+- 同时已覆盖患者/医生常用接口：预约（创建/取消/删除/改约/我的预约）、候补（加入/我的候补/退出）、患者个人信息（查看/更新/修改密码）、医生端（查看排班/患者列表/当日患者）。
 - 当接口执行成功/失败时，切面会自动采集以下信息：
   - 操作人身份（ID、用户名、角色）
   - 操作类型、模块与描述
@@ -5150,5 +5152,17 @@ GET /appointment/search?startDate=2025-10-23&endDate=2025-10-30&doctorId=1&timeS
   - 响应状态码与消息，必要时包含完整响应体
   - 执行耗时、错误信息
 - 审计日志默认保存最新记录，可通过接口按需查询和追踪。
+
+### 9.4 患者/医生查看个人审计日志
+
+**接口**: `GET /api/audit-logs/me`
+
+**权限**: `PATIENT` / `DOCTOR` / `ADMIN`
+
+**说明**: 仅返回当前登录用户的日志，服务端强制按用户过滤，防止越权；可用于前端“我的操作记录”。
+
+**查询参数**: 同 9.1（`userId/username` 将自动注入当前用户，无需也不能跨用户查询）。
+
+**成功响应**: 同 9.1，`list` 仅包含当前用户的日志。
 
 ---

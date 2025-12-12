@@ -48,6 +48,7 @@ public class AuditLogService {
         List<AuditLog> list = auditLogMapper.selectByConditions(
                 request.getOperationType(),
                 request.getOperationModule(),
+                request.getUserId(),
                 request.getUsername(),
                 request.getUserRole(),
                 request.getStatus(),
@@ -62,6 +63,7 @@ public class AuditLogService {
         long total = auditLogMapper.countByConditions(
                 request.getOperationType(),
                 request.getOperationModule(),
+                request.getUserId(),
                 request.getUsername(),
                 request.getUserRole(),
                 request.getStatus(),
@@ -88,6 +90,7 @@ public class AuditLogService {
         summary.put("total", auditLogMapper.countByConditions(
                 request.getOperationType(),
                 request.getOperationModule(),
+                request.getUserId(),
                 request.getUsername(),
                 request.getUserRole(),
                 request.getStatus(),

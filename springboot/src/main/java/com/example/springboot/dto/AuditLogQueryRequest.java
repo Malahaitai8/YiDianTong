@@ -8,6 +8,7 @@ public class AuditLogQueryRequest {
 
     private String operationType;
     private String operationModule;
+    private Long userId;
     private String username;
     private String userRole;
     private String status;
@@ -37,6 +38,14 @@ public class AuditLogQueryRequest {
 
     public void setOperationModule(String operationModule) {
         this.operationModule = operationModule;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getUsername() {
