@@ -121,6 +121,23 @@
             {{ getDoctorNameOnly(row.doctorId) }}
           </template>
         </el-table-column>
+        <el-table-column label="排班日期" width="120">
+          <template #default="{ row }">
+            {{ getScheduleDateShort(row.scheduleId) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="时间段" width="80" align="center">
+          <template #default="{ row }">
+            {{ getTimeSlotText(row.scheduleId) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="号源类型" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getSlotTypeTagType(row.scheduleId)" size="small">
+              {{ getSlotTypeText(row.scheduleId) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="预约时间" width="170">
           <template #default="{ row }">
             {{ formatDateTime(row.appointmentTime) }}
@@ -232,6 +249,15 @@
               </el-descriptions-item>
               <el-descriptions-item label="门诊">
                 {{ getClinicName(selectedAppointment.scheduleId) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="排班日期">
+                {{ getScheduleDate(selectedAppointment.scheduleId) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="时间段">
+                {{ getTimeSlotText(selectedAppointment.scheduleId) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="号源类型">
+                {{ getSlotTypeText(selectedAppointment.scheduleId) }}
               </el-descriptions-item>
               <el-descriptions-item label="预约时间">
                 {{ formatDateTime(selectedAppointment.appointmentTime) }}
@@ -646,6 +672,83 @@ const getSourceTypeText = (sourceType) => {
     'WAITLIST': '候补预约'
   }
   return sourceMap[sourceType] || sourceType
+}
+
+// 获取排班日期
+const getScheduleDate = (scheduleId) => {
+  if (!scheduleId) return '-'
+  const schedule = scheduleMap.value.get(scheduleId)
+  if (!schedule?.scheduleDate) return '-'
+  
+  // 格式化日期
+  const date = new Date(schedule.scheduleDate)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const weekday = weekdays[date.getDay()]
+  
+  return `${year}-${month}-${day} (${weekday})`
+}
+
+// 获取时间段文本
+const getTimeSlotText = (scheduleId) => {
+  if (!scheduleId) return '-'
+  const schedule = scheduleMap.value.get(scheduleId)
+  if (!schedule?.timeSlot) return '-'
+  
+  const timeSlot = String(schedule.timeSlot).toUpperCase()
+  const timeSlotMap = {
+    'MORNING': '上午',
+    'AFTERNOON': '下午',
+    'EVENING': '晚上'
+  }
+  return timeSlotMap[timeSlot] || schedule.timeSlot
+}
+
+// 获取号源类型文本
+const getSlotTypeText = (scheduleId) => {
+  if (!scheduleId) return '-'
+  const schedule = scheduleMap.value.get(scheduleId)
+  if (!schedule?.slotType) return '-'
+  
+  const slotType = String(schedule.slotType).toUpperCase()
+  const slotTypeMap = {
+    'EXPERT': '专家号',
+    'REGULAR': '普通号',
+    'EMERGENCY': '急诊号',
+    'SPECIAL': '特需号'
+  }
+  return slotTypeMap[slotType] || schedule.slotType
+}
+
+// 获取排班日期（短格式，用于表格）
+const getScheduleDateShort = (scheduleId) => {
+  if (!scheduleId) return '-'
+  const schedule = scheduleMap.value.get(scheduleId)
+  if (!schedule?.scheduleDate) return '-'
+  
+  const date = new Date(schedule.scheduleDate)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  
+  return `${month}-${day}`
+}
+
+// 获取号源类型标签颜色
+const getSlotTypeTagType = (scheduleId) => {
+  if (!scheduleId) return ''
+  const schedule = scheduleMap.value.get(scheduleId)
+  if (!schedule?.slotType) return ''
+  
+  const slotType = String(schedule.slotType).toUpperCase()
+  const typeMap = {
+    'EXPERT': 'danger',    // 专家号 - 红色
+    'REGULAR': '',         // 普通号 - 默认
+    'EMERGENCY': 'warning', // 急诊号 - 橙色
+    'SPECIAL': 'success'   // 特需号 - 绿色
+  }
+  return typeMap[slotType] || ''
 }
 
 // 搜索处理
