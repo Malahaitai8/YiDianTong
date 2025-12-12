@@ -385,7 +385,7 @@ const requestTypeTagType = {
 const changeTypeText = {
   RESCHEDULE: '改期',
   CANCEL: '取消排班',
-  SLOTS_ADJUST: '号源调整'
+  ADJUST_SLOTS: '号源调整'
 }
 
 const fieldNameText = {

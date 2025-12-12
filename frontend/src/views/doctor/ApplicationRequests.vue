@@ -56,7 +56,7 @@
                   <el-radio-group v-model="scheduleForm.changeType">
                     <el-radio-button label="RESCHEDULE">改期</el-radio-button>
                     <el-radio-button label="CANCEL">取消排班</el-radio-button>
-                    <el-radio-button label="SLOTS_ADJUST">号源调整</el-radio-button>
+                    <el-radio-button label="ADJUST_SLOTS">号源调整</el-radio-button>
                   </el-radio-group>
                 </el-form-item>
                 <el-form-item
@@ -89,7 +89,7 @@
                 <el-form-item
                   label="号源调整"
                   prop="slotsAdjustment"
-                  v-if="scheduleForm.changeType === 'SLOTS_ADJUST'"
+                  v-if="scheduleForm.changeType === 'ADJUST_SLOTS'"
                 >
                   <el-input-number
                     v-model="scheduleForm.slotsAdjustment"
@@ -393,7 +393,7 @@ const timeSlotOptions = [
 const changeTypeText = {
   RESCHEDULE: '改期',
   CANCEL: '取消排班',
-  SLOTS_ADJUST: '号源调整'
+  ADJUST_SLOTS: '号源调整'
 }
 
 const fieldNameText = {
@@ -455,7 +455,7 @@ const validators = {
     }
   },
   slotAdjust: (rule, value, callback) => {
-    if (scheduleForm.changeType === 'SLOTS_ADJUST') {
+    if (scheduleForm.changeType === 'ADJUST_SLOTS') {
       if (value === null || value === undefined) {
         callback(new Error('请输入调整数量'))
         return
@@ -614,7 +614,7 @@ const submitScheduleRequest = async () => {
       payload.newDate = scheduleForm.newDate
       payload.newTimeSlot = scheduleForm.newTimeSlot
     }
-    if (scheduleForm.changeType === 'SLOTS_ADJUST') {
+    if (scheduleForm.changeType === 'ADJUST_SLOTS') {
       payload.slotsAdjustment = scheduleForm.slotsAdjustment
     }
     await createApplicationRequest(payload)
