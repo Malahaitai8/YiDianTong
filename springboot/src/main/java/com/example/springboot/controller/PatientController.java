@@ -110,4 +110,27 @@ public class PatientController {
             return Result.error(e.getMessage());
         }
     }
+    
+    // ==================== 管理员审核患者认证状态接口 ====================
+    
+    @Operation(summary = "审核患者认证状态", description = "管理员审核患者身份认证，将状态从pending更新为verified")
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result approvePatient(
+            @Parameter(description = "患者ID", required = true) @PathVariable Long id) {
+        try {
+            Patient patient = patientService.selectById(id);
+            if (patient == null) {
+                return Result.error("患者不存在");
+            }
+            
+            // 更新认证状态为已认证
+            patient.setIdStatus("verified");
+            patientService.update(patient);
+            
+            return Result.success("患者认证审核成功");
+        } catch (Exception e) {
+            return Result.error("审核失败: " + e.getMessage());
+        }
+    }
 }

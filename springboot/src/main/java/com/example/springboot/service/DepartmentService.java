@@ -38,6 +38,10 @@ public class DepartmentService {
     }
 
     public int create(Department department) {
+        // 校验科室描述字数限制
+        if (department.getDescription() != null && department.getDescription().length() > 200) {
+            throw new IllegalArgumentException("科室描述长度不能超过200个字符");
+        }
         return departmentMapper.insert(department);
     }
 
@@ -46,10 +50,20 @@ public class DepartmentService {
         if (departments == null || departments.isEmpty()) {
             throw new IllegalArgumentException("科室列表不能为空");
         }
+        // 校验每个科室的描述字数限制
+        for (Department department : departments) {
+            if (department.getDescription() != null && department.getDescription().length() > 200) {
+                throw new IllegalArgumentException("科室描述长度不能超过200个字符");
+            }
+        }
         return departmentMapper.batchInsert(departments);
     }
 
     public int update(Department department) {
+        // 校验科室描述字数限制
+        if (department.getDescription() != null && department.getDescription().length() > 200) {
+            throw new IllegalArgumentException("科室描述长度不能超过200个字符");
+        }
         return departmentMapper.update(department);
     }
 

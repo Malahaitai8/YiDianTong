@@ -117,6 +117,16 @@ public class AdminController {
     }
 
     /**
+     * 启用医生账号
+     */
+    @Operation(summary = "启用医生账号", description = "将医生账号状态设置为active")
+    @PostMapping("/doctor/{id}/enable")
+    public Result enableDoctor(@PathVariable Long id) {
+        userMapper.updateStatus(id, "active");
+        return Result.success("医生账号已启用");
+    }
+
+    /**
      * 重置医生密码
      */
     @Operation(summary = "重置医生密码", description = "重置指定医生的登录密码")

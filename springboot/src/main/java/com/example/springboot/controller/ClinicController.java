@@ -50,6 +50,13 @@ public class ClinicController {
         Clinic clinic = clinicService.selectById(id);
         return Result.success(clinic);
     }
+    
+    @Operation(summary = "根据科室ID查询门诊列表", description = "通过科室ID获取该科室下的所有门诊")
+    @GetMapping("/selectByDepartmentId/{departmentId}")
+    public Result selectByDepartmentId(@PathVariable Long departmentId) {
+        List<Clinic> clinics = clinicService.selectByDepartmentId(departmentId);
+        return Result.success(clinics);
+    }
 
     /**
      * 创建门诊（管理员）
