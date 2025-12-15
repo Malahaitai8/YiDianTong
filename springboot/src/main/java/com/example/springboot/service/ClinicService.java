@@ -29,6 +29,10 @@ public class ClinicService {
         Clinic clinic = clinicMapper.selectById(id);
         return clinic;
     }
+    
+    public List<Clinic> selectByDepartmentId(Long departmentId) {
+        return clinicMapper.selectByDepartmentId(departmentId);
+    }
 
     public int create(Clinic clinic) {
         return clinicMapper.insert(clinic);

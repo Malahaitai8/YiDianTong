@@ -5,7 +5,6 @@ import com.example.springboot.entity.AuditLog;
 import com.example.springboot.mapper.AuditLogMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.util.HashMap;
 import java.util.List;

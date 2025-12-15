@@ -1,7 +1,6 @@
 package com.example.springboot.controller;
 
 
-import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.entity.Appointment;
 import com.example.springboot.entity.Patient;
@@ -97,7 +96,6 @@ public class AppointmentController {
     @SecurityRequirement(name = "bearer-jwt")
     @PostMapping
     @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
-    @AuditLog(operationType = "CREATE", operationModule = "APPOINTMENT", operationDesc = "创建预约")
     public Result create(@jakarta.validation.Valid @RequestBody CreateAppointmentRequest request) { // <-- [修改] 签名
 
         // 1. 获取用户信息
@@ -144,7 +142,6 @@ public class AppointmentController {
     @SecurityRequirement(name = "bearer-jwt")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
-    @AuditLog(operationType = "DELETE", operationModule = "APPOINTMENT", operationDesc = "删除预约", recordResponse = false)
     public Result delete(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
         appointmentService.deleteById(id); // Service层已实现本人权限校验
@@ -155,7 +152,6 @@ public class AppointmentController {
     @SecurityRequirement(name = "bearer-jwt")
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('PATIENT')")
-    @AuditLog(operationType = "UPDATE", operationModule = "APPOINTMENT", operationDesc = "取消预约", recordResponse = false)
     public Result cancel(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
         appointmentService.cancelById(id); // Service层已实现本人权限校验
@@ -166,7 +162,6 @@ public class AppointmentController {
     @SecurityRequirement(name = "bearer-jwt")
     @GetMapping("/me")
     @PreAuthorize("hasRole('PATIENT')") // <-- [新增] 权限
-    @AuditLog(operationType = "QUERY", operationModule = "APPOINTMENT", operationDesc = "查看我的预约", recordResponse = false)
     public Result myAppointments() {
         // 获取 userId 并查询真正的 patientId
         Long userId = SecurityUtils.getCurrentUserId();
@@ -202,7 +197,6 @@ public class AppointmentController {
     @SecurityRequirement(name = "bearer-jwt")
     @PutMapping("/{id}/reschedule")
     @PreAuthorize("hasRole('PATIENT')")
-    @AuditLog(operationType = "UPDATE", operationModule = "APPOINTMENT", operationDesc = "改约")
     public Result reschedule(
             @Parameter(description = "预约ID", required = true) @PathVariable Long id,
             @jakarta.validation.Valid @RequestBody RescheduleAppointmentRequest request) {

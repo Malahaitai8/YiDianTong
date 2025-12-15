@@ -2,6 +2,7 @@ package com.example.springboot.mapper;
 
 import com.example.springboot.entity.Clinic;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -12,6 +13,8 @@ public interface ClinicMapper {
     Clinic selectById(Long id);
 
     Clinic selectByName(String name);
+    
+    List<Clinic> selectByDepartmentId(@Param("departmentId") Long departmentId);
 
     int insert(Clinic clinic);
 

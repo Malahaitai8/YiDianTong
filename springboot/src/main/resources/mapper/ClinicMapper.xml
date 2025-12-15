@@ -16,6 +16,10 @@
         select * from clinic where name = #{name}
     </select>
 
+    <select id="selectByDepartmentId" resultType="com.example.springboot.entity.Clinic">
+        select * from clinic where department_id = #{departmentId}
+    </select>
+
     <insert id="insert" parameterType="com.example.springboot.entity.Clinic" useGeneratedKeys="true" keyProperty="id">
         insert into clinic (department_id, name, description)
         values (#{departmentId}, #{name}, #{description})

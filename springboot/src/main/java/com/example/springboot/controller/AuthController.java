@@ -120,10 +120,32 @@ public class AuthController {
             String username = registerRequest.getUsername() != null ? registerRequest.getUsername().trim() : null;
             String phoneNumber = registerRequest.getPhoneNumber() != null ? registerRequest.getPhoneNumber().trim() : null;
             
+            // 校验用户名长度和格式
+            if (username == null || username.length() < 4 || username.length() > 20) {
+                return Result.error("用户名长度必须在4-20个字符之间");
+            }
+            // 校验用户名格式：只允许字母、数字、下划线
+            if (!username.matches("^[a-zA-Z0-9_]+$")) {
+                return Result.error("用户名只能包含字母、数字和下划线");
+            }
+            
+            // 校验手机号格式
+            if (phoneNumber != null && !phoneNumber.matches("^1[3-9]\\d{9}$")) {
+                return Result.error("手机号格式不正确，请输入11位有效手机号");
+            }
+            
             // 检查用户名是否已存在
             User existingUser = userMapper.selectByUsername(username);
             if (existingUser != null) {
                 return Result.error("用户名已存在");
+            }
+            
+            // 检查手机号是否已被使用
+            if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                com.example.springboot.entity.Patient existingPatient = patientMapper.selectByPhoneNumber(phoneNumber);
+                if (existingPatient != null) {
+                    return Result.error("该手机号已被注册，请使用其他手机号");
+                }
             }
 
             // 严格限制：只允许患者自助注册

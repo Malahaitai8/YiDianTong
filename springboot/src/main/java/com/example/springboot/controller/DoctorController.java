@@ -1,7 +1,6 @@
 package com.example.springboot.controller;
 
 
-import com.example.springboot.annotation.AuditLog;
 import com.example.springboot.common.Result;
 import com.example.springboot.config.SecurityUtils;
 import com.example.springboot.dto.ApplicationRequestDetailDTO;
@@ -183,7 +182,6 @@ public class DoctorController {
     })
     @GetMapping("/my-schedules")
     @PreAuthorize("hasRole('DOCTOR')")
-    @AuditLog(operationType = "QUERY", operationModule = "DOCTOR", operationDesc = "医生查看自己的排班", recordResponse = false)
     public Result getMySchedules(
             @Parameter(description = "开始日期（格式：yyyy-MM-dd）")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
@@ -227,7 +225,6 @@ public class DoctorController {
     })
     @GetMapping("/my-patients")
     @PreAuthorize("hasRole('DOCTOR')")
-    @AuditLog(operationType = "QUERY", operationModule = "DOCTOR", operationDesc = "医生查看预约患者列表", recordResponse = false)
     public Result getMyPatients(
             @Parameter(description = "日期（格式：yyyy-MM-dd），不传则查询所有")
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date,
@@ -274,7 +271,6 @@ public class DoctorController {
     })
     @GetMapping("/today-patients")
     @PreAuthorize("hasRole('DOCTOR')")
-    @AuditLog(operationType = "QUERY", operationModule = "DOCTOR", operationDesc = "医生查看当日预约患者", recordResponse = false)
     public Result getTodayPatients(
             @Parameter(description = "时间段（MORNING/AFTERNOON/EVENING 或 上午/下午/晚上）")
             @RequestParam(required = false) String timeSlot) {

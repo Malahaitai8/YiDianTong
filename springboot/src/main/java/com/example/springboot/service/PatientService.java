@@ -53,6 +53,19 @@ public class PatientService {
     }
 
     public int create(Patient patient) {
+        // 校验手机号唯一性
+        if (patient.getPhoneNumber() != null && !patient.getPhoneNumber().trim().isEmpty()) {
+            // 校验手机号格式
+            if (!patient.getPhoneNumber().matches("^1[3-9]\\d{9}$")) {
+                throw new CustomerException("手机号格式不正确，请输入11位有效手机号");
+            }
+            
+            // 检查手机号是否已被使用
+            Patient existingPatient = patientMapper.selectByPhoneNumber(patient.getPhoneNumber());
+            if (existingPatient != null) {
+                throw new CustomerException("该手机号已被注册，请使用其他手机号");
+            }
+        }
         return patientMapper.insert(patient);
     }
 
@@ -79,6 +92,20 @@ public class PatientService {
                 logger.warn("用户 {} 尝试修改患者 {} 的信息，但该患者关联的用户ID为 {}", 
                            currentUserId, patient.getId(), existingPatient.getUserId());
                 throw new CustomerException("403", "无权限修改其他患者的信息");
+            }
+        }
+        
+        // 如果更新了手机号，校验唯一性
+        if (patient.getPhoneNumber() != null && !patient.getPhoneNumber().trim().isEmpty()) {
+            // 校验手机号格式
+            if (!patient.getPhoneNumber().matches("^1[3-9]\\d{9}$")) {
+                throw new CustomerException("手机号格式不正确，请输入11位有效手机号");
+            }
+            
+            // 检查手机号是否已被其他用户使用
+            Patient phonePatient = patientMapper.selectByPhoneNumber(patient.getPhoneNumber());
+            if (phonePatient != null && !phonePatient.getId().equals(patient.getId())) {
+                throw new CustomerException("该手机号已被其他用户使用，请使用其他手机号");
             }
         }
 
@@ -126,6 +153,17 @@ public class PatientService {
         
         // 只更新允许的字段
         if (phoneNumber != null && !phoneNumber.trim().isEmpty()) {
+            // 校验手机号格式
+            if (!phoneNumber.matches("^1[3-9]\\d{9}$")) {
+                throw new CustomerException("手机号格式不正确，请输入11位有效手机号");
+            }
+            
+            // 检查手机号是否已被其他用户使用
+            Patient existingPatient = patientMapper.selectByPhoneNumber(phoneNumber);
+            if (existingPatient != null && !existingPatient.getId().equals(patient.getId())) {
+                throw new CustomerException("该手机号已被其他用户使用，请使用其他手机号");
+            }
+            
             patient.setPhoneNumber(phoneNumber);
         }
         
