@@ -177,7 +177,9 @@
             v-model="departmentForm.description"
             type="textarea"
             :rows="4"
-            placeholder="请输入科室描述"
+            maxlength="200"
+            show-word-limit
+            placeholder="请输入科室描述（最多200字）"
           />
         </el-form-item>
       </el-form>
@@ -337,7 +339,9 @@
                     <div class="desc-with-delete">
                       <el-input 
                         v-model="item.description" 
-                        placeholder="请输入门诊描述"
+                        maxlength="200"
+                        show-word-limit
+                        placeholder="请输入门诊描述（最多200字）"
                       />
                       <el-button 
                         type="danger" 
@@ -396,7 +400,9 @@
             v-model="clinicForm.description"
             type="textarea"
             :rows="4"
-            placeholder="请输入门诊描述"
+            maxlength="200"
+            show-word-limit
+            placeholder="请输入门诊描述（最多200字）"
           />
         </el-form-item>
       </el-form>
@@ -512,7 +518,9 @@
                       <el-form-item label="科室描述" :prop="`description`">
                         <el-input 
                           v-model="item.description" 
-                          placeholder="请输入科室描述"
+                          maxlength="200"
+                          show-word-limit
+                          placeholder="请输入科室描述（最多200字）"
                         />
                       </el-form-item>
                     </el-col>
@@ -847,6 +855,9 @@ const departmentRules = {
   name: [
     { required: true, message: '请输入科室名称', trigger: 'blur' },
     { min: 2, max: 50, message: '科室名称长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { max: 200, message: '科室描述不能超过 200 个字符', trigger: 'blur' }
   ]
 }
 
@@ -854,6 +865,9 @@ const clinicRules = {
   name: [
     { required: true, message: '请输入门诊名称', trigger: 'blur' },
     { min: 2, max: 50, message: '门诊名称长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { max: 200, message: '门诊描述不能超过 200 个字符', trigger: 'blur' }
   ]
 }
 
@@ -865,6 +879,9 @@ const batchDepartmentRules = {
   name: [
     { required: true, message: '请输入科室名称', trigger: 'blur' },
     { min: 2, max: 50, message: '科室名称长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { max: 200, message: '科室描述不能超过 200 个字符', trigger: 'blur' }
   ]
 }
 
