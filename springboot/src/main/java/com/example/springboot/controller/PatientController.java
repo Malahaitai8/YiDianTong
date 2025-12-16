@@ -124,6 +124,19 @@ public class PatientController {
                 return Result.error("患者不存在");
             }
             
+            // 验证必填字段是否已填写
+            if (patient.getName() == null || patient.getName().trim().isEmpty()) {
+                return Result.error("患者姓名未填写，请引导患者先完善个人信息");
+            }
+            
+            if (patient.getIdentityNumber() == null || patient.getIdentityNumber().trim().isEmpty()) {
+                return Result.error("学号/工号未填写，请引导患者先完善个人信息");
+            }
+            
+            if (patient.getIdCardNumber() == null || patient.getIdCardNumber().trim().isEmpty()) {
+                return Result.error("身份证号未填写，请引导患者先完善个人信息");
+            }
+            
             // 更新认证状态为已认证
             patient.setIdStatus("verified");
             patientService.update(patient);
