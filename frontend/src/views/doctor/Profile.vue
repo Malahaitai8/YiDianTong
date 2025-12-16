@@ -8,6 +8,7 @@
           <div class="header-actions">
             <el-button type="primary" size="small" @click="refreshProfile">刷新信息</el-button>
             <el-button type="warning" size="small" @click="openApplyDialog">修改信息</el-button>
+            <el-button type="danger" size="small" @click="openPasswordDialog">修改密码</el-button>
           </div>
         </div>
       </template>
@@ -175,6 +176,24 @@
       </div>
     </el-card>
 
+    <!-- 修改密码对话框 -->
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="500px">
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
+        <el-form-item label="原密码" prop="oldPassword">
+          <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入原密码" />
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码（6-20位）" />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closePasswordDialog">取消</el-button>
+        <el-button type="primary" :loading="passwordSubmitting" @click="submitPasswordChange">确定修改</el-button>
+      </template>
+    </el-dialog>
     
   </div>
 </template>
@@ -378,6 +397,88 @@ const openApplyDialog = () => {
 }
 const closeApplyDialog = () => {
   applyDialogVisible.value = false
+}
+
+// 密码修改相关
+const passwordDialogVisible = ref(false)
+const passwordFormRef = ref()
+const passwordSubmitting = ref(false)
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const validateConfirmPassword = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入新密码'))
+  } else if (value !== passwordForm.newPassword) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const passwordRules = {
+  oldPassword: [
+    { required: true, message: '请输入原密码', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度应在6到20个字符之间', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: validateConfirmPassword, trigger: 'blur' }
+  ]
+}
+
+const openPasswordDialog = () => {
+  resetPasswordForm()
+  passwordDialogVisible.value = true
+}
+
+const closePasswordDialog = () => {
+  passwordDialogVisible.value = false
+  resetPasswordForm()
+}
+
+const resetPasswordForm = () => {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  if (passwordFormRef.value) {
+    passwordFormRef.value.resetFields()
+  }
+}
+
+const submitPasswordChange = async () => {
+  if (!passwordFormRef.value) return
+  
+  try {
+    const valid = await passwordFormRef.value.validate()
+    if (!valid) return
+    
+    passwordSubmitting.value = true
+    
+    await request.post('/user/changePassword', {
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    })
+    
+    ElMessage.success('修改成功')
+    closePasswordDialog()
+    
+    // 延迟后退出登录
+    setTimeout(() => {
+      userStore.logout()
+    }, 1500)
+  } catch (error) {
+    const errorMsg = error?.message || '修改密码失败'
+    ElMessage.error(errorMsg)
+  } finally {
+    passwordSubmitting.value = false
+  }
 }
 </script>
 

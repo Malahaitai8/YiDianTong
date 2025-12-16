@@ -5,11 +5,13 @@ public class CustomerException extends RuntimeException{
     private String msg;
 
     public CustomerException(String code, String msg) {
+        super(msg);  // 调用父类构造函数，设置 message
         this.code = code;
         this.msg = msg;
     }
 
     public CustomerException(String msg) {
+        super(msg);  // 调用父类构造函数，设置 message
         this.code = "500";
         this.msg = msg;
     }
