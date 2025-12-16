@@ -117,6 +117,23 @@ export default {
 				return;
 			}
 
+			// 用户名校验（4-20字符，只允许字母、数字、下划线）
+			if (username.length < 4 || username.length > 20) {
+				uni.showToast({
+					title: '用户名长度必须在4-20个字符之间',
+					icon: 'none'
+				});
+				return;
+			}
+
+			if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+				uni.showToast({
+					title: '用户名只能包含字母、数字和下划线',
+					icon: 'none'
+				});
+				return;
+			}
+
 			if (password !== confirmPassword) {
 				uni.showToast({
 					title: '两次密码输入不一致',
@@ -150,8 +167,13 @@ export default {
 				}, 1500);
 			} catch (error) {
 				console.error('注册失败:', error);
+				// 处理手机号重复错误
+				let errorMsg = error.msg || '注册失败';
+				if (errorMsg.includes('手机号') || errorMsg.includes('已被注册')) {
+					errorMsg = '该手机号已经被注册';
+				}
 				uni.showToast({
-					title: error.msg || '注册失败',
+					title: errorMsg,
 					icon: 'none',
 					duration: 2000
 				});

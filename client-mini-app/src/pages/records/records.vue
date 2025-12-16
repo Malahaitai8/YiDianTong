@@ -63,14 +63,15 @@
 						<text
 							class="value status"
 							:class="{
-								pending: item.status === 'PENDING' || item.status === 'scheduled',
-								confirmed: item.status === 'CONFIRMED',
-								completed: item.status === 'COMPLETED' || item.status === 'completed',
-								waitlist: item.type === 'waitlist' || item.status === 'WAITLIST',
-								cancelled: item.status === 'CANCELLED' || item.status === 'cancelled'
+								pending: uiStatus(item) === 'PENDING' || uiStatus(item) === 'scheduled',
+								confirmed: uiStatus(item) === 'CONFIRMED',
+								completed: uiStatus(item) === 'COMPLETED' || uiStatus(item) === 'completed',
+								waitlist: item.type === 'waitlist' || uiStatus(item) === 'WAITLIST',
+								cancelled: uiStatus(item) === 'CANCELLED' || uiStatus(item) === 'cancelled',
+								expired: uiStatus(item) === 'EXPIRED'
 							}"
 						>
-							{{ statusName(item.status) }}
+							{{ statusName(uiStatus(item)) }}
 						</text>
 					</view>
 					<view class="row" v-if="item.fee !== undefined || item.actualFee !== undefined">
@@ -134,7 +135,8 @@ export default {
 					type: 'appointment',
 					formattedAppointmentTime: formattedTime,
 					timeSlotDisplay: this.getTimeSlotDisplay(item.timeSlot),
-					recordKey: item.id != null ? `appointment_${item.id}` : `appointment_idx_${index}`
+					recordKey: item.id != null ? `appointment_${item.id}` : `appointment_idx_${index}`,
+					displayStatus: this.deriveAppointmentStatus(item)
 				};
 			});
 
@@ -360,17 +362,97 @@ clearTimeout(this.pollTimer);
 			};
 			return timeSlotMap[timeSlot] || timeSlot || '';
 		},
+		// 将后端状态与当前时间结合，得出前端展示状态
+		deriveAppointmentStatus(item) {
+			const raw = (item?.status || '').toUpperCase();
+			// 直接映射的终态
+			if (raw === 'CANCELLED' || raw === 'CANCEL' || raw === 'REFUNDED' || raw === 'REFUND') return 'CANCELLED';
+			if (raw === 'COMPLETED') return 'COMPLETED';
+			if (raw === 'WAITLIST') return 'WAITLIST';
+
+			// 动态态：待就诊/已过号
+			const { start, end } = this.getAppointmentTimeRange(item);
+			if (!start) return raw || 'PENDING';
+
+			const nowTs = Date.now();
+			const endTs = end || start;
+			if (nowTs > endTs) return 'EXPIRED';
+
+			// 未过号且已确认保持确认态，否则待就诊
+			if (raw === 'CONFIRMED') return 'CONFIRMED';
+			return 'PENDING';
+		},
+		uiStatus(item) {
+			const status = item?.displayStatus || item?.status;
+			return typeof status === 'string' ? status : '';
+		},
+		getAppointmentTimeRange(item) {
+			const result = { start: null, end: null };
+			if (!item) return result;
+
+			// 优先使用精确的预约时间字段
+			if (item.appointmentTime) {
+				const startDate = new Date(item.appointmentTime);
+				if (!Number.isNaN(startDate.getTime())) {
+					result.start = startDate.getTime();
+					if (item.appointmentEndTime) {
+						const endDate = new Date(item.appointmentEndTime);
+						if (!Number.isNaN(endDate.getTime())) result.end = endDate.getTime();
+					} else {
+						result.end = result.start;
+					}
+					return result;
+				}
+			}
+
+			// 兜底：日期 + 时间段组合
+			const dateStr = item.scheduleDate || item.appointmentDate;
+			if (!dateStr) return result;
+			const slotRange = this.getTimeSlotRange(item.timeSlot || item.timeSlotName);
+			const startTime = item.startTime || item.beginTime || item.start || (slotRange && slotRange.start);
+			const endTime = item.endTime || item.finishTime || item.end || (slotRange && slotRange.end) || startTime;
+
+			if (startTime) {
+				const ts = this.buildDateTime(dateStr, startTime);
+				if (ts) result.start = ts;
+			}
+			if (endTime) {
+				const ts = this.buildDateTime(dateStr, endTime);
+				if (ts) result.end = ts;
+			}
+
+			return result;
+		},
+		getTimeSlotRange(slot) {
+			const map = {
+				morning: { start: '08:00', end: '12:00' },
+				afternoon: { start: '14:00', end: '18:00' },
+				fternoon: { start: '14:00', end: '18:00' },
+				evening: { start: '18:00', end: '23:00' }
+			};
+			return map[slot] || null;
+		},
+		buildDateTime(dateStr, timeStr) {
+			if (!dateStr || !timeStr) return null;
+			const normalizedDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+			const normalizedTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
+			const dt = new Date(`${normalizedDate}T${normalizedTime}`);
+			return Number.isNaN(dt.getTime()) ? null : dt.getTime();
+		},
 		statusName(s) {
+			if (!s) return '-';
+			const status = s.toString();
 			switch (s) {
 				case 'PENDING': return '待就诊';
 				case 'scheduled': return '待就诊';
 				case 'CONFIRMED': return '已确认';
 				case 'COMPLETED': return '已完成';
 				case 'completed': return '已完成';
-				case 'CANCELLED': return '已取消';
-				case 'cancelled': return '已取消';
+				case 'CANCELLED': return '已退号';
+				case 'cancelled': return '已退号';
 				case 'WAITLIST': return '候补中';
-				default: return s || '-';
+				case 'EXPIRED': return '已过号';
+				default: return status;
 			}
 		},
 		cancel(item) {
@@ -516,6 +598,7 @@ clearTimeout(this.pollTimer);
 .status.completed{ color:#4caf50; }
 .status.cancelled{ color:#999; }
 .status.waitlist{ color:#9c27b0; }
+.status.expired{ color:#f57c00; }
 .actions{
 	display:flex;
 	justify-content:flex-end;
