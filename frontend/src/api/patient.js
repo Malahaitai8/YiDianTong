@@ -36,3 +36,11 @@ export const deletePatient = (id) => {
     method: 'delete'
   })
 }
+
+// 审核患者认证状态
+export const approvePatient = (id) => {
+  return request({
+    url: `/patient/${id}/approve`,
+    method: 'post'
+  })
+}

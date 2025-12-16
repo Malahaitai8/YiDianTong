@@ -104,10 +104,19 @@
           </template>
         </el-table-column>
         <el-table-column prop="idCardNumber" label="身份证号" min-width="200" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="viewPatient(row)">查看</el-button>
             <el-button type="warning" size="small" @click="editPatient(row)">编辑</el-button>
+            <el-button
+              type="success"
+              size="small"
+              @click="handleApprovePatient(row)"
+              v-if="row.idStatus === 'pending' || row.idStatus === '待认证'"
+            >
+              <el-icon><Check /></el-icon>
+              审核通过
+            </el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -211,13 +220,13 @@
       </template>
     </el-dialog>
   </div>
-  </template>
+</template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Delete } from '@element-plus/icons-vue'
-import { getPatientList, getPatientById, createPatient, updatePatient, deletePatient } from '@/api/patient'
+import { Search, Plus, Delete, Check } from '@element-plus/icons-vue'
+import { getPatientList, getPatientById, createPatient, updatePatient, deletePatient, approvePatient } from '@/api/patient'
 import { registerPatient } from '@/api/auth'
 
 const loading = ref(false)
@@ -420,8 +429,13 @@ const savePatient = async () => {
     await loadPatients()
   } catch (error) {
     let msg = '保存失败'
-    if (error?.response?.data?.msg) msg = error.response.data.msg
-    else if (error?.message) msg = error.message
+    if (error?.response?.data?.msg) {
+      msg = error.response.data.msg
+    } else if (error?.response?.data?.message) {
+      msg = error.response.data.message
+    } else if (error?.message) {
+      msg = error.message
+    }
     ElMessage.error(msg)
   } finally {
     formDialog.loading = false
@@ -436,6 +450,26 @@ const handleDelete = async (row) => {
     await loadPatients()
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败')
+  }
+}
+
+// 审核患者
+const handleApprovePatient = async (patient) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要审核通过患者 ${patient.name} 的身份认证吗？`,
+      '确认操作',
+      { type: 'warning' }
+    )
+    
+    await approvePatient(patient.id)
+    ElMessage.success('审核成功')
+    await loadPatients() // 重新加载数据，确保状态更新
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('审核失败:', error)
+      ElMessage.error('审核失败: ' + (error.message || '未知错误'))
+    }
   }
 }
 
