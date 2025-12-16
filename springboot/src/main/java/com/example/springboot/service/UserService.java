@@ -97,6 +97,11 @@ public class UserService {
             throw new CustomerException("旧密码不正确");
         }
         
+        // 验证新密码不能与旧密码相同
+        if (oldPassword.equals(newPassword)) {
+            throw new CustomerException("新密码不能与旧密码相同");
+        }
+        
         // 更新密码
         String encodedNewPassword = passwordEncoder.encode(newPassword);
         userMapper.updatePassword(currentUserId, encodedNewPassword);
