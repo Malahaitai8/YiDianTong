@@ -68,6 +68,14 @@ export const disableDoctor = (id) => {
   })
 }
 
+// 启用医生账号
+export const enableDoctor = (id) => {
+  return request({
+    url: `/admin/doctor/${id}/enable`,
+    method: 'post'
+  })
+}
+
 // 一键重置所有医生密码
 export const resetAllDoctorPasswords = () => {
   return request({

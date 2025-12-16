@@ -62,7 +62,7 @@ const userStore = useUserStore()
 
 const menuItems = ref([
   // 一、概览与统计
-  { path: '/admin/dashboard', name: '数据概览' },
+  { path: '/admin/dashboard', name: '工作台' },
   { path: '/admin/reports', name: '报表统计' },
   
   // 二、人员管理
@@ -87,8 +87,8 @@ const menuItems = ref([
 
 // 判断菜单项是否应该高亮
 const isMenuActive = (item) => {
-  // 对于数据概览，/admin 和 /admin/dashboard 都应该高亮
-  if (item.name === '数据概览') {
+  // 对于工作台，/admin 和 /admin/dashboard 都应该高亮
+  if (item.name === '工作台') {
     return route.path === '/admin' || route.path === '/admin/dashboard'
   }
   // 其他菜单项使用精确匹配

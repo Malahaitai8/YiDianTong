@@ -81,7 +81,10 @@
             <div class="patient-info">
               <el-avatar :size="40">{{ (row.name || '患').charAt(0) }}</el-avatar>
               <div class="patient-details">
-                <div class="patient-name">{{ row.name || '-' }}</div>
+                <div class="patient-name">
+                  {{ row.name || '-' }}
+                  <el-tag v-if="!row.name" type="warning" size="small" style="margin-left: 8px">未填写</el-tag>
+                </div>
                 <div class="patient-phone">{{ row.phoneNumber || '-' }}</div>
               </div>
             </div>
@@ -103,11 +106,36 @@
             {{ idStatusText(row.idStatus) }}
           </template>
         </el-table-column>
-        <el-table-column prop="idCardNumber" label="身份证号" min-width="200" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="学号/工号" width="140">
+          <template #default="{ row }">
+            <span v-if="row.identityNumber">{{ row.identityNumber }}</span>
+            <el-tag v-else type="warning" size="small">未填写</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="身份证号" min-width="180">
+          <template #default="{ row }">
+            <span v-if="row.idCardNumber">{{ row.idCardNumber }}</span>
+            <el-tag v-else type="warning" size="small">未填写</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="viewPatient(row)">查看</el-button>
             <el-button type="warning" size="small" @click="editPatient(row)">编辑</el-button>
+            <el-tooltip
+              v-if="row.idStatus === 'pending' || row.idStatus === '待认证'"
+              :content="hasRequiredFields(row) ? '审核患者认证' : '患者信息不完整，无法审核'"
+              placement="top"
+            >
+              <el-button
+                type="success"
+                size="small"
+                @click="handleApprovePatient(row)"
+              >
+                <el-icon><Check /></el-icon>
+                审核
+              </el-button>
+            </el-tooltip>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -210,14 +238,54 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 审核补充信息对话框 -->
+    <el-dialog v-model="approveDialog.visible" title="补充患者认证信息" width="500px" @close="resetApproveForm">
+      <el-alert
+        title="提示"
+        type="warning"
+        description="该患者缺少必填的认证信息，请补充完整后再进行审核。"
+        :closable="false"
+        center
+        style="margin-bottom: 20px;"
+      />
+      <el-form ref="approveFormRef" :model="approveForm" :rules="approveRules" label-width="100px">
+        <el-form-item label="真实姓名" prop="name">
+          <el-input v-model="approveForm.name" placeholder="请输入患者真实姓名" />
+          <div class="form-hint">只能包含汉字或英文字母</div>
+        </el-form-item>
+        <el-form-item label="学号/工号" prop="identityNumber">
+          <el-input v-model="approveForm.identityNumber" placeholder="请输入学号或工号" />
+          <div class="form-hint">系统将根据白名单自动识别身份类型</div>
+        </el-form-item>
+        <el-form-item label="身份证号" prop="idCardNumber">
+          <el-input v-model="approveForm.idCardNumber" placeholder="请输入18位身份证号" maxlength="18" />
+          <div class="form-hint">请输入有效的18位身份证号码</div>
+        </el-form-item>
+        <el-form-item label="角色" v-if="approveForm.specificRole">
+          <el-tag :type="approveForm.specificRole === 'student' ? 'success' : approveForm.specificRole === 'teacher' ? 'warning' : 'info'" size="large">
+            {{ specificRoleText(approveForm.specificRole) }}
+          </el-tag>
+          <div class="form-hint">系统已根据白名单自动设置角色</div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="approveDialog.visible = false">取消</el-button>
+          <el-button type="primary" :loading="approveDialog.loading" @click="submitApprove">
+            保存并审核
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
-  </template>
+</template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Delete } from '@element-plus/icons-vue'
-import { getPatientList, getPatientById, createPatient, updatePatient, deletePatient } from '@/api/patient'
+import { Search, Plus, Delete, Check } from '@element-plus/icons-vue'
+import { getPatientList, getPatientById, createPatient, updatePatient, deletePatient, approvePatient } from '@/api/patient'
 import { registerPatient } from '@/api/auth'
 
 const loading = ref(false)
@@ -283,7 +351,40 @@ const patientRules = {
 const viewDialog = reactive({ visible: false })
 const selectedPatient = ref({})
 
+const approveDialog = reactive({ visible: false, loading: false })
+const approveForm = reactive({
+  patientId: null,
+  name: '',
+  identityNumber: '',
+  idCardNumber: '',
+  specificRole: ''
+})
+
+const approveRules = {
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 20, message: '姓名长度应在2-20个字符之间', trigger: 'blur' },
+    { pattern: /^[\u4e00-\u9fa5a-zA-Z]+$/, message: '真实姓名只能包含汉字或英文字母', trigger: 'blur' }
+  ],
+  identityNumber: [
+    { required: true, message: '请输入学号/工号', trigger: 'blur' }
+  ],
+  idCardNumber: [
+    { required: true, message: '请输入身份证号', trigger: 'blur' },
+    { pattern: /^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/, message: '请输入有效的身份证号', trigger: 'blur' }
+  ]
+}
+
+const approveFormRef = ref()
+
 const handleSelectionChange = (rows) => { selected.value = rows }
+
+// 检查患者是否填写了所有必填字段
+const hasRequiredFields = (patient) => {
+  return patient.name && patient.name.trim() !== '' &&
+         patient.identityNumber && patient.identityNumber.trim() !== '' &&
+         patient.idCardNumber && patient.idCardNumber.trim() !== ''
+}
 
 // 批量删除患者
 const handleBatchDelete = async () => {
@@ -420,8 +521,13 @@ const savePatient = async () => {
     await loadPatients()
   } catch (error) {
     let msg = '保存失败'
-    if (error?.response?.data?.msg) msg = error.response.data.msg
-    else if (error?.message) msg = error.message
+    if (error?.response?.data?.msg) {
+      msg = error.response.data.msg
+    } else if (error?.response?.data?.message) {
+      msg = error.response.data.message
+    } else if (error?.message) {
+      msg = error.message
+    }
     ElMessage.error(msg)
   } finally {
     formDialog.loading = false
@@ -437,6 +543,123 @@ const handleDelete = async (row) => {
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败')
   }
+}
+
+// 审核患者
+const handleApprovePatient = async (patient) => {
+  // 前端验证必填字段
+  const missingFields = []
+  if (!patient.name || patient.name.trim() === '') {
+    missingFields.push('姓名')
+  }
+  if (!patient.identityNumber || patient.identityNumber.trim() === '') {
+    missingFields.push('学号/工号')
+  }
+  if (!patient.idCardNumber || patient.idCardNumber.trim() === '') {
+    missingFields.push('身份证号')
+  }
+  
+  // 如果有缺失字段，打开补充信息对话框
+  if (missingFields.length > 0) {
+    approveForm.patientId = patient.id
+    approveForm.name = patient.name || ''
+    approveForm.identityNumber = patient.identityNumber || ''
+    approveForm.idCardNumber = patient.idCardNumber || ''
+    approveDialog.visible = true
+    return
+  }
+  
+  // 信息完整，直接审核
+  try {
+    await ElMessageBox.confirm(
+      `确定要审核患者 ${patient.name} 的身份认证吗？\n\n患者信息：\n• 姓名：${patient.name}\n• 学号/工号：${patient.identityNumber}\n• 身份证号：${patient.idCardNumber}`,
+      '确认操作',
+      { type: 'warning' }
+    )
+    
+    await approvePatient(patient.id)
+    ElMessage.success('审核成功')
+    await loadPatients()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('审核失败:', error)
+      const errorMsg = error?.response?.data?.msg || error?.message || '未知错误'
+      ElMessage.error('审核失败: ' + errorMsg)
+    }
+  }
+}
+
+// 提交审核（补充信息后）
+const submitApprove = async () => {
+  if (!approveFormRef.value) return
+  
+  try {
+    const valid = await approveFormRef.value.validate()
+    if (!valid) return
+    
+    approveDialog.loading = true
+    
+    // 先更新患者信息
+    console.log('开始更新患者信息...', {
+      patientId: approveForm.patientId,
+      name: approveForm.name,
+      identityNumber: approveForm.identityNumber,
+      idCardNumber: approveForm.idCardNumber
+    })
+    
+    await updatePatient(approveForm.patientId, {
+      name: approveForm.name,
+      identityNumber: approveForm.identityNumber,
+      idCardNumber: approveForm.idCardNumber
+    })
+    
+    console.log('患者信息更新成功，开始获取更新后的数据...')
+    
+    // 获取更新后的患者信息（包含后端自动设置的角色）
+    const updatedPatient = await getPatientById(approveForm.patientId)
+    console.log('获取到更新后的患者信息:', updatedPatient)
+    console.log('患者数据对象:', updatedPatient?.data)
+    console.log('specificRole 字段:', updatedPatient?.data?.specificRole)
+    
+    // 检查角色字段
+    const role = updatedPatient?.data?.specificRole
+    if (role && role.trim() !== '') {
+      approveForm.specificRole = role
+      const roleText = specificRoleText(role)
+      console.log('角色已自动设置:', roleText, '原始值:', role)
+      ElMessage.success(`信息已更新，角色已自动设置为：${roleText}`)
+    } else {
+      console.error('未获取到角色信息！')
+      console.error('完整响应:', JSON.stringify(updatedPatient, null, 2))
+      ElMessage.warning('信息已更新，但未能获取角色信息，请刷新页面查看')
+    }
+    
+    // 再提交审核
+    console.log('开始提交审核...')
+    await approvePatient(approveForm.patientId)
+    
+    ElMessage.success('审核成功')
+    approveDialog.visible = false
+    await loadPatients()
+  } catch (error) {
+    console.error('审核失败:', error)
+    const errorMsg = error?.response?.data?.msg || error?.message || '未知错误'
+    ElMessage.error('操作失败: ' + errorMsg)
+  } finally {
+    approveDialog.loading = false
+  }
+}
+
+// 重置审核表单
+const resetApproveForm = () => {
+  if (approveFormRef.value) {
+    approveFormRef.value.resetFields()
+  }
+  approveForm.patientId = null
+  approveForm.name = ''
+  approveForm.identityNumber = ''
+  approveForm.idCardNumber = ''
+  approveForm.specificRole = ''
 }
 
 const viewPatient = async (row) => {
@@ -570,4 +793,12 @@ const userStatusText = (v) => {
 @media (max-width: 768px) { .patient-form-wrap { margin-left: -6px; } }
 .patient-detail { padding-left: 15px; }
 @media (max-width: 768px) { .patient-detail { padding-left: 10px; } }
+
+/* 表单提示文字样式 */
+.form-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
+}
 </style>

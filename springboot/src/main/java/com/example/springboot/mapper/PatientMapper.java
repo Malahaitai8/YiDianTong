@@ -20,6 +20,9 @@ public interface PatientMapper {
     // 根据学号/工号查询患者
     Patient selectByIdentityNumber(String identityNumber);
     
+    // 根据身份证号查询患者
+    Patient selectByIdCardNumber(String idCardNumber);
+    
     // 添加新病人
     int insert(Patient patient);
 

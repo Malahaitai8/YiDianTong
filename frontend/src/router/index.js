@@ -94,7 +94,7 @@ const routes = [
         path: 'dashboard',
         name: 'AdminDashboard',
         component: AdminDashboard,
-        meta: { title: '数据概览' }
+        meta: { title: '工作台' }
       },
       {
         path: 'doctors',

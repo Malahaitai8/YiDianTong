@@ -24,17 +24,14 @@ export function getClinicById(id) {
 }
 
 /**
- * 根据科室ID获取门诊列表
+ * 根据科室ID获取门诊列表（使用后端接口）
  * @param {number|string} departmentId 科室ID
  * @returns {Promise<Array>} 门诊列表
  */
 export function getClinicsByDepartmentId(departmentId) {
-    return getClinicList().then(data => {
-        if (!departmentId && departmentId !== 0) {
-            return data
-        }
-        const depIdNum = Number(departmentId)
-        return (data || []).filter(clinic => Number(clinic.departmentId) === depIdNum)
+    return request({
+        url: `/clinic/selectByDepartmentId/${departmentId}`,
+        method: 'GET'
     })
 }
 

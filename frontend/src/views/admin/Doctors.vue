@@ -225,6 +225,16 @@
                   <el-icon><CircleClose /></el-icon>
                   停用
                 </el-button>
+                
+                <el-button
+                  type="success"
+                  size="small"
+                  @click="handleEnableDoctor(row)"
+                  v-if="row.user?.status === 'disabled'"
+                >
+                  <el-icon><CircleCheck /></el-icon>
+                  启用
+                </el-button>
               </el-button-group>
             </template>
           </template>
@@ -464,19 +474,23 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, ArrowDown, View, Edit, Delete, Check, Close, Key, CircleClose, CircleCheck } from '@element-plus/icons-vue'
+import { Search, Plus, Key, Delete, View, Edit, CircleClose, CircleCheck, Check, Close } from '@element-plus/icons-vue'
 import { 
   getDoctorList, 
   getDoctorById, 
-  createDoctor, 
+  createDoctorAccount, 
   updateDoctor, 
-  deleteDoctor,
-  createDoctorAccount,
+  deleteDoctor, 
   resetDoctorPassword,
   disableDoctor,
-  resetAllDoctorPasswords
+  enableDoctor,
+  resetAllDoctorPasswords,
+  getPendingDoctors,
+  getPendingDoctorDetail,
+  approveDoctorRegistration,
+  rejectDoctorRegistration,
+  batchApproveDoctors
 } from '@/api/doctor'
-import { getNextUserId, createUserAndDoctor } from '@/api/auth'
 import { getDepartmentList } from '@/api/department'
 import { getClinicList } from '@/api/clinic'
 
@@ -572,7 +586,8 @@ const doctorRules = {
     { required: true, message: '请选择所属门诊', trigger: 'change' }
   ],
   name: [
-    { required: true, message: '请输入姓名', trigger: 'blur' }
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 15, message: '姓名长度应在2到15个字符之间', trigger: 'blur' }
   ],
   title: [
     { required: true, message: '请选择职称', trigger: 'change' }
@@ -1046,6 +1061,30 @@ const handleDisableDoctor = async (doctor) => {
     if (error !== 'cancel') {
       console.error('停用医生失败:', error)
       ElMessage.error('停用医生失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 启用医生处理函数
+const handleEnableDoctor = async (doctor) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要启用医生 ${doctor.name} 的账号吗？启用后该医生可以正常登录系统。`,
+      '启用医生账号',
+      {
+        confirmButtonText: '确定启用',
+        cancelButtonText: '取消',
+        type: 'success'
+      }
+    )
+    
+    await enableDoctor(doctor.user.id)
+    ElMessage.success(`医生 ${doctor.name} 的账号已启用`)
+    await loadDoctors() // 重新加载医生列表
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('启用医生失败:', error)
+      ElMessage.error('启用医生失败: ' + (error.message || '未知错误'))
     }
   }
 }

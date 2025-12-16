@@ -56,6 +56,13 @@
         where p.identity_number = #{identityNumber}
     </select>
 
+    <select id="selectByIdCardNumber" resultMap="PatientResultMap">
+        select p.*, u.username, u.role, u.status, u.created_at
+        from patient p
+        left join user u on p.user_id = u.id
+        where p.id_card_number = #{idCardNumber}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into patient(user_id, name, specific_role, id_status, phone_number, id_card_number, identity_number)
         values(#{userId}, #{name}, #{specificRole}, #{idStatus}, #{phoneNumber}, #{idCardNumber}, #{identityNumber})
@@ -65,7 +72,7 @@
         update patient
         <set>
             <if test="name != null">name = #{name},</if>
-            <if test="specificRole != null">specific_role = #{specificRole},</if>
+            <if test="specificRole != null and specificRole != ''">specific_role = #{specificRole},</if>
             <if test="idStatus != null">id_status = #{idStatus},</if>
             <if test="phoneNumber != null">phone_number = #{phoneNumber},</if>
             <if test="idCardNumber != null">id_card_number = #{idCardNumber},</if>
