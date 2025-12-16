@@ -62,9 +62,11 @@
 						<input 
 							class="input" 
 							v-model="verifyForm.name" 
-							placeholder="请输入您的真实姓名"
+							placeholder="请输入您的真实姓名（仅支持汉字或英文字母）"
 							placeholder-class="placeholder"
+							@input="handleNameInput"
 						/>
+						<text class="hint">真实姓名只能包含汉字或英文字母</text>
 					</view>
 
 					<!-- 学号/工号 -->
@@ -242,6 +244,21 @@ export default {
 				url: '/pages/edit-info/edit-info'
 			});
 		},
+		// 处理真实姓名输入
+		handleNameInput(e) {
+			const value = e.detail.value;
+			// 只允许汉字和英文字母
+			const filteredValue = value.replace(/[^\u4e00-\u9fa5a-zA-Z]/g, '');
+			if (value !== filteredValue) {
+				this.verifyForm.name = filteredValue;
+				uni.showToast({
+					title: '真实姓名只能包含汉字或英文字母',
+					icon: 'none',
+					duration: 2000
+				});
+			}
+		},
+		
 		// 提交认证
 		async handleVerify() {
 			const { name, identityNumber, idCardNumber } = this.verifyForm;
@@ -250,6 +267,15 @@ export default {
 			if (!name || !identityNumber || !idCardNumber) {
 				uni.showToast({
 					title: '请填写所有必填项',
+					icon: 'none'
+				});
+				return;
+			}
+
+			// 真实姓名格式验证（只允许汉字或英文字母）
+			if (!/^[\u4e00-\u9fa5a-zA-Z]+$/.test(name)) {
+				uni.showToast({
+					title: '真实姓名只能包含汉字或英文字母',
 					icon: 'none'
 				});
 				return;

@@ -46,13 +46,19 @@
 						:key="s.id"
 						:class="{
 							active: selectedSlot && selectedSlot.id === s.id,
-							'no-slots': s.availableSlots === 0
+							'no-slots': s.availableSlots === 0,
+							expired: isExpiredSlot(s)
 						}"
 						@click="selectSlot(s)"
 					>
 						<view class="slot-top">
-							<text class="slot-time">{{ s.startTime }}-{{ s.endTime }}</text>
-							<text class="slot-remain" :class="{ 'no-slots': s.availableSlots === 0 }">余{{ s.availableSlots }}</text>
+							<text class="slot-time">{{ slotTimeDisplay(s) }}</text>
+							<text 
+								class="slot-remain" 
+								:class="{ 'no-slots': s.availableSlots === 0, expired: isExpiredSlot(s) }"
+							>
+								{{ isExpiredSlot(s) ? '已过期' : `余${s.availableSlots}` }}
+							</text>
 						</view>
 						<view class="slot-bottom">
 							<text class="slot-doctor">{{ s.doctorName || '医生' }}</text>
@@ -110,10 +116,34 @@ export default {
 		}
 	},
 	onLoad(query) {
+		// 测试：确认进入了正确的页面
+		console.log('========== 门诊预约页面已加载 ==========');
+		console.log('页面路径: pages/clinic-appointment/clinic-appointment');
+		console.log('接收到的参数:', query);
+		
 		const id = Number(query.clinicId);
 		this.clinicId = Number.isNaN(id) ? null : id;
 		this.clinicName = decodeURIComponent(query.clinicName || '');
 		this.departmentName = decodeURIComponent(query.departmentName || '');
+		
+		console.log('解析后的参数:', {
+			clinicId: this.clinicId,
+			clinicName: this.clinicName,
+			departmentName: this.departmentName
+		});
+		
+		// 必须要有门诊ID或门诊名称
+		if (!this.clinicId && !this.clinicName) {
+			uni.showToast({
+				title: '门诊信息缺失',
+				icon: 'none'
+			});
+			setTimeout(() => {
+				uni.navigateBack();
+			}, 1500);
+			return;
+		}
+		
 		this.initDates();
 		this.loadDoctorsAndSchedules();
 	},
@@ -148,17 +178,39 @@ export default {
 			this.selectedDate = list[0].date;
 		},
 		async loadDoctorsAndSchedules() {
-			if (!this.clinicId) return;
+			console.log('========== 开始加载医生和排班 ==========');
+			console.log('过滤条件 - clinicId:', this.clinicId, 'clinicName:', this.clinicName);
+			
+			if (!this.clinicId && !this.clinicName) {
+				console.warn('loadDoctorsAndSchedules: clinicId 和 clinicName 都为空');
+				return;
+			}
 			this.loading = true;
 			try {
-				// 1) 拉取所有医生并按门诊过滤
+				// 1) 拉取所有医生并按门诊过滤（主要使用门诊名称）
 				const allDoctors = await getDoctorList().catch(() => []);
-				this.doctors = this.filterDoctorsByClinic(allDoctors, this.clinicId);
-				// 2) 拉取7天内每位医生的排班并汇总
+				console.log('获取到所有医生数量:', allDoctors ? allDoctors.length : 0);
+				
+				// 关键：必须过滤，不能使用所有医生
+				this.doctors = this.filterDoctorsByClinic(allDoctors, this.clinicId, this.clinicName);
+				console.log('过滤后的医生数量:', this.doctors ? this.doctors.length : 0);
+				console.log('过滤后的医生列表:', this.doctors.map(d => ({ id: d.id, name: d.name, clinicName: d?.clinic?.name })));
+				
+				// 如果过滤后没有医生，直接返回，不查询排班
+				if (!this.doctors || this.doctors.length === 0) {
+					console.warn('过滤后没有找到匹配的医生，不查询排班');
+					this._allSchedules = [];
+					this.updateSlotsForSelectedDate([]);
+					return;
+				}
+				
+				// 2) 拉取7天内每位医生的排班并汇总（只查询过滤后的医生）
+				console.log('开始查询', this.doctors.length, '个医生的排班...');
 				const startDate = this.dateList[0].date;
 				const endDate = this.dateList[this.dateList.length - 1].date;
 				const all = [];
 				for (const d of this.doctors) {
+					console.log('查询医生', d.id, d.name, '的排班');
 					const list = await getDoctorSchedules(d.id, startDate, endDate).catch(() => []);
 					for (const s of list) {
 						all.push({
@@ -169,18 +221,55 @@ export default {
 						});
 					}
 				}
+				console.log('总共获取到', all.length, '个号源');
 				this._allSchedules = all;
 				this.updateSlotsForSelectedDate(all);
 			} finally {
 				this.loading = false;
 			}
 		},
-		filterDoctorsByClinic(list, clinicId) {
-			if (!Array.isArray(list)) return [];
-			return list.filter(d => {
-				const cid = d?.clinic?.id ?? d?.clinicId;
-				return Number(cid) === Number(clinicId);
-			});
+		filterDoctorsByClinic(list, clinicId, clinicName) {
+			if (!Array.isArray(list) || list.length === 0) {
+				return [];
+			}
+			
+			// 必须要有过滤条件，否则返回空数组（不返回所有医生）
+			if (!clinicId && (!clinicName || !String(clinicName).trim())) {
+				return [];
+			}
+			
+			// 优先使用门诊ID过滤（最准确，因为ID是唯一的）
+			const filtered = [];
+			for (const d of list) {
+				if (!d) continue;
+				
+				let matched = false;
+				
+				// 首先使用门诊ID匹配（最可靠，因为ID是唯一的）
+				if (clinicId) {
+					const targetClinicId = Number(clinicId);
+					const cid = d?.clinic?.id ?? d?.clinicId ?? d?.clinic_id;
+					if (cid != null && Number(cid) === targetClinicId) {
+						matched = true;
+					}
+				}
+				
+				// 如果门诊ID匹配失败，再尝试使用门诊名称匹配（作为备选）
+				// 注意：门诊名称应该是具体的门诊名称（如"内分泌科门诊"），不是科室名称（如"内科"）
+				if (!matched && clinicName && String(clinicName).trim()) {
+					// 检查多种可能的字段名：clinic.name, clinicName, clinic_name
+					const doctorClinicName = d?.clinic?.name ?? d?.clinicName ?? d?.clinic_name;
+					if (doctorClinicName && String(doctorClinicName).trim() === String(clinicName).trim()) {
+						matched = true;
+					}
+				}
+				
+				if (matched) {
+					filtered.push(d);
+				}
+			}
+			
+			return filtered;
 		},
 		updateSlotsForSelectedDate(allSchedules) {
 			this.selectedSlot = null;
@@ -195,7 +284,64 @@ export default {
 		getSlotsByPeriod(period) {
 			return this.slotsOfSelectedDate
 				.filter(s => s.period === period)
-				.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+				.sort((a, b) => {
+					const rangeA = this.getSlotTimeRange(a);
+					const rangeB = this.getSlotTimeRange(b);
+					return (rangeA.start || '').localeCompare(rangeB.start || '');
+				});
+		},
+		slotTimeDisplay(slot) {
+			const range = this.getSlotTimeRange(slot);
+			return `${range.start || '--'}-${range.end || '--'}`;
+		},
+		getSlotTimeRange(slot) {
+			if (!slot) return { start: '', end: '' };
+			const directStart = slot.startTime || slot.beginTime || slot.start || slot.start_time;
+			const directEnd = slot.endTime || slot.finishTime || slot.end || slot.end_time;
+			const period = slot.period || slot.timeSlot || slot.time_slot;
+			const fallback = this.getPeriodTimeRange(period);
+			// 优先用 period 对应的标准时间段；只有在无 period 时才使用接口提供的起止时间
+			const start = fallback.start || directStart || '';
+			const end = fallback.end || directEnd || start;
+			console.log('[slot-range]', {
+				id: slot.id,
+				period: slot.period,
+				timeSlot: slot.timeSlot,
+				time_slot: slot.time_slot,
+				directStart,
+				directEnd,
+				finalStart: start,
+				finalEnd: end
+			});
+			return { start, end };
+		},
+		getPeriodTimeRange(period) {
+			const key = (period || '').toLowerCase();
+			if (key === 'morning') {
+				return { start: '08:00', end: '12:00' };
+			}
+			if (key === 'afternoon' || key === 'fternoon') {
+				return { start: '14:00', end: '18:00' };
+			}
+			return { start: '08:00', end: '12:00' };
+		},
+		normalizeTimeString(timeStr) {
+			if (!timeStr) return '';
+			if (timeStr.length === 5) {
+				return `${timeStr}:00`;
+			}
+			return timeStr;
+		},
+		isExpiredSlot(slot) {
+			// 仅对“今天”的号源进行过期判断，其余日期不受影响
+			if (!slot || this.selectedDate !== this.dateList?.[0]?.date) return false;
+			const now = new Date();
+			const range = this.getSlotTimeRange(slot);
+			const end = range.end || range.start;
+			if (!end) return false;
+			const endDateTime = new Date(`${this.selectedDate}T${this.normalizeTimeString(end)}`);
+			if (Number.isNaN(endDateTime.getTime())) return false;
+			return now.getTime() > endDateTime.getTime();
 		},
 		periodIcon(p) {
 			if (p === 'morning') return '🌅';
@@ -246,6 +392,10 @@ export default {
 		},
 		selectSlot(s) {
 			if (!s) return;
+			if (this.isExpiredSlot(s)) {
+				uni.showToast({ title: '该号源已过期', icon: 'none' });
+				return;
+			}
 			this.selectedSlot = s;
 		},
 		async joinWaitlist(slot) {
@@ -362,10 +512,12 @@ export default {
 .slot-list { display: grid; grid-template-columns: repeat(1, 1fr); gap: 16rpx; }
 .slot-card { background: #fff; border-radius: 12rpx; padding: 16rpx; border: 1rpx solid #eef2f7; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.03); }
 .slot-card.active { border-color: #1976d2; box-shadow: 0 2rpx 10rpx rgba(25,118,210,0.15); }
+.slot-card.expired { background: #f7f7f7; color: #999; border-color: #eee; }
 .slot-card .slot-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
 .slot-time { font-size: 28rpx; color: #333; font-weight: 600; }
 .slot-remain { font-size: 24rpx; color: #1976d2; }
 .slot-remain.no-slots { color: #f44336; }
+.slot-remain.expired { color: #999; }
 .slot-bottom { display: flex; align-items: center; justify-content: space-between; }
 .slot-doctor { font-size: 26rpx; color: #333; }
 .slot-meta { display: flex; align-items: center; gap: 10rpx; }

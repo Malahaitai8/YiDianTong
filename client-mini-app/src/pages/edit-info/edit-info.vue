@@ -127,8 +127,13 @@ export default {
 				}, 1500);
 			} catch (error) {
 				console.error('保存信息失败:', error);
+				// 处理手机号重复错误
+				let errorMsg = (error && (error.msg || error.message)) || '保存失败，请重试';
+				if (errorMsg.includes('手机号') || errorMsg.includes('已被') || errorMsg.includes('其他用户')) {
+					errorMsg = '该手机号已与其他账号绑定';
+				}
 				uni.showToast({
-					title: (error && (error.msg || error.message)) || '保存失败，请重试',
+					title: errorMsg,
 					icon: 'none',
 					duration: 3000
 				});
