@@ -92,13 +92,290 @@
 
     <!-- 根据状态统计预约数量 -->
     <select id="countByStatus" resultType="int">
-        SELECT count(*) FROM appointment WHERE status = #{status}
+        SELECT count(*) FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        WHERE a.status = #{status}
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
+        <if test="startDate != null">
+            AND a.appointment_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND a.appointment_time &lt;= #{endDate}
+        </if>
     </select>
 
     <!-- 统计总预约数量 -->
     <select id="countTotal" resultType="int">
-        SELECT count(*) FROM appointment
+        SELECT count(*) FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        <where>
+            <if test="departmentId != null">
+                c.department_id = #{departmentId}
+            </if>
+            <if test="startDate != null">
+                AND a.appointment_time >= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND a.appointment_time &lt;= #{endDate}
+            </if>
+        </where>
     </select>
 
+    <!-- ========== 统计报表查询 ========== -->
+
+    <!-- 按日期范围统计预约数量（按日期分组） -->
+    <select id="countByDateRange" resultType="map">
+        SELECT
+            DATE(a.appointment_time) AS date,
+            COUNT(*) AS totalCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(CASE WHEN a.status = 'NO_SHOW' THEN 1 ELSE 0 END) AS noShowCount,
+            SUM(CASE WHEN a.status = 'SCHEDULED' THEN 1 ELSE 0 END) AS scheduledCount,
+            SUM(a.actual_fee) AS totalRevenue
+        FROM appointment a
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(a.appointment_time)
+        ORDER BY date
+    </select>
+
+    <!-- 按科室统计预约数量 -->
+    <select id="countByDepartment" resultType="map">
+        SELECT
+            dept.id AS departmentId,
+            dept.name AS departmentName,
+            COUNT(DISTINCT d.id) AS doctorCount,
+            COUNT(a.id) AS totalCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(a.actual_fee) AS totalRevenue,
+            COALESCE(SUM(s.total_slots), 0) AS totalSlots,
+            COALESCE(SUM(s.total_slots - s.available_slots), 0) AS usedSlots
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY dept.id, dept.name
+        ORDER BY totalCount DESC
+    </select>
+
+    <!-- 按医生统计预约数量 -->
+    <select id="countByDoctor" resultType="map">
+        SELECT
+            d.id AS doctorId,
+            d.name AS doctorName,
+            d.title AS doctorTitle,
+            dept.id AS departmentId,
+            dept.name AS departmentName,
+            COUNT(DISTINCT DATE(s.schedule_date)) AS workDays,
+            COUNT(a.id) AS totalCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(CASE WHEN a.status = 'NO_SHOW' THEN 1 ELSE 0 END) AS noShowCount,
+            SUM(a.actual_fee) AS totalRevenue
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="doctorId != null">
+            AND d.id = #{doctorId}
+        </if>
+        GROUP BY d.id, d.name, d.title, dept.id, dept.name
+        ORDER BY totalCount DESC
+    </select>
+
+    <!-- 按日期范围统计收入 -->
+    <select id="sumRevenueByDateRange" resultType="map">
+        SELECT
+            DATE(a.appointment_time) AS date,
+            COUNT(*) AS appointmentCount,
+            SUM(a.fee) AS originalFee,
+            SUM(a.actual_fee) AS totalRevenue,
+            SUM(a.actual_fee) AS actualFee
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        AND a.status != 'CANCELLED'
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
+        GROUP BY DATE(a.appointment_time)
+        ORDER BY date
+    </select>
+
+    <!-- 按科室统计收入 -->
+    <select id="sumRevenueByDepartment" resultType="map">
+        SELECT
+            dept.id AS departmentId,
+            dept.name AS departmentName,
+            COUNT(a.id) AS appointmentCount,
+            SUM(a.fee) AS originalFee,
+            SUM(a.actual_fee) AS totalRevenue,
+            SUM(a.actual_fee) AS actualFee
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        AND a.status != 'CANCELLED'
+        GROUP BY dept.id, dept.name
+        ORDER BY totalRevenue DESC
+    </select>
+
+    <!-- 按号别统计预约数量 -->
+    <select id="countBySlotType" resultType="map">
+        SELECT
+            s.slot_type AS slotType,
+            COUNT(a.id) AS appointmentCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(a.actual_fee) AS totalRevenue
+        FROM appointment a
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
+        GROUP BY s.slot_type
+        ORDER BY appointmentCount DESC
+    </select>
+
+    <!-- 按时间段统计预约数量 -->
+    <select id="countByTimeSlot" resultType="map">
+        SELECT
+            s.time_slot AS timeSlot,
+            COUNT(a.id) AS appointmentCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(a.actual_fee) AS totalRevenue
+        FROM appointment a
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="departmentId != null">
+            AND c.department_id = #{departmentId}
+        </if>
+        GROUP BY s.time_slot
+        ORDER BY appointmentCount DESC
+    </select>
+
+    <!-- 统计退号率（按科室） -->
+    <select id="getCancellationRateByDepartment" resultType="map">
+        SELECT
+            dept.id AS departmentId,
+            dept.name AS departmentName,
+            COUNT(a.id) AS totalCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            CASE 
+                WHEN COUNT(a.id) > 0 THEN 
+                    ROUND(SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2)
+                ELSE 0 
+            END AS cancellationRate
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY dept.id, dept.name
+        HAVING totalCount > 0
+        ORDER BY cancellationRate DESC
+    </select>
+
+    <!-- 统计退号率（按医生） -->
+    <select id="getCancellationRateByDoctor" resultType="map">
+        SELECT
+            d.id AS doctorId,
+            d.name AS doctorName,
+            d.title AS doctorTitle,
+            dept.id AS departmentId,
+            dept.name AS departmentName,
+            COUNT(a.id) AS totalCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            CASE 
+                WHEN COUNT(a.id) > 0 THEN 
+                    ROUND(SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2)
+                ELSE 0 
+            END AS cancellationRate
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="doctorId != null">
+            AND d.id = #{doctorId}
+        </if>
+        GROUP BY d.id, d.name, d.title, dept.id, dept.name
+        HAVING totalCount > 0
+        ORDER BY cancellationRate DESC
+    </select>
+
+    <!-- 按日期范围统计预约趋势（包含各状态） -->
+    <select id="getAppointmentTrend" resultType="map">
+        SELECT
+            DATE(a.appointment_time) AS date,
+            COUNT(*) AS totalCount,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCount,
+            SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelledCount,
+            SUM(CASE WHEN a.status = 'NO_SHOW' THEN 1 ELSE 0 END) AS noShowCount,
+            SUM(CASE WHEN a.status = 'SCHEDULED' THEN 1 ELSE 0 END) AS scheduledCount,
+            CASE 
+                WHEN COUNT(*) > 0 THEN 
+                    ROUND(SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2)
+                ELSE 0 
+            END AS cancellationRate,
+            SUM(a.actual_fee) AS totalRevenue
+        FROM appointment a
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
+        GROUP BY DATE(a.appointment_time)
+        ORDER BY date
+    </select>
+
+    <!-- 获取预约原始明细列表（用于Excel导出） -->
+    <select id="getAppointmentRawDetails" resultType="map">
+        SELECT
+            a.id AS appointmentId,
+            p.name AS patientName,
+            p.phone_number AS patientPhone,
+            dept.name AS departmentName,
+            d.name AS doctorName,
+            s.slot_type AS slotType,
+            DATE(s.schedule_date) AS appointmentDate,
+            s.time_slot AS timeSlot,
+            a.status AS status,
+            a.fee AS registrationFee,
+            a.actual_fee AS actualFee,
+            a.appointment_time AS appointmentTime,
+            a.source_type AS sourceType
+        FROM appointment a
+        LEFT JOIN patient p ON a.patient_id = p.id
+        LEFT JOIN doctor d ON a.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        LEFT JOIN department dept ON c.department_id = dept.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.appointment_time >= #{startDate} AND a.appointment_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        <if test="departmentId != null">
+            AND dept.id = #{departmentId}
+        </if>
+        ORDER BY a.appointment_time DESC
+    </select>
 
 </mapper>

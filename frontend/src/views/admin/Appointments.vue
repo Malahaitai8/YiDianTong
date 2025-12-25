@@ -716,8 +716,10 @@ const getSlotTypeText = (scheduleId) => {
   const slotTypeMap = {
     'EXPERT': '专家号',
     'REGULAR': '普通号',
+    'NORMAL': '普通号',
     'EMERGENCY': '急诊号',
-    'SPECIAL': '特需号'
+    'SPECIAL': '特需号',
+    'VIP': '特需号'
   }
   return slotTypeMap[slotType] || schedule.slotType
 }

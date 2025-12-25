@@ -67,11 +67,11 @@
 
     <div class="toolbar">
       <el-select v-model="filterDepartmentId" placeholder="科室" style="width: 100%" clearable>
-        <el-option label="全部科室" :value="null" />
+        <el-option label="全部科室" :value="''" />
         <el-option v-for="d in departmentList" :key="d.id" :label="d.name" :value="d.id" />
       </el-select>
       <el-select v-model="filterDoctorId" placeholder="医生" style="width: 100%" clearable>
-        <el-option label="全部医生" :value="null" />
+        <el-option label="全部医生" :value="''" />
         <el-option v-for="doc in filteredDoctors" :key="doc.id" :label="doc.name" :value="doc.id" />
       </el-select>
       <el-select v-model="filterStatus" placeholder="状态" style="width: 100%" clearable>
@@ -235,6 +235,11 @@
                   <div class="weekday-rows">
                     <div class="weekday-row">
                       <el-checkbox v-for="n in [1,2,3,4,5]" :key="n" :label="n" class="weekday-checkbox">
+                        {{ weekOptions[n] }}
+                      </el-checkbox>
+                    </div>
+                    <div class="weekday-row">
+                      <el-checkbox v-for="n in [6,7]" :key="n" :label="n" class="weekday-checkbox">
                         {{ weekOptions[n] }}
                       </el-checkbox>
                     </div>

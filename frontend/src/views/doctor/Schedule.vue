@@ -147,6 +147,21 @@
           </div>
         </div>
         </div>
+        <!-- 颜色图例说明 -->
+        <div class="legend-container">
+          <div class="legend-item">
+            <div class="legend-box legend-normal"></div>
+            <span class="legend-text">号源充足</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box legend-low"></div>
+            <span class="legend-text">号源紧张</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box legend-full"></div>
+            <span class="legend-text">已满</span>
+          </div>
+        </div>
       </div>
 
       <!-- 月视图（参考管理员端：纯7列日历） -->
@@ -275,7 +290,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick, shallowRef } from 'vue'
 import { formatDate, getTodayString } from '@/utils'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
@@ -336,8 +351,9 @@ const displayTimeSlots = computed(() => {
   return allTimeSlots.filter(s => s.time === filterTimeSlot.value)
 })
 
-// 排班数据
-const schedules = ref([])
+// 排班数据（使用 shallowRef 避免深度响应导致的性能问题)
+const schedules = shallowRef([])
+const isLoadingSchedules = ref(false)
 
 // 计算本周日期（避免在循环中修改同一 Date 实例）
 const weekDays = computed(() => {
@@ -347,59 +363,69 @@ const weekDays = computed(() => {
   const monday = new Date(base)
   monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
   monday.setHours(0, 0, 0, 0)
-
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
   for (let i = 0; i < 7; i++) {
-    const date = new Date(monday)
-    date.setDate(monday.getDate() + i)
-    const today = new Date()
-
+    const current = new Date(monday)
+    current.setDate(monday.getDate() + i)
+    const dateStr = formatDate(current)
     days.push({
       name: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
-      date: formatDate(date, 'MM-DD'),
-      fullDate: formatDate(date),
-      isToday: formatDate(date) === formatDate(today)
+      date: current.getDate(),
+      fullDate: dateStr,
+      isToday: current.getTime() === today.getTime()
     })
   }
-
   return days
 })
 
-// 计算当月的6行7列网格（以周一为一周开始）
+// 计算月视图网格
 const monthGrid = computed(() => {
   const base = new Date(selectedMonth.value)
   const year = base.getFullYear()
   const month = base.getMonth()
   const firstOfMonth = new Date(year, month, 1)
   const firstDay = firstOfMonth.getDay()
-  // 以周一为第一天，计算网格开始的周一
   const offsetToMonday = firstDay === 0 ? -6 : 1 - firstDay
   const gridStart = new Date(firstOfMonth)
   gridStart.setDate(firstOfMonth.getDate() + offsetToMonday)
-  gridStart.setHours(0,0,0,0)
-
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
   const weeks = []
   for (let w = 0; w < 6; w++) {
     const week = []
     for (let d = 0; d < 7; d++) {
-      const cellDate = new Date(gridStart)
-      cellDate.setDate(gridStart.getDate() + w*7 + d)
-      const today = new Date()
+      const current = new Date(gridStart)
+      current.setDate(gridStart.getDate() + w * 7 + d)
+      const dateStr = formatDate(current)
       week.push({
-        date: formatDate(cellDate, 'MM-DD'),
-        fullDate: formatDate(cellDate),
-        inMonth: cellDate.getMonth() === month,
-        isToday: formatDate(cellDate) === formatDate(today)
+        date: current.getDate(),
+        fullDate: dateStr,
+        isToday: current.getTime() === today.getTime(),
+        inMonth: current.getMonth() === month
       })
     }
     weeks.push(week)
   }
   return weeks
 })
+
 // 统一时间段大小写
 const normalizeSlot = (slot) => (slot ?? '').toString().trim().toUpperCase()
 
 // 加载排班数据（优先使用视图模式对应的日期，其次使用筛选栏日期）
 const loadSchedules = async () => {
+  // 防止重复加载
+  if (isLoadingSchedules.value) {
+    return
+  }
+  
+  isLoadingSchedules.value = true
+  
   try {
     let startDate, endDate
     // 优先使用视图模式对应的日期
@@ -455,6 +481,8 @@ const loadSchedules = async () => {
     } else {
       list = []
     }
+    
+    // 关键修复：确保数据完整加载后再一次性更新，避免中间状态导致闪现
     schedules.value = list
   } catch (error) {
     console.error('加载排班数据失败:', error)
@@ -463,48 +491,109 @@ const loadSchedules = async () => {
     } else {
       ElMessage.error('加载排班数据失败: ' + (error.message || '网络错误'))
     }
+  } finally {
+    isLoadingSchedules.value = false
   }
 }
 
 // 已移除前端二次过滤，直接使用后端筛选结果
 
+// 获取日视图指定时间段的排班
+const getDayScheduleForSlot = (timeSlot) => {
+  // 避免在渲染过程中重复计算日期
+  const dateStr = formatDate(selectedDate.value)
+  
+  // 使用 find 而不是 filter，提高性能
+  return schedules.value.find(schedule => {
+    if (!schedule) return false
+    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
+    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
+    const scheduleDate = typeof schedule.scheduleDate === 'string' 
+      ? schedule.scheduleDate 
+      : formatDate(new Date(schedule.scheduleDate))
+    return scheduleDate === dateStr && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
+  })
+}
 
+// 获取周视图/月视图指定单元格的排班
+const getScheduleForCell = (fullDate, timeSlot) => {
+  // 添加数据有效性检查，避免在数据加载过程中访问空数组
+  if (!schedules.value || schedules.value.length === 0) {
+    return null
+  }
+  
+  return schedules.value.find(schedule => {
+    if (!schedule) return false
+    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
+    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
+    const scheduleDate = typeof schedule.scheduleDate === 'string' 
+      ? schedule.scheduleDate 
+      : formatDate(new Date(schedule.scheduleDate))
+    return scheduleDate === fullDate && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
+  })
+}
 
+// 格式化时间段显示
+const formatTime = (timeSlot) => {
+  const slot = normalizeSlot(timeSlot)
+  if (slot === 'MORNING') return '上午'
+  if (slot === 'AFTERNOON') return '下午'
+  if (slot === 'EVENING') return '晚上'
+  return timeSlot
+}
 
+// 格式化门诊类型
+const formatSlotType = (slotType) => {
+  if (!slotType) return '普通门诊'
+  const type = String(slotType).toUpperCase()
+  if (type === 'NORMAL') return '普通门诊'
+  if (type === 'EXPERT') return '专家门诊'
+  if (type === 'SPECIAL') return '特需门诊'
+  return '普通门诊'
+}
 
-// 格式化选中日期
+// 获取排班状态样式类
+const getScheduleStatusClass = (schedule) => {
+  if (!schedule) return ''
+  const available = schedule.availableSlots || 0
+  const total = schedule.totalSlots || 0
+  if (available === 0) return 'full'
+  if (available < total * 0.3) return 'low'
+  return 'normal'
+}
+
+// 格式化选中日期显示
 const formatSelectedDate = () => {
   const date = new Date(selectedDate.value)
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
   const weekDay = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]
-  return `${formatDate(date)} ${weekDay}`
+  return `${year}年${month}月${day}日 ${weekDay}`
 }
 
-// 格式化周范围（用于周视图头部显示）
+// 格式化周范围显示
 const formatWeekRange = () => {
-  const base = new Date(selectedWeek.value)
-  const day = base.getDay()
-  const monday = new Date(base)
-  monday.setDate(base.getDate() - day + (day === 0 ? -6 : 1))
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  return `${formatDate(monday)} 至 ${formatDate(sunday)}`
+  if (weekDays.value.length === 0) return ''
+  const first = weekDays.value[0].fullDate
+  const last = weekDays.value[6].fullDate
+  return `${first} ~ ${last}`
 }
 
-// 格式化月份（用于月视图头部显示）
+// 格式化月份显示
 const formatMonthRange = () => {
-  const base = new Date(selectedMonth.value)
-  const year = base.getFullYear()
-  const month = base.getMonth() + 1
+  const date = new Date(selectedMonth.value)
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
   return `${year}年${month}月`
 }
 
-// 日视图相关方法
+// 日视图导航
 const previousDay = () => {
   const date = new Date(selectedDate.value)
   date.setDate(date.getDate() - 1)
   date.setHours(0, 0, 0, 0)
   selectedDate.value = date
-  // 同步更新筛选栏日期，确保 loadSchedules 使用正确的日期
   filterStartDate.value = new Date(date)
   filterEndDate.value = new Date(date)
   loadSchedules()
@@ -515,170 +604,50 @@ const nextDay = () => {
   date.setDate(date.getDate() + 1)
   date.setHours(0, 0, 0, 0)
   selectedDate.value = date
-  // 同步更新筛选栏日期，确保 loadSchedules 使用正确的日期
   filterStartDate.value = new Date(date)
   filterEndDate.value = new Date(date)
   loadSchedules()
 }
 
-const getDayScheduleForSlot = (timeSlot) => {
-  const dateStr = formatDate(selectedDate.value)
-  
-  return schedules.value.find(schedule => {
-    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
-    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
-    const scheduleDate = typeof schedule.scheduleDate === 'string' 
-      ? schedule.scheduleDate 
-      : formatDate(new Date(schedule.scheduleDate))
-    return scheduleDate === dateStr && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
-  })
-}
-
+// 日视图时间段点击
 const handleDaySlotClick = (date, timeSlot) => {
   const schedule = getDayScheduleForSlot(timeSlot)
   if (schedule) {
     selectedSchedule.value = schedule
     scheduleDialogVisible.value = true
-    // 加载患者列表
     dialogTimeSlotFilter.value = normalizeSlot(schedule.timeSlot)
     loadPatientsForSchedule(schedule.id)
   }
 }
 
-// 加载指定排班的患者列表
+// 加载排班的患者列表
 const loadPatientsForSchedule = async (scheduleId) => {
+  if (!scheduleId) return
   try {
-    // 使用时间段过滤器（点击排班卡片时会自动设置为对应时间段，用户也可以手动切换）
-    const timeSlotFilter = dialogTimeSlotFilter.value || undefined
-    
-    // 如果是当天的排班，使用 today-patients 接口
-    const params = { timeSlot: timeSlotFilter }
-    const resp = await getTodayPatients(params)
-    const rawList = Array.isArray(resp?.data?.patients) ? resp.data.patients : []
-    dialogMorningCount.value = Number(resp?.data?.morningCount || 0)
-    dialogAfternoonCount.value = Number(resp?.data?.afternoonCount || 0)
-    dialogEveningCount.value = Number(resp?.data?.eveningCount || 0)
-    
-    // 根据选中的排班和时间段过滤器进行过滤
-    const filtered = rawList.filter(item => {
-      // 优先使用 scheduleId 匹配
-      if (item.scheduleId) return item.scheduleId === scheduleId
-      
-      // 按日期与时间段匹配
-      const dateMatch = !!selectedSchedule.value?.scheduleDate && (item.scheduleDate === selectedSchedule.value.scheduleDate)
-      // 如果设置了时间段过滤器，则必须匹配时间段；否则显示所有时间段
-      const slotMatch = timeSlotFilter 
-        ? (normalizeSlot(item.timeSlot) === normalizeSlot(timeSlotFilter))
-        : true
-      return dateMatch && slotMatch
-    })
-    
+    const resp = await getTodayPatients({ scheduleId })
     if (selectedSchedule.value) {
-      selectedSchedule.value.patients = filtered.map(item => {
-        // 确保状态始终转换为中文
-        const statusValue = item.status || ''
-        const chineseStatus = getAppointmentStatusText(statusValue)
-        
-        return {
-          id: item.appointmentId,
-          name: item.patientName,
-          phone: item.phoneNumber,
-          appointmentTime: item.appointmentTime ? String(item.appointmentTime).split(' ')[1] : '',
-          status: chineseStatus, // 存储转换后的中文状态
-          originalStatus: statusValue, // 保留原始状态用于其他逻辑
-          patientId: item.patientId
-        }
-      })
+      selectedSchedule.value.patients = resp.data || []
     }
   } catch (error) {
     console.error('加载患者列表失败:', error)
-    ElMessage.error('加载患者列表失败')
   }
 }
 
-// 获取预约状态文本（将英文状态转换为中文）
+// 获取预约状态文本
 const getAppointmentStatusText = (status) => {
-  if (!status) return ''
-  
-  // 如果已经是中文，直接返回
-  const chineseStatuses = ['待就诊', '已完成', '已取消', '未到诊', '就诊中', '已确认']
-  if (chineseStatuses.includes(status)) {
-    return status
-  }
-  
-  // 将英文状态转换为中文
+  if (!status) return '未知'
   const statusMap = {
     'PENDING': '待就诊',
+    'CONFIRMED': '已确认',
     'COMPLETED': '已完成',
     'CANCELLED': '已取消',
     'NO_SHOW': '未到诊',
-    'CONFIRMED': '已确认',
-    'IN_PROGRESS': '就诊中',
-    'SCHEDULED': '待就诊'
+    'IN_PROGRESS': '就诊中'
   }
-  
-  // 转换为大写进行匹配（不区分大小写）
-  const upperStatus = String(status).toUpperCase()
-  return statusMap[upperStatus] || status
+  return statusMap[status] || status
 }
 
-// 格式化时间
-const formatTime = (timeSlot) => {
-  if (!timeSlot) return '';
-  // 根据timeSlot显示上午/下午
-  const s = normalizeSlot(timeSlot)
-  if (s === 'MORNING') {
-    return '上午';
-  } else if (s === 'AFTERNOON') {
-    return '下午';
-  }
-  return timeSlot;
-}
-
-// 格式化号别类型
-const formatSlotType = (slotType) => {
-  if (!slotType) return '普通门诊';
-  const type = slotType.toString().toLowerCase();
-  const typeMap = {
-    'normal': '普通门诊',
-    'expert': '专家号',
-    'vip': 'VIP号'
-  };
-  return typeMap[type] || slotType;
-}
-
-const getScheduleForCell = (fullDate, timeSlot) => {
-  return schedules.value.find(schedule => {
-    // 后端返回的 scheduleDate 已经是 yyyy-MM-dd 格式的字符串，直接比较即可
-    // 如果后端返回的是 Date 对象，则使用 formatDate 格式化
-    const scheduleDate = typeof schedule.scheduleDate === 'string' 
-      ? schedule.scheduleDate 
-      : formatDate(new Date(schedule.scheduleDate))
-    return scheduleDate === fullDate && normalizeSlot(schedule.timeSlot) === normalizeSlot(timeSlot)
-  })
-}
-
-const getScheduleStatusClass = (schedule) => {
-  if (!schedule) return 'normal'
-  
-  if (schedule.availableSlots === 0) {
-    return 'full'
-  } else if (schedule.availableSlots > 0) {
-    return 'normal'
-  }
-  
-  return 'normal'
-}
-
-const getScheduleStatusType = (status) => {
-  const statusMap = {
-    '正常': 'success',
-    '已满': 'warning',
-    '取消': 'danger'
-  }
-  return statusMap[status] || 'info'
-}
-
+// 获取患者状态标签类型
 const getPatientStatusType = (status) => {
   if (!status) return 'info'
   
@@ -731,9 +700,8 @@ const handleViewModeChange = (mode) => {
     // 不清空筛选日期：保持用户选择的范围用于月视图黄标
   }
   
-  nextTick(() => {
-    loadSchedules()
-  })
+  // 移除 nextTick，直接同步调用避免时序问题
+  loadSchedules()
 }
 
 // 监听视图模式变化（排除初始化时的触发）
@@ -742,8 +710,6 @@ watch(viewMode, (newMode, oldMode) => {
     handleViewModeChange(newMode)
   }
 })
-
-
 
 const handleWeekChange = (date) => {
   selectedWeek.value = date
@@ -1107,10 +1073,16 @@ onMounted(() => {
   color: #529b2e;
 }
 
+.schedule-item.low {
+  background-color: #fff7e6;
+  border: 1px solid #ffd591;
+  color: #d48806;
+}
+
 .schedule-item.full {
-  background-color: #fdf6ec;
-  border: 1px solid #f5dab1;
-  color: #b88230;
+  background-color: #ffe6e6;
+  border: 1px solid #ffb3b3;
+  color: #d32f2f;
 }
 
 .schedule-item.cancelled {
@@ -1154,6 +1126,52 @@ onMounted(() => {
   color: #67c23a; /* 与成功标签色系一致 */
   margin: 2px 0;
 }
+
+/* 颜色图例样式 */
+.legend-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.legend-box.legend-normal {
+  background-color: #e1f3d8;
+  border-color: #b3d8a4;
+}
+
+.legend-box.legend-low {
+  background-color: #fff7e6;
+  border-color: #ffd591;
+}
+
+.legend-box.legend-full {
+  background-color: #ffe6e6;
+  border-color: #ffb3b3;
+}
+
+.legend-text {
+  font-size: 14px;
+  color: #606266;
+}
+
 /* 月视图：跨月淡化、筛选范围淡黄色、日期布局与标签间距 */
 .month-view .schedule-cell.outside { background-color: #fafafa; color: #c0c4cc; }
 .month-view .schedule-cell.inRange { background-color: #fff7e6; box-shadow: inset 0 0 0 2px #f5d78e; }
