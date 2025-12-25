@@ -28,3 +28,31 @@ public class DepartmentWorkloadDTO {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

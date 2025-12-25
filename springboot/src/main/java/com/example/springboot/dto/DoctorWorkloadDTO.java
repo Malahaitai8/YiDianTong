@@ -30,3 +30,31 @@ public class DoctorWorkloadDTO {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

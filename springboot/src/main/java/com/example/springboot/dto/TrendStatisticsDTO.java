@@ -43,3 +43,31 @@ public class TrendStatisticsDTO {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
