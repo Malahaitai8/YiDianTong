@@ -3,6 +3,7 @@ import App from './App'
 import store from './store' // 1. 引入 store
 import { promptLogin } from '@/utils/auth.js'
 import webSocketManager from '@/utils/websocket.js'
+import request from '@/utils/request.js'
 
 Vue.config.productionTip = false
 App.mpType = 'app'
@@ -125,11 +126,64 @@ store.watch(
       }, 1000); // 延迟1秒确保用户信息已加载
     } else if (!newToken && oldToken) {
       // 用户退出登录，断开WebSocket
-      console.log('用户退出，断开WebSocket');
       disconnectWaitlistWebSocket();
     }
   }
 );
+
+// ========== WebSocket消息路由 ==========
+function setupWebSocketMessageRouting() {
+  // 监听WebSocket消息并路由到uni事件
+  webSocketManager.on('message', (data) => {
+    console.log('WebSocket消息路由:', data);
+
+    try {
+      const messageType = data.type;
+      const messageData = data.data || {};
+
+      switch (messageType) {
+        case 'WAITLIST_SUCCESS':
+          // 候补成功消息
+          console.log('路由候补成功消息到页面');
+          uni.$emit('waitlist-success', messageData);
+          break;
+
+        case 'RANK_UPDATE':
+          // 排队位次更新消息
+          console.log('路由排队位次更新消息到页面');
+          uni.$emit('waitlist-rank-update', messageData);
+          break;
+
+        case 'SLOT_AVAILABLE':
+          // 号源释放通知
+          console.log('路由号源释放通知到页面');
+          uni.$emit('SLOT_AVAILABLE', messageData);
+          break;
+
+        case 'APPOINTMENT_RESCHEDULED':
+          // 预约重新安排消息 - 只路由，统一由全局 listener 处理弹窗与已读标记
+          console.log('收到预约重新安排消息:', messageData);
+          uni.$emit('appointment-rescheduled', messageData);
+          break;
+
+        case 'APPOINTMENT_CANCELLED_REFUND':
+          // 预约取消退款消息
+          console.log('路由预约取消退款消息到页面');
+          uni.$emit('appointment-cancelled-refund', messageData);
+          break;
+
+        default:
+          console.log('未识别的WebSocket消息类型:', messageType);
+          break;
+      }
+    } catch (error) {
+      console.error('WebSocket消息路由失败:', error);
+    }
+  });
+}
+
+// 设置WebSocket消息路由
+setupWebSocketMessageRouting();
 
 // 应用启动时，如果已登录则连接WebSocket
 if (store.state.user.token) {
@@ -139,3 +193,62 @@ if (store.state.user.token) {
 }
 
 app.$mount()
+
+// 全局处理关键通知（在任何页面都弹窗提示用户）
+uni.$on('appointment-rescheduled', (data) => {
+  try {
+    console.log('全局收到预约重新安排:', data);
+    if (!data || !data.appointmentId) return;
+
+    const content = `您的预约已调整为：${data.doctorName} 医生，${data.appointmentDate} ${data.timeSlot}。系统已为您自动安排。若不满意，请在24小时内重新选择。`;
+
+    uni.showModal({
+      title: '预约已调整',
+      content: content,
+      confirmText: '重新选择',
+      cancelText: '接受安排',
+      success: async (res) => {
+        try {
+          // 标记相关 IN_APP 通知为已读（通过关联 appointmentId 查找）
+          const notesRes = await request({ url: '/notifications', method: 'GET', silent: true });
+          const list = Array.isArray(notesRes) ? notesRes : (notesRes && notesRes.list ? notesRes.list : []);
+          if (list && list.length > 0) {
+            const target = list.find(n => !n.isRead && n.channel === 'IN_APP' && n.relatedType === 'APPOINTMENT' && n.relatedId === data.appointmentId);
+            if (target && target.id) {
+              try {
+                await request({ url: `/notifications/${target.id}/read`, method: 'POST', silent: true });
+              } catch (err) {
+                console.warn('标记通知已读失败', err);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('处理通知已读时出错', e);
+        }
+
+        if (res.confirm) {
+          // 跳转到预约详情以便用户重新选择
+          uni.navigateTo({ url: `/pages/appointment-detail/appointment-detail?id=${data.appointmentId}` });
+        } else {
+          uni.showToast({ title: '已接受当前安排', icon: 'success' });
+        }
+      }
+    });
+  } catch (e) {
+    console.error('全局处理预约重新安排失败:', e);
+  }
+});
+
+uni.$on('appointment-cancelled-refund', (data) => {
+  try {
+    console.log('全局收到预约取消退款:', data);
+    uni.showModal({
+      title: '预约已取消并退款',
+      content: `您的预约因医生调班已取消，费用已退还。时间：${data.appointmentDate} ${data.timeSlot}`,
+      showCancel: false,
+      confirmText: '知道了'
+    });
+  } catch (e) {
+    console.error('全局处理预约取消退款失败:', e);
+  }
+});

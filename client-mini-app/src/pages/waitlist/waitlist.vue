@@ -204,6 +204,7 @@ export default {
 		// 设置WebSocket事件监听
 		uni.$on('waitlist-rank-update', this.handleRankUpdate);
 		uni.$on('waitlist-success', this.handleWaitlistSuccessEvent);
+		uni.$on('SLOT_AVAILABLE', this.handleSlotAvailableEvent);
 		
 		// 确保WebSocket连接
 		this.ensureWebSocketConnection();
@@ -222,6 +223,7 @@ export default {
 		// 移除WebSocket事件监听
 		uni.$off('waitlist-rank-update', this.handleRankUpdate);
 		uni.$off('waitlist-success', this.handleWaitlistSuccessEvent);
+		uni.$off('SLOT_AVAILABLE', this.handleSlotAvailableEvent);
 	},
 	onPullDownRefresh() {
 		this.handlePullDownRefresh();
@@ -327,71 +329,71 @@ export default {
 			}
 		},
 
-		// 检测候补状态变化
+		// 检测候补状态变化 - 严格按照微信小程序逻辑
 		async checkWaitlistSuccess(currentWaitlist) {
-			// 记录当前候补状态
+			// 记录当前候补状态 - 匹配微信小程序的逻辑
 			const currentStatus = currentWaitlist ? 'waiting' : 'none';
 
-			// 第一次检测，只记录状态
+			// 第一次检测，只记录状态 - 初始化逻辑
 			if (this.lastWaitlistStatus === null) {
 				this.lastWaitlistStatus = currentStatus;
 				console.log('初始化候补状态:', currentStatus);
 
-				// 如果有候补记录，启动预约检查定时器
+				// 如果有候补记录，启动预约检查定时器 - 关键逻辑
 				if (currentWaitlist) {
 					this.startAppointmentCheck();
 				}
 				return;
 			}
 
-			// 检测候补记录消失
+			// 检测候补状态变化 - 核心状态机逻辑
 			if (this.lastWaitlistStatus === 'waiting' && currentStatus === 'none') {
 				console.log('检测到候补记录消失');
 
-				// 停止所有定时器
+				// 停止所有定时器 - 清理资源
 				this.stopAllTimers();
 
-				// 检查是否有新预约
+				// 检查是否有新预约产生 - 关键检查
 				const hasAppointment = await this.checkForNewAppointment();
 
 				if (hasAppointment) {
 					console.log('✅ 候补成功！已找到新预约');
 					this.handleWaitlistSuccess();
 				} else {
-					console.log('❌ 候补记录消失但未找到新预约（可能是手动退出）');
-					// 返回上一页
+					console.log('❌ 候补记录消失但未找到新预约（可能是手动退出候补）');
+					// 延迟返回，避免用户看到空白页面
 					setTimeout(() => {
 						uni.navigateBack();
 					}, 1000);
 				}
 			}
 
-			// 更新状态
+			// 更新最后状态 - 状态机更新
 			this.lastWaitlistStatus = currentStatus;
 		},
 
-		// 启动预约检查定时器
+		// 启动预约检查定时器 - 严格按照微信小程序逻辑
 		startAppointmentCheck() {
 			console.log('启动预约检查定时器，每', this.checkInterval / 1000, '秒检查一次');
 
-			// 清除旧的定时器
+			// 清除旧的定时器 - 防止重复创建
 			if (this.checkAppointmentTimer) {
 				clearInterval(this.checkAppointmentTimer);
 			}
 
-			// 启动新的定时器
+			// 启动新的定时器 - 核心检查逻辑
 			this.checkAppointmentTimer = setInterval(async () => {
 				this.currentCheckCount++;
 				console.log(`第 ${this.currentCheckCount} 次检查预约...`);
 
-				// 达到最大检查次数
+				// 达到最大检查次数 - 停止检查
 				if (this.currentCheckCount >= this.maxCheckCount) {
 					console.log('达到最大检查次数，停止检查');
 					this.stopAllTimers();
 					return;
 				}
 
-				// 检查是否有新预约
+				// 检查是否有新预约 - 关键业务逻辑
 				const hasAppointment = await this.checkForNewAppointment();
 				if (hasAppointment) {
 					console.log('✅ 检测到新预约！候补成功');
@@ -714,7 +716,29 @@ export default {
 				}
 			});
 		},
-		
+
+		// 处理号源释放通知
+		handleSlotAvailableEvent(data) {
+			console.log('收到号源释放通知:', data);
+
+			// 检查是否是当前页面的排班
+			if (data.scheduleId && this.scheduleId && data.scheduleId === this.scheduleId) {
+				console.log('当前页面的号源已释放，刷新候补信息');
+
+				// 刷新候补信息
+				this.loadWaitlistInfo();
+
+				// 显示提示信息
+				uni.showToast({
+					title: '号源已释放，可重新预约',
+					icon: 'success',
+					duration: 2000
+				});
+			} else {
+				console.log('其他排班的号源释放通知，忽略');
+			}
+		},
+
 		// 确保WebSocket连接
 		ensureWebSocketConnection() {
 			console.log('检查WebSocket连接状态');

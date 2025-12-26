@@ -71,7 +71,10 @@
 								expired: uiStatus(item) === 'EXPIRED'
 							}"
 						>
-							{{ statusName(uiStatus(item)) }}
+							{{ getDisplayStatusText(item) }}
+						</text>
+						<text class="reselect-remain" v-if="item.rescheduleWindowExpires && (new Date(item.rescheduleWindowExpires)).getTime() > nowTs && (String(item.sourceType || '').toUpperCase() !== 'RESELECTED')">
+							可重新选择：{{ getReselectRemainingText(item) }}
 						</text>
 					</view>
 					<view class="row" v-if="item.fee !== undefined || item.actualFee !== undefined">
@@ -84,7 +87,9 @@
 					</view>
 					<view class="actions" @click.stop v-if="item.type !== 'waitlist'">
 						<button class="btn detail" @click.stop="viewDetail(item)">查看详情</button>
-						<button v-if="item.status==='PENDING' || item.status==='scheduled' || item.status==='CONFIRMED'" class="btn cancel" @click.stop="cancel(item)">退号</button>
+						<!-- 使用 uiStatus(item)（displayStatus 优先）判断是否显示可取消按钮，包含 RESCHEDULED -->
+						<button v-if="uiStatus(item) === 'PENDING' || uiStatus(item) === 'scheduled' || uiStatus(item) === 'CONFIRMED' || uiStatus(item) === 'RESCHEDULED' || uiStatus(item) === 'RESELECTED'" class="btn cancel" @click.stop="cancel(item)">退号</button>
+						<button v-if="canReselectItem(item)" class="btn reselect" @click.stop="showReselectOptions(item.id)">重新选择</button>
 						<button class="btn delete" @click.stop="remove(item)">删除</button>
 					</view>
 					<view class="actions" @click.stop v-else>
@@ -113,6 +118,9 @@ export default {
 			pollTimer: null, // 轮询定时器
 			pollCount: 0, // 轮询次数
 			maxPollCount: 6 // 最大轮询次数（3秒*6=18秒）
+			,
+			nowTs: Date.now(),
+			reselectInterval: null
 		};
 	},
 	computed: {
@@ -166,15 +174,22 @@ export default {
 			// 合并所有记录
 			return [...appointmentRecords, ...waitlistRecords];
 		},
+		// 复合展示状态：如果是已重新安排，则在状态后追加“（已重新安排）”
+		// 计算重新选择剩余时间显示文本（注意：此函数已移至 methods，避免在 computed 中调用带参数的函数）
+		// 复合展示状态：如果是已重新安排，则在状态后追加“（已重新安排）”
 		// 根据筛选条件过滤列表
 		filteredList() {
 			if (this.currentFilter === 'all') {
 				return this.allRecords;
 			} else if (this.currentFilter === 'appointment') {
-				// 只显示预约记录（待就诊和已确认）
-				return this.allRecords.filter(item =>
-					item.type === 'appointment' && (item.status === 'PENDING' || item.status === 'scheduled' || item.status === 'CONFIRMED')
-				);
+				// 只显示预约记录（待就诊、已确认、以及重新安排/重新选择的预约）
+				return this.allRecords.filter(item => {
+					if (item.type !== 'appointment') return false;
+					const derived = this.deriveAppointmentStatus(item);
+					const src = (item.sourceType || '').toString().toUpperCase();
+					// 包含派生为 RESCHEDULED 的，以及来源为 RESELECTED 的记录
+					return derived === 'PENDING' || derived === 'CONFIRMED' || derived === 'RESCHEDULED' || src === 'RESELECTED';
+				});
 			} else if (this.currentFilter === 'visit') {
 				// 只显示就诊记录（已完成）
 				return this.allRecords.filter(item =>
@@ -217,23 +232,163 @@ export default {
 
 		this.loadData();
 
+		// 拉取未读站内通知（回退方案：当 WS 不在线或漏推时，打开页面能看到通知）
+		this.fetchAndShowUnreadNotifications();
+
 		// 如果是从候补成功跳转过来，启动短期轮询
 		if (this.fromWaitlistSuccess) {
 			console.log('启动候补成功轮询...');
 			this.startSuccessPolling();
 		}
+
+		// 添加事件监听
+		uni.$on('appointment-rescheduled', this.handleAppointmentRescheduled);
+		uni.$on('appointment-cancelled-refund', this.handleAppointmentCancelledRefund);
+		// 启动重新选择倒计时刷新（用于卡片倒计时显示）
+		if (!this.reselectInterval) {
+			this.reselectInterval = setInterval(() => {
+				this.nowTs = Date.now();
+			}, 60 * 1000); // 每分钟更新一次
+		}
 	},
 	onUnload() {
 		// 清理轮询定时器
-		if (this.pollTimer) {
-clearTimeout(this.pollTimer);
-			this.pollTimer = null;
+		this.stopPolling();
+		// 移除事件监听
+		uni.$off('appointment-rescheduled', this.handleAppointmentRescheduled);
+		uni.$off('appointment-cancelled-refund', this.handleAppointmentCancelledRefund);
+		// 清理重新选择倒计时
+		if (this.reselectInterval) {
+			clearInterval(this.reselectInterval);
+			this.reselectInterval = null;
 		}
 	},
+	// fetchAndShowUnreadNotifications moved into methods section to be accessible via this.*
 	onPullDownRefresh() {
 		this.handlePullDownRefresh();
 	},
 	methods: {
+		// 复合展示状态：处理“已重新安排/已重新选择”提示
+		getDisplayStatusText(item) {
+			try {
+				const base = this.statusName(this.uiStatus(item));
+				const src = item?.sourceType || item?.displayStatus || item?.status || '';
+				const srcUpper = String(src).toUpperCase();
+				// 患者主动重新选择的状态，显示“已重新选择”
+				if (srcUpper === 'RESELECTED') {
+					return `${base}（已重新选择）`;
+				}
+				// 系统自动重新安排，或 autoAssigned 标记，显示“已重新安排”
+				if (srcUpper === 'RESCHEDULED' || srcUpper === 'RESCHEDULE' || item?.autoAssigned) {
+					return `${base}（已重新安排）`;
+				}
+				return base;
+			} catch (e) {
+				return this.statusName(this.uiStatus(item));
+			}
+		},
+		// 计算重新选择剩余时间显示文本（可带参数调用）
+		getReselectRemainingText(item) {
+			try {
+				const expires = item.rescheduleWindowExpires || item.reschedule_window_expires;
+				if (!expires) return '';
+				const expTs = (new Date(expires)).getTime();
+				const diff = expTs - (this.nowTs || Date.now());
+				if (diff <= 0) return '已过期';
+				const hours = Math.floor(diff / (1000 * 60 * 60));
+				const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				if (hours > 0) return `${hours}小时${minutes}分`;
+				return `${minutes}分`;
+			} catch (e) {
+				return '';
+			}
+		},
+		// 计算重新选择剩余时间显示文本（移动到 methods 中，供模板调用）
+		// 占位，实际实现位于 methods.getReselectRemainingText
+		// 列表项是否允许直接重新选择（与详情页逻辑一致）
+		canReselectItem(item) {
+			try {
+				// 仅允许操作自己的预约（或管理员/有特殊权限的用户）
+				const currentUserId = this.$store && this.$store.state && this.$store.state.user && this.$store.state.user.userInfo
+					? this.$store.state.user.userInfo.userId : null;
+				if (currentUserId && item.patientId && Number(currentUserId) !== Number(item.patientId)) {
+					return false;
+				}
+				// 仅允许系统自动分配/重新安排（RESCHEDULED）由患者重新选择一次，已重新选择（RESELECTED）不可再次选择
+				if (item?.autoAssigned) {
+					// 只有当原始来源是 RESCHEDULED 时允许患者操作
+					const srcAuto = (item.sourceType || '').toString().toUpperCase();
+					if (srcAuto !== 'RESCHEDULED') return false;
+				} else {
+					if (this.deriveAppointmentStatus(item) !== 'RESCHEDULED') return false;
+				}
+				const src = (item.sourceType || item.displayStatus || item.status || '').toString().toUpperCase();
+				if (src === 'RESELECTED') return false;
+				const expires = item.rescheduleWindowExpires || item.reschedule_window_expires || item.rescheduleWindowExpires;
+				if (!expires) return true;
+				const expTs = (new Date(expires)).getTime();
+				return Date.now() <= expTs;
+			} catch (e) {
+				return false;
+			}
+		},
+		// 获取号别类型的中文显示
+		getSlotTypeDisplay(slotType) {
+			if (!slotType) return '';
+			const type = slotType.toUpperCase();
+			switch (type) {
+				case 'NORMAL':
+					return '普通号';
+				case 'EXPERT':
+					return '专家号';
+				case 'VIP':
+					return '特需号';
+				default:
+					return slotType;
+			}
+		},
+		// 拉取并展示未读的 IN_APP 通知（回退方案）
+		async fetchAndShowUnreadNotifications() {
+			try {
+				const res = await request({ url: '/notifications', method: 'GET', silent: true });
+				const notes = Array.isArray(res) ? res : (res && res.list ? res.list : []);
+				if (!notes || notes.length === 0) return;
+
+				// 只处理未读的 IN_APP 类型通知（后端已写入 IN_APP）
+				const unreadInApp = notes.filter(n => !n.isRead && n.channel === 'IN_APP');
+				if (unreadInApp && unreadInApp.length > 0) {
+					// 展示第一个未读通知（避免一次弹太多）
+					const n = unreadInApp[0];
+					uni.showModal({
+						title: n.title || '通知',
+						content: n.content || '',
+						confirmText: '查看详情',
+						cancelText: '忽略',
+						success: (resModal) => {
+							// 无论确认还是忽略，都将该通知标记为已读，避免反复弹窗
+							(async () => {
+								try {
+									await request({ url: `/notifications/${n.id}/read`, method: 'POST', silent: true });
+								} catch (e) {
+									console.warn('标记通知已读失败', e);
+								}
+							})();
+
+							if (resModal.confirm) {
+								// 跳转到预约列表/详情，若有关联预约则进入详情
+								if (n.relatedType === 'APPOINTMENT' && n.relatedId) {
+									uni.navigateTo({ url: `/pages/appointment-detail/appointment-detail?id=${n.relatedId}` });
+								} else {
+									uni.switchTab({ url: '/pages/records/records' });
+								}
+							}
+						}
+					});
+				}
+			} catch (e) {
+				console.warn('拉取未读通知失败（静默）', e);
+			}
+		},
 		async handlePullDownRefresh() {
 			try {
 				await this.loadData();
@@ -285,69 +440,98 @@ clearTimeout(this.pollTimer);
 			}
 		},
 
-		// 启动候补成功后的短期轮询
+		// 启动候补成功后的智能轮询 - 匹配微信小程序逻辑
 		startSuccessPolling() {
-			console.log('启动候补成功轮询，查找新预约，目标scheduleId:', this.targetScheduleId);
+			console.log('启动候补成功智能轮询，查找新预约，目标scheduleId:', this.targetScheduleId);
 
 			const pollOnce = async () => {
 				this.pollCount++;
 				console.log(`轮询第 ${this.pollCount} 次...`);
 
 				try {
-					// 重新加载数据
+					// 重新加载数据（静默模式）
 					await this.loadData(true);
 
-					console.log('当前预约列表:', this.appointments);
+					console.log('当前预约列表:', this.appointments?.length || 0, '条记录');
 					console.log('查找条件 - scheduleId:', this.targetScheduleId);
 
 					// 查找匹配的预约（必须是从候补转换来的新预约）
-					const foundAppointment = this.appointments.find(apt => {
-						console.log('检查预约:', apt.scheduleId, apt.sourceType, apt.status);
+					const foundAppointment = this.appointments?.find(apt => {
+						console.log('检查预约:', {
+							id: apt.id,
+							scheduleId: apt.scheduleId,
+							sourceType: apt.sourceType,
+							status: apt.status,
+							createTime: apt.createTime
+						});
+
 						// 必须满足：1. scheduleId匹配 2. 来源是候补 3. 状态是待就诊
-						return apt.scheduleId === this.targetScheduleId &&
+						const isMatch = apt.scheduleId === this.targetScheduleId &&
 							   apt.sourceType === 'WAITLIST' &&
-							   apt.status === 'PENDING';
+							   (apt.status === 'PENDING' || apt.status === 'scheduled');
+
+						if (isMatch) {
+							console.log('找到匹配的候补预约:', apt);
+						}
+
+						return isMatch;
 					});
 
 					if (foundAppointment) {
-						console.log('找到候补转换的新预约！', foundAppointment);
+						console.log('✅ 找到候补转换的新预约！', foundAppointment);
 						uni.showToast({
 							title: '已获取到新预约',
 							icon: 'success',
 							duration: 2000
 						});
+
 						// 停止轮询
+						this.stopPolling();
 						this.fromWaitlistSuccess = false;
 						return;
 					}
 
 					// 如果未达到最大次数，继续轮询
 					if (this.pollCount < this.maxPollCount) {
-						console.log(`未找到新预约，${5}秒后进行第${this.pollCount + 1}次轮询...`);
-						this.pollTimer = setTimeout(pollOnce, 5000); // 5秒后再次轮询
+						// 动态调整轮询间隔：前3次3秒，后续5秒
+						const interval = this.pollCount <= 3 ? 3000 : 5000;
+						console.log(`未找到新预约，${interval/1000}秒后进行第${this.pollCount + 1}次轮询...`);
+						this.pollTimer = setTimeout(pollOnce, interval);
 					} else {
 						console.log('轮询达到最大次数，停止轮询');
 						uni.showToast({
-							title: '预约正在生成中，请稍后刷新或到消息查看',
+							title: '预约可能正在处理中，请稍后手动刷新查看',
 							icon: 'none',
 							duration: 3000
 						});
+						this.stopPolling();
 						this.fromWaitlistSuccess = false;
 					}
 				} catch (error) {
 					console.error('轮询过程中出错:', error);
-					// 继续轮询，不因为单次错误而停止
+					// 出错时重试，但减少重试频率
 					if (this.pollCount < this.maxPollCount) {
-						this.pollTimer = setTimeout(pollOnce, 5000);
+						console.log('轮询出错，10秒后重试...');
+						this.pollTimer = setTimeout(pollOnce, 10000);
 					} else {
+						this.stopPolling();
 						this.fromWaitlistSuccess = false;
 					}
 				}
 			};
 
-			// 延迟2秒后开始第一次轮询，给后端处理时间
-			console.log('2秒后开始轮询...');
-			this.pollTimer = setTimeout(pollOnce, 2000);
+			// 延迟1秒后开始第一次轮询，给后端更多处理时间
+			console.log('1秒后开始轮询...');
+			this.pollTimer = setTimeout(pollOnce, 1000);
+		},
+
+		// 停止轮询
+		stopPolling() {
+			if (this.pollTimer) {
+				clearTimeout(this.pollTimer);
+				this.pollTimer = null;
+				console.log('轮询已停止');
+			}
 		},
 		// 筛选记录
 		filterRecords(type) {
@@ -365,10 +549,12 @@ clearTimeout(this.pollTimer);
 		// 将后端状态与当前时间结合，得出前端展示状态
 		deriveAppointmentStatus(item) {
 			const raw = (item?.status || '').toUpperCase();
-			// 直接映射的终态
+		// 直接映射的终态
 			if (raw === 'CANCELLED' || raw === 'CANCEL' || raw === 'REFUNDED' || raw === 'REFUND') return 'CANCELLED';
 			if (raw === 'COMPLETED') return 'COMPLETED';
 			if (raw === 'WAITLIST') return 'WAITLIST';
+        // 系统自动重新安排视为已重新安排，前端显示“已重新安排”但仍允许重新选择/取消
+        if (raw === 'RESCHEDULED' || raw === 'RESCHEDULE') return 'RESCHEDULED';
 
 			// 动态态：待就诊/已过号
 			const { start, end } = this.getAppointmentTimeRange(item);
@@ -445,6 +631,10 @@ clearTimeout(this.pollTimer);
 			switch (s) {
 				case 'PENDING': return '待就诊';
 				case 'scheduled': return '待就诊';
+				// 对于重新安排/重新选择，基础状态仍然显示为“待就诊”，复合后缀由 getDisplayStatusText 追加
+				case 'RESCHEDULED': return '待就诊';
+				case 'RESCHEDULE': return '待就诊';
+				case 'RESELECTED': return '待就诊';
 				case 'CONFIRMED': return '已确认';
 				case 'COMPLETED': return '已完成';
 				case 'completed': return '已完成';
@@ -502,6 +692,186 @@ clearTimeout(this.pollTimer);
 			// 跳转到候补详情页
 			uni.navigateTo({
 				url: `/pages/waitlist/waitlist?scheduleId=${item.scheduleId}`
+			});
+		},
+
+		// 处理预约重新安排通知
+		handleAppointmentRescheduled(data) {
+			console.log('收到预约重新安排通知:', data);
+
+			uni.showModal({
+				title: '预约已重新安排',
+				content: `您的预约因医生调班已重新安排至${data.doctorName}医生，时间：${data.appointmentDate} ${data.timeSlot}。您可以在24小时内重新选择医生，否则将按当前安排就诊。`,
+				confirmText: '重新选择',
+				cancelText: '接受安排',
+				success: (res) => {
+					if (res.confirm) {
+						// 显示重新选择选项
+						this.showReselectOptions(data.appointmentId);
+					} else {
+						// 接受当前安排
+						uni.showToast({
+							title: '已接受当前安排',
+							icon: 'success',
+							duration: 2000
+						});
+					}
+				}
+			});
+		},
+
+		// 处理预约取消退款通知
+		handleAppointmentCancelledRefund(data) {
+			console.log('收到预约取消退款通知:', data);
+
+			uni.showModal({
+				title: '预约已取消',
+				content: `您的预约因医生调班已取消，费用已退还至原支付账户。时间：${data.appointmentDate} ${data.timeSlot}`,
+				showCancel: false,
+				confirmText: '知道了',
+				success: () => {
+					// 刷新数据
+					this.loadData();
+				}
+			});
+		},
+
+		// 显示重新选择选项
+		async showReselectOptions(appointmentId) {
+			try {
+				// ownership check: prevent calling API for appointments that don't belong to current user
+				const appointment = this.appointments.find(a => a.id === appointmentId) || {};
+				const currentUserId = this.$store && this.$store.state && this.$store.state.user && this.$store.state.user.userInfo
+					? this.$store.state.user.userInfo.userId : null;
+				if (currentUserId && appointment.patientId && Number(currentUserId) !== Number(appointment.patientId)) {
+					uni.showToast({ title: '无权限操作此预约', icon: 'none' });
+					return;
+				}
+				console.debug('showReselectOptions called, appointmentId=', appointmentId);
+				uni.showLoading({ title: '加载选项中...' });
+
+				// 获取可重新选择的选项
+				const response = await request({
+					url: `/appointment/${appointmentId}/reselect-options`,
+					method: 'GET'
+				});
+
+				uni.hideLoading();
+				console.debug('reselect-options response:', response);
+
+				// 兼容多种后端返回格式：{ list: [...] } 或直接返回数组
+				const list = Array.isArray(response) ? response : (Array.isArray(response?.list) ? response.list : []);
+
+				if (list && list.length > 0) {
+					// 显示选项列表让用户选择
+					this.showOptionSelector(appointmentId, list);
+				} else {
+					uni.showModal({
+						title: '无可用选项',
+						content: '当前没有其他可选择的医生时段，是否接受当前安排？',
+						confirmText: '接受安排',
+						cancelText: '稍后再选',
+						success: (res) => {
+							if (res.confirm) {
+								uni.showToast({
+									title: '已接受当前安排',
+									icon: 'success'
+								});
+							}
+						}
+					});
+				}
+			} catch (error) {
+				uni.hideLoading();
+				console.error('获取重新选择选项失败:', error);
+				uni.showToast({
+					title: error?.msg || error?.message || '获取选项失败',
+					icon: 'none'
+				});
+			}
+		},
+
+		// 显示选项选择器
+		showOptionSelector(appointmentId, options) {
+			const optionList = options.map((option, index) => {
+				const dateStr = option.date ? new Date(option.date).toLocaleDateString('zh-CN') : '';
+				const timeSlot = option.timeSlot || '';
+				const doctorTitle = option.doctorTitle || '';
+				const department = option.departmentName || '';
+				const slotType = this.getSlotTypeDisplay(option.slotType);
+				const fee = option.fee ? `¥${option.fee}` : '';
+				const available = option.availableSlots ? `剩余${option.availableSlots}个` : '';
+
+				// 构建美观的显示文本
+				let displayText = `${option.doctorName}`;
+				if (doctorTitle) displayText += `(${doctorTitle})`;
+				if (department) displayText += ` - ${department}`;
+				displayText += `\n${dateStr} ${timeSlot}`;
+				if (slotType || fee || available) {
+					const details = [slotType, fee, available].filter(Boolean).join(' ');
+					displayText += `\n${details}`;
+				}
+
+				return {
+					text: displayText,
+					value: option.scheduleId,
+					index: index,
+					option: option
+				};
+			});
+
+			uni.showActionSheet({
+				itemList: optionList.map(item => item.text),
+				success: (res) => {
+					const selectedOption = optionList[res.tapIndex];
+					this.confirmReselect(appointmentId, selectedOption.value, selectedOption.text);
+				},
+				fail: (res) => {
+					console.log('用户取消选择');
+				}
+			});
+		},
+
+		// 确认重新选择
+		confirmReselect(appointmentId, newScheduleId, optionText) {
+			uni.showModal({
+				title: '确认重新选择',
+				content: optionText,
+				confirmText: '确认',
+				cancelText: '取消',
+				success: async (res) => {
+					if (res.confirm) {
+						try {
+							uni.showLoading({ title: '重新选择中...' });
+
+							const response = await request({
+								url: `/appointment/${appointmentId}/reselect`,
+								method: 'POST',
+								data: {
+									newScheduleId: newScheduleId
+								}
+							});
+
+							uni.hideLoading();
+
+							if (response) {
+								uni.showToast({
+									title: '重新选择成功',
+									icon: 'success',
+									duration: 2000
+								});
+								// 刷新数据
+								this.loadData();
+							}
+						} catch (error) {
+							uni.hideLoading();
+							uni.showToast({
+								title: error.msg || '重新选择失败',
+								icon: 'none'
+							});
+						}
+					}
+				}
 			});
 		}
 	}

@@ -33,9 +33,11 @@ class WebSocketClient {
     // #ifdef MP-WEIXIN
     if (wsUrl.includes('localhost') || wsUrl.includes('127.0.0.1')) {
       console.warn('微信小程序中无法使用 localhost，请配置实际的服务器 IP 地址');
-      // 尝试使用环境变量中的 WebSocket 配置
-      const wsHost = process.env.VUE_APP_WS_HOST || 'localhost';
-      const wsPort = process.env.VUE_APP_WS_PORT || '9090';
+      // 尝试使用环境变量中的 WebSocket 配置，默认使用8080端口（与后端Spring Boot一致）
+      // 在 H5 环境中优先使用当前页面的 host（方便使用设备局域网IP或本机IP调试）
+      const defaultHost = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : 'localhost';
+      const wsHost = process.env.VUE_APP_WS_HOST || defaultHost;
+      const wsPort = process.env.VUE_APP_WS_PORT || '8080'; // 修改默认端口为8080
       const wsProtocol = process.env.VUE_APP_WS_PROTOCOL || 'ws';
       wsUrl = `${wsProtocol}://${wsHost}:${wsPort}`;
     }

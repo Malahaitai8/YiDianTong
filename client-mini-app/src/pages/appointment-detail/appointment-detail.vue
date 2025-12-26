@@ -6,12 +6,16 @@
 			:class="{
 				'status-pending': appointmentDetail.status === 'PENDING' || appointmentDetail.status === 'pending',
 				'status-confirmed': appointmentDetail.status === 'CONFIRMED' || appointmentDetail.status === 'confirmed' || appointmentDetail.status === 'SCHEDULED' || appointmentDetail.status === 'scheduled',
+				'status-rescheduled': appointmentDetail.status === 'RESCHEDULED' || appointmentDetail.status === 'RESCHEDULE',
 				'status-completed': appointmentDetail.status === 'COMPLETED' || appointmentDetail.status === 'completed',
 				'status-cancelled': appointmentDetail.status === 'CANCELLED' || appointmentDetail.status === 'cancelled'
 			}"
 		>
 			<view class="status-icon">{{ getStatusIcon(appointmentDetail.status) }}</view>
-			<text class="status-text">{{ getStatusText(appointmentDetail.status) }}</text>
+			<text class="status-text">{{ getDisplayStatusTextDetail() }}</text>
+			<text v-if="appointmentDetail.rescheduleWindowExpires && (new Date(appointmentDetail.rescheduleWindowExpires)).getTime() > nowTs && (String(appointmentDetail.sourceType || '').toUpperCase() !== 'RESELECTED')" style="margin-top:8rpx; font-size:24rpx; color:#fff; opacity:0.95;">
+				重新选择剩余：{{ getReselectRemainingTextDetail() }}
+			</text>
 		</view>
 
 		<!-- 就诊信息卡片 -->
@@ -100,11 +104,17 @@
 
 		<!-- 底部操作栏 -->
 		<view class="bottom-bar">
-			<!-- 待就诊/已确认状态：仅显示退号按钮；加入候补不应出现在预约详情页 -->
+			<!-- 待就诊/已确认状态：仅显示退号按钮；已重新安排时显示重新选择 -->
 			<template v-if="canCancel">
 				<button class="action-btn cancel-btn" @click="goToCancel">
 					<text class="btn-icon">❌</text>
 					<text class="btn-text">退号</text>
+				</button>
+			</template>
+			<template v-if="canReselect()">
+				<button class="action-btn waitlist-btn" @click="showReselectOptions">
+					<text class="btn-icon">🔁</text>
+					<text class="btn-text">重新选择</text>
 				</button>
 			</template>
 			<!-- 其他状态：只显示返回按钮 -->
@@ -112,11 +122,57 @@
 				<text class="btn-text">返回</text>
 			</button>
 		</view>
+		<!-- 自定义重新选择模态框（放在根 view 内） -->
+		<view v-if="reselectModalVisible" class="custom-modal-wrap">
+			<view class="custom-modal-overlay" @click="closeReselectModal"></view>
+			<view class="custom-modal">
+				<view class="modal-header">
+					<text class="modal-title">选择新的就诊时段</text>
+					<button class="modal-close" @click="closeReselectModal">关闭</button>
+					<!-- 调试按钮：确认点击是否能触发（仅调试用，可删除） -->
+					<button class="modal-test" @click.stop="onConfirmClick" style="margin-left:12rpx;">测试确认</button>
+				</view>
+				<!-- 筛选与排序控件 -->
+				<view class="modal-controls">
+					<view class="filter-group">
+						<text class="filter-label">号别：</text>
+						<button :class="{'chip':true, active: reselectFilterSlotType==''}" @click="reselectFilterSlotType = ''">全部</button>
+						<button :class="{'chip':true, active: reselectFilterSlotType=='NORMAL'}" @click="reselectFilterSlotType = 'NORMAL'">普通号</button>
+						<button :class="{'chip':true, active: reselectFilterSlotType=='EXPERT'}" @click="reselectFilterSlotType = 'EXPERT'">专家号</button>
+						<button :class="{'chip':true, active: reselectFilterSlotType=='VIP'}" @click="reselectFilterSlotType = 'VIP'">特需号</button>
+					</view>
+					<view class="sort-group">
+						<text class="filter-label">排序：</text>
+						<button :class="{'chip':true, active: reselectSortBy=='date'}" @click="reselectSortBy='date'">按日期</button>
+						<button :class="{'chip':true, active: reselectSortBy=='slotType'}" @click="reselectSortBy='slotType'">按号别</button>
+						<button :class="{'chip':true, active: reselectSortBy=='available'}" @click="reselectSortBy='available'">按剩余</button>
+					</view>
+				</view>
+				<view class="modal-body">
+					<view class="option-card" v-for="(opt, idx) in reselectVisibleOptions" :key="opt.scheduleId" :class="{selected: String(opt.scheduleId) === selectedReselectScheduleId}" @click.stop="selectReselectOption(idx)">
+						<view class="card-left">
+							<text class="doctor-name">{{ opt.doctorName }}<text v-if="opt.doctorTitle">（{{ opt.doctorTitle }}）</text></text>
+							<text class="department">{{ opt.departmentName }}</text>
+							<text class="date-time">{{ (new Date(opt.date)).getFullYear() }}年{{ String(new Date(opt.date).getMonth()+1).padStart(2,'0') }}月{{ String(new Date(opt.date).getDate()).padStart(2,'0') }}日 {{ getTimeSlotDisplay(opt.timeSlot) }}</text>
+							<text class="slot-meta">{{ getSlotTypeDisplay(opt.slotType) }} {{ opt.fee ? ('¥' + opt.fee) : '' }} {{ opt.availableSlots ? ('剩余' + opt.availableSlots + '个') : '' }}</text>
+						</view>
+					<view class="card-right">
+						<button class="select-btn" @click.stop="selectReselectOption(idx)" @tap.stop="selectReselectOption(idx)">选此时段</button>
+						<text class="checkmark" v-if="selectedReselectScheduleId === String(opt.scheduleId)">✔</text>
+					</view>
+					</view>
+				</view>
+				<view class="modal-footer">
+					<view class="confirm-btn" :class="{disabled: !selectedReselectScheduleId}" @click.stop="onConfirmClick">确认重新选择</view>
+				</view>
+			</view>
+		</view>
 	</view>
 </template>
 
 <script>
 import { getMyAppointments, cancelAppointment } from '@/api/appointment.js'
+import request from '@/utils/request.js'
 
 export default {
 	name: 'AppointmentDetail',
@@ -141,7 +197,22 @@ export default {
 				reimbursementRate: '',
 				createdAt: '',
 				reminderTime: ''
+				,
+				// nowTs and reselectInterval moved to root level for reactivity
 			}
+			,
+			// 顶层时间与模态相关状态
+			nowTs: Date.now(),
+			reselectInterval: null,
+			reselectModalVisible: false,
+			reselectOptions: [],
+			// 已选择的选项（对象），以及在可见列表中的索引
+			selectedReselectIndex: null,
+			selectedReselectScheduleId: null,
+			selectedReselectOption: null,
+			// 筛选/排序
+			reselectFilterSlotType: '', // '', 'NORMAL','EXPERT','VIP'
+			reselectSortBy: 'date' // 'date'|'slotType'|'available'
 		};
 	},
 	computed: {
@@ -150,7 +221,26 @@ export default {
 			const status = this.appointmentDetail.status;
 			return status === 'PENDING' || status === 'pending' || 
 				   status === 'CONFIRMED' || status === 'confirmed' ||
-				   status === 'SCHEDULED' || status === 'scheduled';
+				   status === 'SCHEDULED' || status === 'scheduled' ||
+				   status === 'RESCHEDULED' || status === 'RESCHEDULE' || status === 'RESELECTED';
+		}
+		,
+		// 可见的重新选择选项（应用筛选与排序）
+		reselectVisibleOptions() {
+			let list = Array.isArray(this.reselectOptions) ? this.reselectOptions.slice() : [];
+			// 过滤号别
+			if (this.reselectFilterSlotType) {
+				list = list.filter(opt => (opt.slotType || '').toString().toUpperCase() === this.reselectFilterSlotType);
+			}
+			// 排序
+			if (this.reselectSortBy === 'date') {
+				list.sort((a,b) => new Date(a.date) - new Date(b.date));
+			} else if (this.reselectSortBy === 'slotType') {
+				list.sort((a,b) => ((a.slotType||'').localeCompare(b.slotType||'')));
+			} else if (this.reselectSortBy === 'available') {
+				list.sort((a,b) => (Number(b.availableSlots||0) - Number(a.availableSlots||0)));
+			}
+			return list;
 		}
 	},
 	onLoad(options) {
@@ -167,9 +257,52 @@ export default {
 			this.appointmentDetail.status = options.status;
 		}
 	},
+	onShow() {
+		// 启动倒计时更新
+		if (!this.reselectInterval) {
+			this.reselectInterval = setInterval(() => {
+				this.nowTs = Date.now();
+			}, 60 * 1000);
+		}
+	},
+	onUnload() {
+		if (this.reselectInterval) {
+			clearInterval(this.reselectInterval);
+			this.reselectInterval = null;
+		}
+	},
 	methods: {
 		displayValue(value, fallback = '--') {
 			return value === undefined || value === null || value === '' ? fallback : value;
+		},
+		// 前端内部使用：timeSlot 序号（上午=1, 下午=2, 晚上=3）
+		_timeSlotOrder(slot) {
+			if (!slot) return 0;
+			const s = (slot || '').toString().toLowerCase();
+			if (s === 'morning' || s === '上午') return 1;
+			if (s === 'afternoon' || s === '下午') return 2;
+			if (s === 'evening' || s === '晚上') return 3;
+			return 0;
+		},
+		_timeSlotOrderFromNow() {
+			const d = new Date();
+			const h = d.getHours();
+			if (h < 12) return 1;
+			if (h < 18) return 2;
+			return 3;
+		},
+		// 时间段中文显示
+		getTimeSlotDisplay(timeSlot) {
+			if (!timeSlot) return '';
+			const map = {
+				'morning': '上午',
+				'afternoon': '下午',
+				'evening': '晚上',
+				'上午': '上午',
+				'下午': '下午',
+				'晚上': '晚上'
+			};
+			return map[(timeSlot || '').toString().toLowerCase()] || timeSlot;
 		},
 		formatMoney(value, fallback = '--') {
 			const num = Number(value);
@@ -288,12 +421,16 @@ export default {
 						// [修复] 就诊时间根据scheduleDate和timeSlot计算
 						appointmentTime: this.formatAppointmentTime(appointment.scheduleDate, appointment.timeSlot),
 						timeSlot: appointment.timeSlot,
+						slotType: appointment.slotType || appointment.slot_type || '',
 						timeSlotDisplay: timeSlotMap[appointment.timeSlot?.toLowerCase()] || appointment.timeSlot || '--',
 						status: appointment.status,
 						originalFee: appointment.fee || 0,
 						actualFee: appointment.actualFee || 0,
 						// [修复] 预约时间使用createdAt
 						createdAt: this.formatDateTime(appointment.createdAt),
+						// 支持后端返回的自动分配与重新选择窗口
+						rescheduleWindowExpires: appointment.rescheduleWindowExpires || appointment.reschedule_window_expires || null,
+						autoAssigned: appointment.autoAssigned || appointment.auto_assigned || false,
 						sourceType: appointment.sourceType
 					};
 					
@@ -309,6 +446,7 @@ export default {
 
 		// 获取状态文本
 		getStatusText(status) {
+			// 返回“基础状态”文本（不包含“已重新安排/已重新选择”后缀）
 			const statusMap = {
 				'PENDING': '待就诊',
 				'pending': '待就诊',
@@ -316,6 +454,11 @@ export default {
 				'confirmed': '已确认',
 				'SCHEDULED': '已确认',
 				'scheduled': '已确认',
+				// 对于重新安排/重新选择，我们仍然把基础状态显示为“待就诊”，
+				// 复合提示由 getDisplayStatusTextDetail 追加后缀
+				'RESCHEDULED': '待就诊',
+				'RESCHEDULE': '待就诊',
+				'RESELECTED': '待就诊',
 				'COMPLETED': '已完成',
 				'completed': '已完成',
 				'CANCELLED': '已取消',
@@ -333,6 +476,9 @@ export default {
 				'confirmed': '✅',
 				'SCHEDULED': '✅',
 				'scheduled': '✅',
+				'RESCHEDULED': '🔁',
+				'RE SCHEDULED': '🔁',
+				'RE SCHEDULE': '🔁',
 				'COMPLETED': '✔️',
 				'completed': '✔️',
 				'CANCELLED': '❌',
@@ -350,12 +496,51 @@ export default {
 				'confirmed': 'status-confirmed',
 				'SCHEDULED': 'status-confirmed',
 				'scheduled': 'status-confirmed',
+				'RESCHEDULED': 'status-rescheduled',
+				'RE SCHEDULED': 'status-rescheduled',
+				'RE SCHEDULE': 'status-rescheduled',
 				'COMPLETED': 'status-completed',
 				'completed': 'status-completed',
 				'CANCELLED': 'status-cancelled',
 				'cancelled': 'status-cancelled'
 			};
 			return classMap[status] || '';
+		},
+		// 详情页专用：复合显示状态（例如“待就诊（已重新安排）”）
+		getDisplayStatusTextDetail() {
+			try {
+				const s = this.appointmentDetail.status || '';
+				const base = this.getStatusText(s);
+				const src = this.appointmentDetail.sourceType || '';
+				const srcUpper = String(src).toUpperCase();
+				// 患者主动重新选择
+				if (srcUpper === 'RESELECTED') {
+					return `${base}（已重新选择）`;
+				}
+				// 系统自动重新安排或来源标记为 RESCHEDULED
+				if (srcUpper === 'RESCHEDULED' || srcUpper === 'RESCHEDULE' || this.appointmentDetail.autoAssigned) {
+					return `${base}（已重新安排）`;
+				}
+				return base;
+			} catch (e) {
+				return this.getStatusText(this.appointmentDetail.status);
+			}
+		},
+		// 计算详情页重新选择剩余时间
+		getReselectRemainingTextDetail() {
+			try {
+				const expires = this.appointmentDetail.rescheduleWindowExpires || this.appointmentDetail.reschedule_window_expires;
+				if (!expires) return '';
+				const expTs = (new Date(expires)).getTime();
+				const diff = expTs - (this.nowTs || Date.now());
+				if (diff <= 0) return '已过期';
+				const hours = Math.floor(diff / (1000 * 60 * 60));
+				const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				if (hours > 0) return `${hours}小时${minutes}分`;
+				return `${minutes}分`;
+			} catch (e) {
+				return '';
+			}
 		},
 
 		// 跳转到退号页面
@@ -371,10 +556,223 @@ export default {
 				url: `/pages/waitlist/waitlist?scheduleId=${this.appointmentDetail.scheduleId}&doctorId=${this.appointmentDetail.doctorId}&scheduleDate=${this.appointmentDetail.appointmentDate}&timeSlot=${this.appointmentDetail.timeSlot}`
 			});
 		},
+		// 判断是否可重新选择：仅当来源为系统重新安排 RESCHEDULED（且在窗口期内）允许一次性重新选择
+		canReselect() {
+			try {
+				const src = (this.appointmentDetail.sourceType || '').toString().toUpperCase();
+				if (src !== 'RESCHEDULED') return false;
+				const expires = this.appointmentDetail.rescheduleWindowExpires;
+				if (!expires) return true; // 未提供截止，默认允许
+				const expTs = (new Date(expires)).getTime();
+				return Date.now() <= expTs;
+			} catch (e) {
+				return false;
+			}
+		},
+		// 获取号别类型的中文显示
+		getSlotTypeDisplay(slotType) {
+			if (!slotType) return '';
+			const type = slotType.toUpperCase();
+			switch (type) {
+				case 'NORMAL':
+					return '普通号';
+				case 'EXPERT':
+					return '专家号';
+				case 'VIP':
+					return '特需号';
+				default:
+					return slotType;
+			}
+		},
+		// 显示重新选择选项
+		async showReselectOptions() {
+			if (!this.appointmentId) return;
+			try {
+				uni.showLoading({ title: '加载可选时段...' });
+				const resp = await request({ url: `/appointment/${this.appointmentId}/reselect-options`, method: 'GET', silent: true });
+				uni.hideLoading();
+				const list = Array.isArray(resp) ? resp : (resp && resp.list ? resp.list : []);
+				if (!list || list.length === 0) {
+					uni.showModal({ title: '无可用选项', content: '当前没有可重新选择的时段，是否接受当前安排？', confirmText: '接受安排', cancelText: '稍后再选' });
+					return;
+				}
+				const optionList = list.map(opt => {
+					// 日期格式化为中文：2025年12月29日
+					let dateStr = '';
+					if (opt.date) {
+						const d = new Date(opt.date);
+						const y = d.getFullYear();
+						const m = String(d.getMonth() + 1).padStart(2, '0');
+						const day = String(d.getDate()).padStart(2, '0');
+						dateStr = `${y}年${m}月${day}日`;
+					}
+					const timeSlot = this.getTimeSlotDisplay(opt.timeSlot) || '';
+					const doctorTitle = opt.doctorTitle || '';
+					const department = opt.departmentName || '';
+					const slotType = this.getSlotTypeDisplay(opt.slotType);
+					const fee = opt.fee ? `¥${opt.fee}` : '';
+					const available = opt.availableSlots ? `剩余${opt.availableSlots}个` : '';
+
+					// 构建中文且美观的显示文本
+					let displayText = `${opt.doctorName}`;
+					if (doctorTitle) displayText += `（${doctorTitle}）`;
+					if (department) displayText += ` - ${department}`;
+					displayText += `\n${dateStr} ${timeSlot}`;
+					if (slotType || fee || available) {
+						const details = [slotType, fee, available].filter(Boolean).join('  ');
+						displayText += `\n${details}`;
+					}
+
+					// 决定前端是否可选：需与当前 appointment 的 slotType 相同，且为未来时段，且有剩余
+					let selectable = true;
+					let reason = '';
+					try {
+						const origSlotType = (this.appointmentDetail.slotType || '').toString().trim().toUpperCase();
+						const optSlotType = (opt.slotType || '').toString().trim().toUpperCase();
+						if (origSlotType && optSlotType && origSlotType !== optSlotType) {
+							selectable = false;
+							reason = '号别不符';
+						}
+						// 非未来日期或过去时段不可选
+						const now = new Date();
+						const optDate = opt.date ? new Date(opt.date) : null;
+						if (optDate) {
+							// 如果 optDate before today -> 不选
+							const startOfOptDay = new Date(optDate.getFullYear(), optDate.getMonth(), optDate.getDate());
+							const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+							if (startOfOptDay < startOfToday) {
+								selectable = false;
+								reason = '过去日期';
+							} else if (startOfOptDay.getTime() === startOfToday.getTime()) {
+								// same day: check time slot already passed
+								const optOrder = this._timeSlotOrder(opt.timeSlot);
+								const nowOrder = this._timeSlotOrderFromNow();
+								if (optOrder > 0 && optOrder < nowOrder) {
+									selectable = false;
+									reason = '时段已过';
+								}
+							}
+						}
+						// 剩余数为0也不可选（防御）
+						if (!opt.availableSlots || Number(opt.availableSlots) <= 0) {
+							selectable = false;
+							reason = '无可用号源';
+						}
+					} catch (e) {
+						// ignore and leave selectable true
+					}
+
+					return {
+						_text: displayText,
+						...opt,
+						selectable: selectable,
+						unselectReason: reason
+					};
+				});
+
+				// 只保留可选项进行显示（前端不展示不可选项）
+				this.reselectOptions = optionList.filter(o => o.selectable);
+				this.selectedReselectIndex = null;
+				this.reselectModalVisible = true;
+			} catch (e) {
+				uni.hideLoading();
+				console.error('加载重新选择选项失败', e);
+				uni.showToast({ title: '加载失败', icon: 'none' });
+			}
+		},
+
+		// 关闭重新选择模态框
+		closeReselectModal() {
+			this.reselectModalVisible = false;
+			this.reselectOptions = [];
+			this.selectedReselectIndex = null;
+			this.selectedReselectOption = null;
+		},
+
+		// 选择某个选项（高亮）
+		selectReselectOption(index) {
+			console.debug('selectReselectOption called, index=', index, 'visibleOptionsCount=', (this.reselectVisibleOptions || []).length);
+			this.selectedReselectIndex = index;
+			this.selectedReselectOption = this.reselectVisibleOptions[index] || null;
+			this.selectedReselectScheduleId = this.selectedReselectOption ? String(this.selectedReselectOption.scheduleId) : null;
+			console.debug('selectedReselectScheduleId=', this.selectedReselectScheduleId, 'selectedReselectOption=', this.selectedReselectOption);
+		},
+
+		// 通过自定义模态确认重新选择
+		async confirmReselectFromModal(index) {
+			// resolve selected option by scheduleId if index not provided
+			let selected = null;
+			if (index != null) {
+				selected = this.reselectVisibleOptions[index];
+			} else if (this.selectedReselectScheduleId) {
+				// scheduleId in options may be number, selectedReselectScheduleId may be string -> compare as strings
+				selected = (this.reselectVisibleOptions || []).find(o => String(o.scheduleId) === String(this.selectedReselectScheduleId));
+			} else {
+				selected = this.selectedReselectOption;
+			}
+			if (!selected) {
+				uni.showToast({ title: '请先选择时段', icon: 'none' });
+				return;
+			}
+			console.debug('confirmReselectFromModal selected=', selected);
+			try {
+				uni.showLoading({ title: '正在重新选择...' });
+				console.debug('about to send reselect request', { appointmentId: this.appointmentId, newScheduleId: selected.scheduleId });
+				const resp = await request({
+					url: `/appointment/${this.appointmentId}/reselect`,
+					method: 'POST',
+					data: { newScheduleId: selected.scheduleId }
+				});
+				console.debug('reselect request response:', resp);
+				uni.hideLoading();
+				uni.showToast({ title: '重新选择成功', icon: 'success' });
+				this.closeReselectModal();
+				this.loadAppointmentDetail();
+			} catch (err) {
+				console.error('reselect request failed:', err);
+				uni.hideLoading();
+				uni.showToast({ title: err?.msg || err?.message || '重新选择失败', icon: 'none' });
+			}
+		},
+		// 点击确认（包裹一层用于调试与兼容）
+		onConfirmClick() {
+			console.debug('onConfirmClick called, selectedReselectScheduleId=', this.selectedReselectScheduleId);
+			if (!this.selectedReselectScheduleId) {
+				uni.showToast({ title: '请先选择时段', icon: 'none' });
+				return;
+			}
+			// 立即可见的反馈（便于确认点击事件已触发）
+			uni.showToast({ title: '已点击确认', icon: 'none', duration: 600 });
+			// 调用确认逻辑
+			this.confirmReselectFromModal();
+		},
 
 		// 返回
 		goBack() {
-			uni.navigateBack();
+			try {
+				// 首先尝试后退一步
+				uni.navigateBack({
+					delta: 1,
+					complete: (res) => {
+						// 如果后退无效（仍然在同一页），在短延时后兜底跳转到记录页
+						setTimeout(() => {
+							// 兜底：切换到记录页（若 records 是 tab 页），否则重定向
+							try {
+								uni.switchTab({ url: '/pages/records/records' });
+							} catch (e) {
+								uni.redirectTo({ url: '/pages/records/records' });
+							}
+						}, 300);
+					}
+				});
+			} catch (e) {
+				console.error('goBack error, fallback to records', e);
+				try {
+					uni.switchTab({ url: '/pages/records/records' });
+				} catch (err) {
+					uni.redirectTo({ url: '/pages/records/records' });
+				}
+			}
 		}
 	}
 };
@@ -406,6 +804,10 @@ export default {
 
 .status-card.status-confirmed {
 	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+}
+
+.status-card.status-rescheduled {
+	background: linear-gradient(135deg, #8e24aa 0%, #ba68c8 100%);
 }
 
 .status-card.status-completed {
@@ -564,5 +966,159 @@ export default {
 
 .btn-text {
 	font-size: 30rpx;
+}
+
+/* 自定义模态样式 */
+.custom-modal-wrap {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 200;
+}
+.custom-modal-overlay {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0,0,0,0.4);
+	z-index: 200;
+}
+.custom-modal {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 88%;
+	max-height: 80%;
+	background: #fff;
+	border-radius: 16rpx;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	z-index: 201;
+	box-shadow: 0 8rpx 30rpx rgba(0,0,0,0.12);
+}
+.modal-header {
+	padding: 20rpx;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border-bottom: 1rpx solid #f5f5f5;
+}
+.modal-title {
+	font-size: 32rpx;
+	font-weight: 700;
+}
+.modal-close {
+	background: transparent;
+	border: none;
+	color: #666;
+}
+.modal-test {
+	background: #1976d2;
+	color: #fff;
+	border: none;
+	padding: 6rpx 10rpx;
+	border-radius: 8rpx;
+	font-size: 22rpx;
+}
+.modal-body {
+	padding: 12rpx 16rpx;
+	flex: 1;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+.option-card {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 14rpx;
+	border-bottom: 1rpx solid #f0f0f0;
+}
+.option-card.selected {
+	background: #f5f9ff;
+}
+.doctor-name {
+	font-size: 30rpx;
+	font-weight: 600;
+}
+.department, .date-time, .slot-meta {
+	font-size: 24rpx;
+	color: #666;
+	margin-top: 6rpx;
+}
+.card-left {
+	flex: 1;
+}
+.card-right {
+	width: 120rpx;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.select-btn {
+	background: linear-gradient(90deg,#1976d2,#42a5f5);
+	color: #fff;
+	padding: 8rpx 12rpx;
+	border-radius: 10rpx;
+	border: none;
+}
+.checkmark {
+	font-size: 28rpx;
+	color: #4caf50;
+	margin-left: 8rpx;
+}
+.confirm-btn.disabled {
+	opacity: 0.6;
+	pointer-events: none;
+}
+.modal-footer {
+	padding: 16rpx;
+	border-top: 1rpx solid #f5f5f5;
+	display: flex;
+	justify-content: center;
+}
+.confirm-btn {
+	background: #4caf50;
+	color: #fff;
+	padding: 14rpx 40rpx;
+	border-radius: 12rpx;
+	border: none;
+}
+
+/* modal controls */
+.modal-controls {
+	display:flex;
+	justify-content:space-between;
+	align-items:center;
+	padding: 8rpx 12rpx;
+	border-bottom:1rpx solid #f5f5f5;
+	background:#fff;
+}
+.filter-group, .sort-group {
+	display:flex;
+	align-items:center;
+	gap:8rpx;
+}
+.filter-label {
+	font-size:24rpx;
+	color:#666;
+	margin-right:6rpx;
+}
+.chip {
+	background:#f3f6ff;
+	border-radius:12rpx;
+	padding:6rpx 12rpx;
+	font-size:22rpx;
+	color:#333;
+	border:none;
+}
+.chip.active {
+	background:#e6f0ff;
+	border:1rpx solid #cde0ff;
+	color:#1976d2;
 }
 </style>

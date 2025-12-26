@@ -215,7 +215,11 @@ export default {
 			for (let i = 0; i < 7; i++) {
 				const date = new Date();
 				date.setDate(date.getDate() + i);
-				const dateStr = date.toISOString().split('T')[0];
+				// 使用本地日期构造 YYYY-MM-DD，避免 toISOString() 导致的时区偏移（可能导致前端显示与实际日期相差一天）
+				const y = date.getFullYear();
+				const m = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				const dateStr = `${y}-${m}-${day}`;
 				dates.push({
 					date: dateStr,
 					week: i === 0 ? '今天' : `周${weeks[date.getDay()]}`,
@@ -250,9 +254,12 @@ export default {
 			try {
 				const startDate = this.dateList[0].date;
 				const endDate = this.dateList[this.dateList.length - 1].date;
+				console.log('查询排班参数:', { doctorId: this.doctorId, startDate, endDate });
 				const data = await getDoctorSchedules(this.doctorId, startDate, endDate);
+				console.log('后端返回的排班数据:', data);
 				this.schedules = data;
 				this.updateDateScheduleStatus();
+				console.log('处理后的schedules:', this.schedules);
 			} catch (error) {
 				console.error('加载排班信息失败:', error);
 			}
@@ -301,13 +308,16 @@ export default {
 
 		// 根据时段（上午/下午）获取号源
 		getSlotsByPeriod(period) {
-			return this.schedules.filter(schedule => {
+			const filtered = this.schedules.filter(schedule => {
 				return schedule.date === this.selectedDate && schedule.period === period;
 			});
+			console.log(`getSlotsByPeriod: selectedDate=${this.selectedDate}, period=${period}, found ${filtered.length} slots:`, filtered);
+			return filtered;
 		},
 
 		// 选择时间段
 		selectSlot(slot) {
+			console.log('选择时间段:', slot);
 			this.selectedSlot = slot;
 		},
 
