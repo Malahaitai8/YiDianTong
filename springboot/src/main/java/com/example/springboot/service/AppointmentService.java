@@ -7,12 +7,14 @@ import com.example.springboot.entity.PrepaymentOrder;
 import com.example.springboot.entity.Waitlist;
 import com.example.springboot.entity.Schedule;
 import com.example.springboot.entity.Doctor;
+import com.example.springboot.entity.Clinic;
 import com.example.springboot.exception.CustomerException;
 import com.example.springboot.mapper.AppointmentMapper;
 import com.example.springboot.mapper.PatientMapper;
 import com.example.springboot.mapper.ScheduleMapper;
 import com.example.springboot.mapper.WaitlistMapper;
 import com.example.springboot.mapper.DoctorMapper;
+import com.example.springboot.mapper.ClinicMapper;
 import com.example.springboot.dto.AvailableSlotDTO;
 import com.example.springboot.dto.AppointmentWithDoctorDTO;
 import jakarta.annotation.Resource;
@@ -21,6 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.Set;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -60,6 +65,9 @@ public class AppointmentService {
 
     @Resource
     private DoctorMapper doctorMapper;
+
+    @Resource
+    private ClinicMapper clinicMapper;
 
     @Resource
     @Lazy
@@ -906,17 +914,39 @@ public class AppointmentService {
 
     /** 获取重新选择选项 */
     public List<AvailableSlotDTO> findReselectOptions(Schedule originalSchedule, Doctor originalDoctor, Long patientId) {
-        // 目标：仅查找与原排班相同时间段（timeSlot）的未来可用排班，
-        // 包含：同一时段的其他医生（未来）与同一医生的未来时段，排除 originalSchedule 本身。
+        // 重新选择规则：按照调班自动分配的相同规则
+        // 规则1：同科室 + 同医生 + 未来时间最近 + 同号别
+        // 规则2：同科室 + 同号别医生 + 未来时间最近或者同时间
+
+        if (originalSchedule == null || originalDoctor == null) {
+            return new ArrayList<>();
+        }
+
+        // 获取科室ID
+        Long departmentId = null;
+        if (originalDoctor.getClinicId() != null) {
+            Clinic clinic = clinicMapper.selectById(originalDoctor.getClinicId());
+            if (clinic != null) {
+                departmentId = clinic.getDepartmentId();
+            }
+        }
+
+        if (departmentId == null) {
+            logger.warn("无法获取原排班的科室信息，返回空列表 scheduleId={}", originalSchedule.getId());
+            return new ArrayList<>();
+        }
+
+        String origSlotType = originalSchedule.getSlotType();
+        String origTimeSlot = originalSchedule.getTimeSlot();
+
         Date todayStart = atStartOfDay(new Date());
-        Date originalDate = originalSchedule != null ? originalSchedule.getScheduleDate() : todayStart;
+        Date originalDate = originalSchedule.getScheduleDate();
         Date startDate = (originalDate != null && originalDate.after(todayStart)) ? originalDate : todayStart;
 
-        // 如果起始日为今天且原 timeSlot 已过（例如现在为下午、原为上午），则从明天开始
+        // 如果起始日为今天且原 timeSlot 已过，则从明天开始
         try {
-            String origSlot = originalSchedule != null ? originalSchedule.getTimeSlot() : null;
-            if (origSlot != null && startDate.equals(todayStart)) {
-                int origOrder = timeSlotOrder(origSlot);
+            if (origTimeSlot != null && startDate.equals(todayStart)) {
+                int origOrder = timeSlotOrder(origTimeSlot);
                 int nowOrder = timeSlotOrderFromNow();
                 if (origOrder > 0 && origOrder < nowOrder) {
                     startDate = atStartOfNextDay(todayStart);
@@ -926,34 +956,88 @@ public class AppointmentService {
             logger.warn("计算重新选择起始日期失败，使用默认 startDate", ex.getMessage());
         }
 
-        // 从 SQL 层查询：仅限相同 timeSlot，排除原 scheduleId
-        List<AvailableSlotDTO> allOptions = scheduleMapper.searchAvailableSlots(
-            null,
-            null,
+        Date endDate = new Date(startDate.getTime() + 30L * 24 * 60 * 60 * 1000);
+        List<AvailableSlotDTO> candidates = new ArrayList<>();
+        Date now = new Date();
+
+        // 规则1：同科室 + 同医生 + 未来时间最近 + 同号别
+        List<AvailableSlotDTO> rule1Candidates = scheduleMapper.searchAvailableSlots(
+            departmentId, // 同科室
+            originalDoctor.getId(), // 同医生
             startDate,
-            new Date(startDate.getTime() + 30L * 24 * 60 * 60 * 1000),
-            originalSchedule != null ? originalSchedule.getTimeSlot() : null,
-            originalSchedule != null ? originalSchedule.getId() : null
+            endDate,
+            null, // 任何时间段
+            originalSchedule.getId() // 排除原排班
         );
 
-        // 过滤掉患者已预约的排班，并限制医生级别不高于原医生
-        int originalRank = originalDoctor != null ? mapDoctorTitleToRank(originalDoctor.getTitle()) : Integer.MAX_VALUE;
-        return allOptions.stream()
-            .filter(slot -> {
-                int exists = appointmentMapper.existsByPatientAndSchedule(patientId, slot.getScheduleId());
-                return exists == 0;
+        // 过滤：排除已预约的、只保留同号别
+        List<AvailableSlotDTO> rule1Filtered = rule1Candidates.stream()
+            .filter(slot -> appointmentMapper.existsByPatientAndSchedule(patientId, slot.getScheduleId()) == 0)
+            .filter(slot -> origSlotType != null && slot.getSlotType() != null &&
+                           origSlotType.trim().equalsIgnoreCase(slot.getSlotType().trim()))
+            .sorted((a, b) -> {
+                // 按日期和时间段排序，优先最近的
+                int dateCompare = a.getDate().compareTo(b.getDate());
+                if (dateCompare != 0) return dateCompare;
+                return timeSlotOrder(a.getTimeSlot()) - timeSlotOrder(b.getTimeSlot());
             })
-            .filter(slot -> {
-                if (originalDoctor == null) return true;
-                // 仅允许相同号别（slotType）被返回为可选
-                String origSlotType = originalSchedule != null ? originalSchedule.getSlotType() : null;
-                if (origSlotType == null) return true;
-                String slotType = slot.getSlotType();
-                if (slotType == null) return false;
-                return origSlotType.trim().equalsIgnoreCase(slotType.trim());
-            })
-            .limit(20)
             .collect(Collectors.toList());
+        // 过滤掉候选中已经在过去的时段（避免把用户分配到过去时间）
+        rule1Filtered = rule1Filtered.stream()
+            .filter(s -> {
+                Date aptTime = calculateAppointmentTimeFromSchedule(s.getDate(), s.getTimeSlot());
+                return aptTime != null && aptTime.after(now);
+            })
+            .collect(Collectors.toList());
+
+        candidates.addAll(rule1Filtered);
+
+        // 规则2：同科室 + 同号别医生 + 未来时间最近或者同时间（如果规则1不够多）
+        if (candidates.size() < 20) {
+            List<AvailableSlotDTO> rule2Candidates = scheduleMapper.searchAvailableSlots(
+                departmentId, // 同科室
+                null, // 任何医生
+                startDate,
+                endDate,
+                origTimeSlot, // 同时间段优先
+                originalSchedule.getId() // 排除原排班
+            );
+
+            // 过滤：排除已预约的、只保留同号别、排除已在规则1中的
+            Set<Long> existingScheduleIds = candidates.stream()
+                .map(AvailableSlotDTO::getScheduleId)
+                .collect(Collectors.toSet());
+
+            List<AvailableSlotDTO> rule2Filtered = rule2Candidates.stream()
+                .filter(slot -> appointmentMapper.existsByPatientAndSchedule(patientId, slot.getScheduleId()) == 0)
+                .filter(slot -> origSlotType != null && slot.getSlotType() != null &&
+                               origSlotType.trim().equalsIgnoreCase(slot.getSlotType().trim()))
+                .filter(slot -> !existingScheduleIds.contains(slot.getScheduleId()))
+                .sorted((a, b) -> {
+                    // 优先同时间段，其次按日期时间排序
+                    if (origTimeSlot.equals(a.getTimeSlot()) && !origTimeSlot.equals(b.getTimeSlot())) {
+                        return -1;
+                    } else if (!origTimeSlot.equals(a.getTimeSlot()) && origTimeSlot.equals(b.getTimeSlot())) {
+                        return 1;
+                    }
+                    int dateCompare = a.getDate().compareTo(b.getDate());
+                    if (dateCompare != 0) return dateCompare;
+                    return timeSlotOrder(a.getTimeSlot()) - timeSlotOrder(b.getTimeSlot());
+                })
+                .collect(Collectors.toList());
+            // 过滤掉过去时间的候选
+            rule2Filtered = rule2Filtered.stream()
+                .filter(s -> {
+                    Date aptTime = calculateAppointmentTimeFromSchedule(s.getDate(), s.getTimeSlot());
+                    return aptTime != null && aptTime.after(now);
+                })
+                .collect(Collectors.toList());
+
+            candidates.addAll(rule2Filtered);
+        }
+
+        // 限制返回数量，最多20个
+        return candidates.stream().limit(20).collect(Collectors.toList());
     }
 
     /**

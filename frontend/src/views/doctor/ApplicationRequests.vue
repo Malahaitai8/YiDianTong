@@ -460,6 +460,10 @@ const validators = {
         callback(new Error('请输入调整数量'))
         return
       }
+      if (value === 0) {
+        callback(new Error('调整数量不能为 0'))
+        return
+      }
     }
     callback()
   }
@@ -579,7 +583,7 @@ const resetScheduleForm = () => {
   scheduleForm.originalTimeSlot = ''
   scheduleForm.newDate = ''
   scheduleForm.newTimeSlot = ''
-  scheduleForm.slotsAdjustment = 0
+  scheduleForm.slotsAdjustment = null
   scheduleForm.reason = ''
 }
 
@@ -615,7 +619,8 @@ const submitScheduleRequest = async () => {
       payload.newTimeSlot = scheduleForm.newTimeSlot
     }
     if (scheduleForm.changeType === 'ADJUST_SLOTS') {
-      payload.slotsAdjustment = scheduleForm.slotsAdjustment
+      // backend expects `slotAdjustment` (DTO property), ensure payload key matches
+      payload.slotAdjustment = scheduleForm.slotsAdjustment
     }
     await createApplicationRequest(payload)
     ElMessage.success('调班申请已提交')

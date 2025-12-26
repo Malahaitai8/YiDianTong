@@ -35,6 +35,9 @@ public class ApplicationRequestService {
     private DoctorMapper doctorMapper;
 
     @Resource
+    private ClinicMapper clinicMapper;
+
+    @Resource
     private ScheduleMapper scheduleMapper;
     
     @Resource
@@ -383,8 +386,12 @@ public class ApplicationRequestService {
 
         // 3. 重新安排患者到新排班
         for (Appointment oldAppointment : affectedAppointments) {
-            // 检查新排班是否有可用号源
-            if (targetSchedule.getAvailableSlots() > 0) {
+            // 检查新排班是否有可用号源，且对应预约时间为未来（避免分配到已过时段）
+            Date now = new Date();
+            Date targetAptTime = calculateAppointmentTimeFromSchedule(targetSchedule.getScheduleDate(), targetSchedule.getTimeSlot());
+            boolean targetTimeInFuture = targetAptTime != null && targetAptTime.after(now);
+
+            if (targetSchedule.getAvailableSlots() > 0 && targetTimeInFuture) {
                 // 更新原有预约记录，改为指向新排班
                 oldAppointment.setScheduleId(targetSchedule.getId());
                 oldAppointment.setDoctorId(targetSchedule.getDoctorId());
@@ -392,9 +399,8 @@ public class ApplicationRequestService {
                 // 标记重新安排时间为现在，患者重新选择窗口以此为准
                 oldAppointment.setCreatedAt(new Date());
 
-                // 计算新的预约时间
-                Date appointmentTime = calculateAppointmentTimeFromSchedule(targetSchedule.getScheduleDate(), targetSchedule.getTimeSlot());
-                oldAppointment.setAppointmentTime(appointmentTime);
+                // 计算新的预约时间（已为未来时间）
+                oldAppointment.setAppointmentTime(targetAptTime);
 
                 appointmentMapper.updateById(oldAppointment);
                 scheduleMapper.decreaseAvailableSlots(targetSchedule.getId());
@@ -402,114 +408,134 @@ public class ApplicationRequestService {
                 // 发送改期重新安排通知
                 sendRescheduleNotification(oldAppointment, schedule, targetSchedule);
             } else {
-                // 新排班没有号源 -> 尝试按规则查找替代排班：
-                // 规则：只查找相同 timeSlot 的未来排班（其他医生），或同一医生的未来同 timeSlot 排班；排除原排班
+                // 如果目标排班的时间不在未来（例如当天已过的时段），不要直接分配，转为查找替代排班
+                if (targetSchedule.getAvailableSlots() > 0 && !targetTimeInFuture) {
+                    logger.info("目标排班时间已过，跳过直接分配 scheduleId={}, aptTime={}", targetSchedule.getId(), targetAptTime);
+                }
+                // 新排班没有号源 -> 按新规则查找替代排班：
+                // 规则1：同科室 + 同医生 + 未来时间最近 + 同号别
+                // 规则2：同科室 + 同号别医生 + 未来时间最近或者同时间
+                // 规则3：如果科室没号了 → 直接退款并通知
                 try {
-                    Date todayStart = appointmentService.atStartOfDay(new Date());
-                    Date searchStart = newDate != null && newDate.after(todayStart) ? newDate : todayStart;
-                    // 若为当天但时间段已过，则从明天开始
-                    try {
-                        int origOrder = appointmentService.timeSlotOrder(newTimeSlot);
-                        int nowOrder = appointmentService.timeSlotOrderFromNow();
-                        if (searchStart.equals(todayStart) && origOrder > 0 && origOrder < nowOrder) {
-                            searchStart = appointmentService.atStartOfNextDay(todayStart);
-                        }
-                    } catch (Exception ex) {
-                        // ignore
-                    }
+                    // 获取原排班的科室ID
+                    Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
+                    if (doctor == null || doctor.getClinicId() == null) {
+                        logger.warn("无法获取原排班的科室信息，跳过自动分配 scheduleId={}", schedule.getId());
+                    } else {
+                        Clinic clinic = clinicMapper.selectById(doctor.getClinicId());
+                        Long departmentId = (clinic != null) ? clinic.getDepartmentId() : null;
 
-                    List<AvailableSlotDTO> candidates = scheduleMapper.searchAvailableSlots(
-                        null,
-                        null,
-                        searchStart,
-                        new Date(searchStart.getTime() + 30L * 24 * 60 * 60 * 1000),
-                        newTimeSlot,
-                        schedule.getId() // exclude original schedule
-                    );
-
-                    // 过滤掉患者已预约的排班
-                    List<AvailableSlotDTO> filtered = candidates.stream()
-                        .filter(s -> appointmentMapper.existsByPatientAndSchedule(oldAppointment.getPatientId(), s.getScheduleId()) == 0)
-                        .collect(Collectors.toList());
-
-                    // 仅保留与原排班相同号别（slotType）的候选（专家/普通/特需）
-                    String origSlotType = schedule.getSlotType();
-                    List<AvailableSlotDTO> sameSlotType = filtered.stream()
-                            .filter(s -> s.getSlotType() != null && origSlotType != null && s.getSlotType().trim().equalsIgnoreCase(origSlotType.trim()))
-                            .collect(Collectors.toList());
-
-                    // 优先选择相同号别的候选（避免分配回原始排班），并在分配前检查并扣减号源（原子性尝试）
-                    AvailableSlotDTO chosen = null;
-                    try {
-                        java.util.List<Long> candidateIds = candidates.stream()
-                            .map(AvailableSlotDTO::getScheduleId).collect(Collectors.toList());
-                        java.util.List<Long> filteredIds = filtered.stream()
-                            .map(AvailableSlotDTO::getScheduleId).collect(Collectors.toList());
-                        logger.info("自动分配候选: 原排班={}, candidates={}, filtered={}",
-                            schedule.getId(), candidateIds, filteredIds);
-                    } catch (Exception ignore) {}
-
-                    // 构造尝试列表：先尝试 sameSlotType，再尝试 filtered（去重）
-                    List<AvailableSlotDTO> tryList = new ArrayList<>();
-                    if (!sameSlotType.isEmpty()) tryList.addAll(sameSlotType);
-                    if (!filtered.isEmpty()) {
-                        for (AvailableSlotDTO s : filtered) {
-                            if (tryList.stream().noneMatch(x -> Objects.equals(x.getScheduleId(), s.getScheduleId()))) {
-                                tryList.add(s);
-                            }
-                        }
-                    }
-
-                    // 顺序尝试，从每个候选对应的排班尝试原子性扣减号源（decreaseAvailableSlots），成功则选中
-                    for (AvailableSlotDTO candidate : tryList) {
-                        Long sid = candidate.getScheduleId();
-                        if (Objects.equals(sid, schedule.getId()) || Objects.equals(sid, oldAppointment.getScheduleId())) {
-                            // 跳过与原排班相同的候选
-                            continue;
-                        }
-
-                        Schedule candSchedule = scheduleMapper.selectById(sid);
-                        if (candSchedule == null) continue;
-
-                        Integer avail = candSchedule.getAvailableSlots() != null ? candSchedule.getAvailableSlots() : 0;
-                        logger.info("尝试分配候选排班: scheduleId={}, availableSlots={}", sid, avail);
-
-                        int dec = 0;
-                        try {
-                            dec = scheduleMapper.decreaseAvailableSlots(sid);
-                        } catch (Exception e) {
-                            logger.warn("尝试扣减候选排班号源失败 scheduleId={}, error={}", sid, e.getMessage());
-                        }
-
-                        if (dec > 0) {
-                            chosen = candidate;
-                            // 重新读取最新排班信息
-                            Schedule chosenSchedule = scheduleMapper.selectById(sid);
-                            if (chosenSchedule == null) {
-                                // 防御性：若读取失败，尝试回滚已扣减（如果需要），然后继续尝试下一个
-                                logger.warn("已扣减但无法读取排班信息 scheduleId={}", sid);
-                                continue;
-                            }
-
-                            // 成功扣减并读取到排班 -> 执行迁移并发送通知
-                            oldAppointment.setScheduleId(chosenSchedule.getId());
-                            oldAppointment.setDoctorId(chosenSchedule.getDoctorId());
-                            oldAppointment.setSourceType("RESCHEDULED");
-                            oldAppointment.setCreatedAt(new Date());
-                            oldAppointment.setAppointmentTime(calculateAppointmentTimeFromSchedule(chosenSchedule.getScheduleDate(), chosenSchedule.getTimeSlot()));
-                            appointmentMapper.updateById(oldAppointment);
-                            logger.info("自动分配成功: appointmentId={}, fromSchedule={}, toSchedule={}",
-                                oldAppointment.getId(), schedule.getId(), chosenSchedule.getId());
-                            sendRescheduleNotification(oldAppointment, schedule, chosenSchedule);
-                            chosen = candidate;
-                            break; // 处理下一个 appointment
+                        if (departmentId == null) {
+                            logger.warn("无法获取科室ID，跳过自动分配 scheduleId={}", schedule.getId());
                         } else {
-                            logger.info("候选排班无可用号或已被抢占 scheduleId={}, decResult={}", sid, dec);
-                        }
-                    }
+                            String origSlotType = schedule.getSlotType();
+                            Date todayStart = atStartOfDay(new Date());
+                            Date searchStart = newDate != null && newDate.after(todayStart) ? newDate : todayStart;
 
-                    if (chosen != null) {
-                        continue; // 已完成迁移，处理下一个 appointment
+                            // 若为当天但时间段已过，则从明天开始
+                            try {
+                                int origOrder = timeSlotOrder(newTimeSlot);
+                                int nowOrder = timeSlotOrderFromNow();
+                                if (searchStart.equals(todayStart) && origOrder > 0 && origOrder < nowOrder) {
+                                    searchStart = atStartOfNextDay(todayStart);
+                                }
+                            } catch (Exception ex) {
+                                // ignore
+                            }
+
+                            AvailableSlotDTO chosen = null;
+
+                            // 规则1：同科室 + 同医生 + 未来时间最近 + 同号别
+                            List<AvailableSlotDTO> candidates1 = scheduleMapper.searchAvailableSlots(
+                                departmentId, // 同科室
+                                schedule.getDoctorId(), // 同医生
+                                searchStart,
+                                new Date(searchStart.getTime() + 30L * 24 * 60 * 60 * 1000),
+                                null, // 任何时间段（优先未来时间最近）
+                                schedule.getId() // exclude original schedule
+                            );
+
+                            // 过滤掉患者已预约的排班，且必须同号别
+                            List<AvailableSlotDTO> filtered1 = candidates1.stream()
+                                .filter(s -> appointmentMapper.existsByPatientAndSchedule(oldAppointment.getPatientId(), s.getScheduleId()) == 0)
+                                .filter(s -> s.getSlotType() != null && origSlotType != null && s.getSlotType().trim().equalsIgnoreCase(origSlotType.trim()))
+                                .sorted((a, b) -> {
+                                    // 按日期和时间段排序，优先最近的
+                                    int dateCompare = a.getDate().compareTo(b.getDate());
+                                    if (dateCompare != 0) return dateCompare;
+                                    return timeSlotOrder(a.getTimeSlot()) - timeSlotOrder(b.getTimeSlot());
+                                })
+                                .collect(Collectors.toList());
+                            // 排除已经过去的候选排班（避免分配到过去时间）
+                            filtered1 = filtered1.stream()
+                                .filter(s -> {
+                                    Date aptTime = calculateAppointmentTimeFromSchedule(s.getDate(), s.getTimeSlot());
+                                    return aptTime != null && aptTime.after(now);
+                                })
+                                .collect(Collectors.toList());
+
+                            if (!filtered1.isEmpty()) {
+                                chosen = filtered1.get(0);
+                                logger.info("规则1匹配成功：同科室同医生同号别，scheduleId={}", chosen.getScheduleId());
+                            }
+
+                            // 规则2：如果规则1不行 → 同科室 + 同号别医生 + 未来时间最近或者同时间
+                            if (chosen == null) {
+                                List<AvailableSlotDTO> candidates2 = scheduleMapper.searchAvailableSlots(
+                                    departmentId, // 同科室
+                                    null, // 任何医生
+                                    searchStart,
+                                    new Date(searchStart.getTime() + 30L * 24 * 60 * 60 * 1000),
+                                    newTimeSlot, // 同时间段优先，或未来时间最近
+                                    schedule.getId() // exclude original schedule
+                                );
+
+                                // 过滤掉患者已预约的排班，且必须同号别
+                                List<AvailableSlotDTO> filtered2 = candidates2.stream()
+                                    .filter(s -> appointmentMapper.existsByPatientAndSchedule(oldAppointment.getPatientId(), s.getScheduleId()) == 0)
+                                    .filter(s -> s.getSlotType() != null && origSlotType != null && s.getSlotType().trim().equalsIgnoreCase(origSlotType.trim()))
+                                    .sorted((a, b) -> {
+                                        // 优先同时间段，其次按日期时间排序
+                                        if (newTimeSlot.equals(a.getTimeSlot()) && !newTimeSlot.equals(b.getTimeSlot())) {
+                                            return -1;
+                                        } else if (!newTimeSlot.equals(a.getTimeSlot()) && newTimeSlot.equals(b.getTimeSlot())) {
+                                            return 1;
+                                        }
+                                        int dateCompare = a.getDate().compareTo(b.getDate());
+                                        if (dateCompare != 0) return dateCompare;
+                                        return timeSlotOrder(a.getTimeSlot()) - timeSlotOrder(b.getTimeSlot());
+                                    })
+                                    .collect(Collectors.toList());
+                                // 过滤掉过去时间的候选
+                                filtered2 = filtered2.stream()
+                                    .filter(s -> {
+                                        Date aptTime = calculateAppointmentTimeFromSchedule(s.getDate(), s.getTimeSlot());
+                                        return aptTime != null && aptTime.after(now);
+                                    })
+                                    .collect(Collectors.toList());
+
+                                if (!filtered2.isEmpty()) {
+                                    chosen = filtered2.get(0);
+                                    logger.info("规则2匹配成功：同科室同号别医生，scheduleId={}", chosen.getScheduleId());
+                                }
+                            }
+
+                            if (chosen != null) {
+                                // 将预约迁移到 chosen
+                                Schedule chosenSchedule = scheduleMapper.selectById(chosen.getScheduleId());
+                                if (chosenSchedule != null) {
+                                    oldAppointment.setScheduleId(chosenSchedule.getId());
+                                    oldAppointment.setDoctorId(chosenSchedule.getDoctorId());
+                                    oldAppointment.setSourceType("RESCHEDULED");
+                                    oldAppointment.setCreatedAt(new Date());
+                                    oldAppointment.setAppointmentTime(calculateAppointmentTimeFromSchedule(chosenSchedule.getScheduleDate(), chosenSchedule.getTimeSlot()));
+                                    appointmentMapper.updateById(oldAppointment);
+                                    scheduleMapper.decreaseAvailableSlots(chosenSchedule.getId());
+                                    sendRescheduleNotification(oldAppointment, schedule, chosenSchedule);
+                                    continue; // 处理下一个 appointment
+                                }
+                            }
+                        }
                     }
                 } catch (Exception ex) {
                     logger.warn("尝试查找替代排班失败 scheduleId={}, error={}", schedule.getId(), ex.getMessage());
@@ -1398,6 +1424,56 @@ public class ApplicationRequestService {
         calendar.set(Calendar.MILLISECOND, 0);
 
         return calendar.getTime();
+    }
+
+    /**
+     * 获取指定日期的开始时间
+     */
+    private Date atStartOfDay(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTime();
+    }
+
+    /**
+     * 获取指定日期下一天的开始时间
+     */
+    private Date atStartOfNextDay(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.add(Calendar.DAY_OF_MONTH, 1);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTime();
+    }
+
+    /**
+     * 根据时间段字符串获取序号
+     */
+    private int timeSlotOrder(String timeSlot) {
+        if (timeSlot == null) return 0;
+        String s = timeSlot.trim().toLowerCase();
+        if (s.equals("morning") || s.equals("上午")) return 1;
+        if (s.equals("afternoon") || s.equals("下午")) return 2;
+        if (s.equals("evening") || s.equals("晚上")) return 3;
+        return 0;
+    }
+
+    /**
+     * 根据当前小时判断当前时间段序号
+     */
+    private int timeSlotOrderFromNow() {
+        Calendar cal = Calendar.getInstance();
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        if (hour < 12) return 1;
+        if (hour < 18) return 2;
+        return 3;
     }
 }
 
