@@ -155,7 +155,7 @@ public class WaitlistWebSocketServer {
      */
     public static void pushWaitlistSuccess(Long userId, Long scheduleId, Long appointmentId, String doctorName, String appointmentDate, String timeSlot) {
         try {
-            Map<String, Object> data = new java.util.HashMap<>();
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("scheduleId", scheduleId);
             data.put("appointmentId", appointmentId);
             data.put("doctorName", doctorName);
@@ -169,6 +169,47 @@ public class WaitlistWebSocketServer {
             
         } catch (Exception e) {
             logger.error("推送候补成功消息失败: userId={}, scheduleId={}, error={}", userId, scheduleId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 推送预约重新安排消息
+     */
+    public static void pushAppointmentRescheduled(Long userId, Long appointmentId, String doctorName, String appointmentDate, String timeSlot) {
+        try {
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("appointmentId", appointmentId);
+            data.put("doctorName", doctorName);
+            data.put("appointmentDate", appointmentDate);
+            data.put("timeSlot", timeSlot);
+            data.put("timestamp", System.currentTimeMillis());
+
+            String message = createMessage("APPOINTMENT_RESCHEDULED", "您的预约已重新安排", data);
+            sendInfo(message, userId);
+            logger.info("推送预约重新安排消息: userId={}, appointmentId={}", userId, appointmentId);
+
+        } catch (Exception e) {
+            logger.error("推送预约重新安排消息失败: userId={}, appointmentId={}, error={}", userId, appointmentId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 推送预约取消退款消息
+     */
+    public static void pushAppointmentCancelledRefund(Long userId, Long appointmentId, String appointmentDate, String timeSlot) {
+        try {
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("appointmentId", appointmentId);
+            data.put("appointmentDate", appointmentDate);
+            data.put("timeSlot", timeSlot);
+            data.put("timestamp", System.currentTimeMillis());
+
+            String message = createMessage("APPOINTMENT_CANCELLED_REFUND", "预约已取消，费用已退还", data);
+            sendInfo(message, userId);
+            logger.info("推送预约取消退款消息: userId={}, appointmentId={}", userId, appointmentId);
+
+        } catch (Exception e) {
+            logger.error("推送预约取消退款消息失败: userId={}, appointmentId={}, error={}", userId, appointmentId, e.getMessage(), e);
         }
     }
     

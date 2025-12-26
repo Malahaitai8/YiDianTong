@@ -58,6 +58,21 @@
         limit 1
     </select>
 
+    <!-- 根据排班 ID 查询该排班下的候补记录列表 -->
+    <select id="selectByScheduleId" resultType="com.example.springboot.entity.Waitlist">
+        select *
+        from waitlist
+        where schedule_id = #{scheduleId}
+        order by join_time
+    </select>
+
+    <!-- 根据排班 ID 批量更新候补记录的状态 -->
+    <update id="updateStatusByScheduleId">
+        update waitlist
+        set status = #{status}
+        where schedule_id = #{scheduleId}
+    </update>
+
     <!-- 更新候补记录状态 -->
     <update id="updateStatus">
         update waitlist

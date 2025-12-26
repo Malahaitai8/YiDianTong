@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal; // <-- [新增] 导入
 import java.util.Date; // <-- [新增] 导入Date类
 import java.util.List;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.example.springboot.config.SecurityUtils;
 import com.example.springboot.dto.RescheduleAppointmentRequest;
@@ -230,6 +231,125 @@ public class AppointmentController {
             return Result.success(updated);
         } catch (Exception e) {
             return Result.error("改约失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 医生查看自己的预约患者详情
+     */
+    @GetMapping("/doctor/patients")
+    @Operation(summary = "医生查看预约患者详情", description = "医生可提前了解患者预约信息，包含就诊历史等")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public Result getPatientDetailsByDoctor() {
+        try {
+            Long doctorId = SecurityUtils.getCurrentUserId();
+            List<Map<String, Object>> patientDetails = appointmentService.getPatientDetailsByDoctorId(doctorId);
+            return Result.success(patientDetails);
+        } catch (Exception e) {
+            return Result.error("获取患者详情失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 患者重新选择预约时间（针对调班重新安排的情况）
+     */
+    @PostMapping("/{id}/reselect")
+    @Operation(summary = "重新选择预约时间", description = "患者对调班重新安排不满意时，可选择其他时间")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result reselectAppointment(
+            @Parameter(description = "预约ID", required = true) @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody RescheduleAppointmentRequest request) {
+
+        // 获取 userId 并查询真正的 patientId
+        Long userId = SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("患者信息不存在");
+        }
+        Long patientId = patient.getId();
+
+        try {
+            // 1. 验证预约属于当前患者且是调班重新安排的
+            Appointment appointment = appointmentService.selectById(id);
+            if (appointment == null) {
+                return Result.error("预约不存在");
+            }
+            if (!appointment.getPatientId().equals(patientId)) {
+                return Result.error("无权限操作此预约");
+            }
+            if (!"RESCHEDULED".equals(appointment.getSourceType())) {
+                return Result.error("只有系统重新安排（RESCHEDULED）的预约可以由患者重新选择一次");
+            }
+
+            // 2. 检查是否在允许的重新选择时间内（24小时）
+            if (!appointmentService.canReselectAppointment(appointment)) {
+                return Result.error("已超过重新选择时间限制");
+            }
+
+            // 3. 验证新排班存在且有号源
+            Schedule newSchedule = scheduleMapper.selectById(request.getNewScheduleId());
+            if (newSchedule == null) {
+                return Result.error("新排班不存在");
+            }
+
+            // 4. 执行重新选择
+            Appointment updated = appointmentService.reselectAppointment(appointment, request.getNewScheduleId());
+            return Result.success(updated);
+
+        } catch (Exception e) {
+            return Result.error("重新选择失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取可重新选择的排班列表
+     */
+    @GetMapping("/{id}/reselect-options")
+    @Operation(summary = "获取重新选择选项", description = "获取患者可重新选择的其他排班")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result getReselectOptions(
+            @Parameter(description = "预约ID", required = true) @PathVariable Long id) {
+
+        // 获取 userId 并查询真正的 patientId
+        Long userId = SecurityUtils.getCurrentUserId();
+        Patient patient = patientMapper.selectByUserId(userId);
+        if (patient == null) {
+            return Result.error("患者信息不存在");
+        }
+        Long patientId = patient.getId();
+
+        try {
+            // 1. 验证预约
+            Appointment appointment = appointmentService.selectById(id);
+            if (appointment == null) {
+                return Result.error("预约不存在");
+            }
+            if (!appointment.getPatientId().equals(patientId)) {
+                return Result.error("无权限操作此预约");
+            }
+            if (!"RESCHEDULED".equals(appointment.getSourceType())) {
+                return Result.error("只有系统重新安排（RESCHEDULED）的预约可以获取重新选择选项");
+            }
+
+            // 2. 检查是否在允许的重新选择时间内
+            if (!appointmentService.canReselectAppointment(appointment)) {
+                return Result.error("已超过重新选择时间限制");
+            }
+
+            // 3. 获取原排班信息
+            Schedule originalSchedule = scheduleMapper.selectById(appointment.getScheduleId());
+            if (originalSchedule == null) {
+                return Result.error("原排班信息不存在");
+            }
+
+            // 4. 查找可选的替代排班
+            Doctor originalDoctor = doctorMapper.selectById(originalSchedule.getDoctorId());
+            List<AvailableSlotDTO> options = appointmentService.findReselectOptions(originalSchedule, originalDoctor, patientId);
+
+            return Result.success(options);
+
+        } catch (Exception e) {
+            return Result.error("获取重新选择选项失败: " + e.getMessage());
         }
     }
 

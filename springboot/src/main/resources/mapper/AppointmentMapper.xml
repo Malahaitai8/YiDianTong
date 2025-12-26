@@ -12,6 +12,8 @@
     <select id="selectByPatientIdWithDoctorInfo" resultType="com.example.springboot.dto.AppointmentWithDoctorDTO" parameterType="long">
         SELECT
             a.*,
+            a.auto_assigned AS autoAssigned,
+            a.reschedule_window_expires AS rescheduleWindowExpires,
             d.name AS doctorName,
             d.title AS doctorTitle,
             s.schedule_date AS scheduleDate,
@@ -34,15 +36,20 @@
         select * from appointment where doctor_id = #{doctorId} order by appointment_time desc
     </select>
 
-    <!-- 统计某排班的预约数量 -->
+    <!-- 查询某排班的所有预约 -->
+    <select id="selectByScheduleId" resultType="com.example.springboot.entity.Appointment" parameterType="long">
+        select * from appointment where schedule_id = #{scheduleId} order by created_at desc
+    </select>
+
+    <!-- 统计某排班的预约数量（不含已取消） -->
     <select id="countByScheduleId" resultType="int" parameterType="long">
-        select count(*) from appointment where schedule_id = #{scheduleId}
+        select count(*) from appointment where schedule_id = #{scheduleId} and status != 'CANCELLED'
     </select>
 
     <!-- 新增预约，返回自增 ID -->
     <insert id="insert" parameterType="com.example.springboot.entity.Appointment" useGeneratedKeys="true" keyProperty="id">
-        insert into appointment(patient_id, doctor_id, schedule_id, appointment_time, status, fee, actual_fee, created_at, source_type)
-        values (#{patientId}, #{doctorId}, #{scheduleId}, #{appointmentTime}, #{status}, #{fee}, #{actualFee}, now(), #{sourceType})
+        insert into appointment(patient_id, doctor_id, schedule_id, appointment_time, status, fee, actual_fee, created_at, source_type, auto_assigned, reschedule_window_expires)
+        values (#{patientId}, #{doctorId}, #{scheduleId}, #{appointmentTime}, #{status}, #{fee}, #{actualFee}, now(), #{sourceType}, #{autoAssigned}, #{rescheduleWindowExpires})
     </insert>
 
     <!-- 删除预约 -->
@@ -69,7 +76,9 @@
             status = #{status},
             fee = #{fee},
             actual_fee = #{actualFee},
-            source_type = #{sourceType}
+            source_type = #{sourceType},
+            auto_assigned = #{autoAssigned},
+            reschedule_window_expires = #{rescheduleWindowExpires}
         where id = #{id}
     </update>
 
@@ -89,6 +98,18 @@
           and schedule_id = #{scheduleId}
           and status != 'CANCELLED'
     </select>
+
+    <!-- 判断患者是否已预约同一医生同一日期同一时段（不含已取消） -->
+    <select id="existsByPatientAndDoctorDateTime" resultType="int">
+        select count(*) from appointment a
+        inner join schedule s on a.schedule_id = s.id
+        where a.patient_id = #{patientId}
+          and s.doctor_id = #{doctorId}
+          and s.schedule_date = #{date}
+          and s.time_slot = #{timeSlot}
+          and a.status != 'CANCELLED'
+    </select>
+
 
     <!-- 根据状态统计预约数量 -->
     <select id="countByStatus" resultType="int">
@@ -376,6 +397,62 @@
             AND dept.id = #{departmentId}
         </if>
         ORDER BY a.appointment_time DESC
+    </select>
+
+    <!-- 查询超期的系统自动重新安排的预约（source_type = 'RESCHEDULED' 且创建时间早于指定小时数） -->
+    <select id="selectRescheduledExpired" resultType="com.example.springboot.entity.Appointment" parameterType="int">
+        SELECT * FROM appointment
+        WHERE source_type = 'RESCHEDULED'
+        AND created_at &lt;= DATE_SUB(NOW(), INTERVAL #{hours} HOUR)
+    </select>
+
+    <!-- 查询医生名下的所有预约患者详情（包含就诊历史，按患者分组） -->
+    <select id="selectPatientDetailsByDoctorId" resultType="java.util.Map" parameterType="long">
+        SELECT
+            p.id AS patientId,
+            p.name,
+            p.phone_number AS phoneNumber,
+            p.specific_role AS specificRole,
+            -- 最近一次预约信息
+            MAX(a.appointment_time) AS lastVisitDate,
+            -- 下一次预约信息（未来的预约）
+            MIN(CASE WHEN a.appointment_time > NOW() THEN a.appointment_time ELSE NULL END) AS nextAppointmentDate,
+            (SELECT a2.id FROM appointment a2 WHERE a2.patient_id = p.id AND a2.doctor_id = #{doctorId}
+             AND a2.appointment_time > NOW() ORDER BY a2.appointment_time LIMIT 1) AS nextAppointmentId,
+            (SELECT s.time_slot FROM appointment a3 JOIN schedule s ON a3.schedule_id = s.id
+             WHERE a3.patient_id = p.id AND a3.doctor_id = #{doctorId}
+             AND a3.appointment_time > NOW() ORDER BY a3.appointment_time LIMIT 1) AS nextAppointmentTimeSlot,
+            -- 统计信息
+            COUNT(a.id) AS totalAppointments,
+            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedAppointments
+        FROM patient p
+        INNER JOIN appointment a ON p.id = a.patient_id
+        WHERE a.doctor_id = #{doctorId}
+        GROUP BY p.id, p.name, p.phone_number, p.specific_role
+        ORDER BY MAX(a.appointment_time) DESC
+    </select>
+
+    <!-- 获取患者在指定医生处的预约统计信息 -->
+    <select id="getPatientAppointmentStatsByDoctor" resultType="java.util.Map">
+        SELECT
+            COUNT(*) AS totalAppointments,
+            SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedAppointments,
+            MAX(appointment_time) AS lastVisitDate,
+            (SELECT status FROM appointment
+             WHERE patient_id = #{patientId} AND doctor_id = #{doctorId}
+             ORDER BY appointment_time DESC LIMIT 1) AS lastVisitStatus,
+            (SELECT CASE
+                WHEN status = 'SCHEDULED' THEN '已预约'
+                WHEN status = 'CONFIRMED' THEN '已确认'
+                WHEN status = 'COMPLETED' THEN '已完成'
+                WHEN status = 'CANCELLED' THEN '已取消'
+                WHEN status = 'NOSHOW' THEN '未到诊'
+                ELSE '未知'
+             END FROM appointment
+             WHERE patient_id = #{patientId} AND doctor_id = #{doctorId}
+             ORDER BY appointment_time DESC LIMIT 1) AS lastStatusName
+        FROM appointment
+        WHERE patient_id = #{patientId} AND doctor_id = #{doctorId}
     </select>
 
 </mapper>

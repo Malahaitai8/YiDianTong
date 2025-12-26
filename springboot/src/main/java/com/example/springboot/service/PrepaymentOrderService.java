@@ -56,7 +56,7 @@ public class PrepaymentOrderService {
         Long resolvedWaitlistId = waitlist.getId();
         
         // 4. 检查是否已经存在预支付订单
-        PrepaymentOrder existingOrder = prepaymentOrderMapper.selectByWaitlistId(resolvedWaitlistId);
+        PrepaymentOrder existingOrder = prepaymentOrderMapper.selectOneByWaitlistId(resolvedWaitlistId);
         if (existingOrder != null) {
             String status = existingOrder.getStatus();
             // 如果订单已过期、已退款或已取消，删除旧订单，创建新订单
@@ -198,7 +198,7 @@ public class PrepaymentOrderService {
     @Transactional
     public PrepaymentOrder consumeOrder(Long waitlistId) {
         // 1. 查询订单
-        PrepaymentOrder order = prepaymentOrderMapper.selectByWaitlistId(waitlistId);
+        PrepaymentOrder order = prepaymentOrderMapper.selectOneByWaitlistId(waitlistId);
         if (order == null) {
             throw new CustomerException("预支付订单不存在");
         }
@@ -322,7 +322,7 @@ public class PrepaymentOrderService {
      * 根据候补记录ID查询预支付订单
      */
     public PrepaymentOrder getOrderByWaitlistId(Long waitlistId) {
-        return prepaymentOrderMapper.selectByWaitlistId(waitlistId);
+        return prepaymentOrderMapper.selectOneByWaitlistId(waitlistId);
     }
 
     /**

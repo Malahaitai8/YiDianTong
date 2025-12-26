@@ -9,12 +9,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Date;
+import java.util.Calendar;
+import com.example.springboot.websocket.WaitlistWebSocketServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 申请记录服务
  */
 @Service
 public class ApplicationRequestService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ApplicationRequestService.class);
+    // Testing flag: when true, simulate refunds immediately instead of integrating real payment gateway.
+    private static final boolean SIMULATE_REFUND = true;
 
     @Resource
     private ApplicationRequestMapper applicationRequestMapper;
@@ -27,6 +36,27 @@ public class ApplicationRequestService {
 
     @Resource
     private ScheduleMapper scheduleMapper;
+    
+    @Resource
+    private AppointmentMapper appointmentMapper;
+    
+    @Resource
+    private com.example.springboot.mapper.AppointmentMigrationAuditMapper appointmentMigrationAuditMapper;
+    
+    @Resource
+    private com.example.springboot.mapper.PrepaymentOrderMapper prepaymentOrderMapper;
+    
+    @Resource
+    private com.example.springboot.mapper.WaitlistMapper waitlistMapper;
+
+    @Resource
+    private AppointmentService appointmentService;
+
+    @Resource
+    private NotificationService notificationService;
+
+    @Resource
+    private com.example.springboot.mapper.PatientMapper patientMapper;
 
     /**
      * 创建申请
@@ -274,18 +304,13 @@ public class ApplicationRequestService {
 
         switch (request.getChangeType()) {
             case "CANCEL":
-                // 取消排班
-                scheduleMapper.deleteById(request.getScheduleId());
+                // 取消排班 - 需要检查是否有患者预约，如果有则需要重新安排
+                handleScheduleCancellation(schedule);
                 break;
                 
             case "RESCHEDULE":
-                // 改期
-                if (request.getNewDate() == null || request.getNewTimeSlot() == null) {
-                    throw new RuntimeException("改期申请必须指定新日期和新时间段");
-                }
-                schedule.setScheduleDate(request.getNewDate());
-                schedule.setTimeSlot(request.getNewTimeSlot());
-                scheduleMapper.updateById(schedule);
+                // 改期 - 需要检查是否有患者预约，如果有则需要重新安排
+                handleScheduleReschedule(schedule, request.getNewDate(), request.getNewTimeSlot());
                 break;
                 
             case "ADJUST_SLOTS":
@@ -307,6 +332,893 @@ public class ApplicationRequestService {
                 
             default:
                 throw new RuntimeException("未知的调班类型: " + request.getChangeType());
+        }
+    }
+
+    /**
+     * 处理排班改期，重新安排已预约的患者
+     */
+    private void handleScheduleReschedule(Schedule schedule, Date newDate, String newTimeSlot) {
+        if (newDate == null || newTimeSlot == null) {
+                    throw new RuntimeException("改期申请必须指定新日期和新时间段");
+                }
+
+        // 1. 检查是否有患者预约了原排班
+        List<Appointment> affectedAppointments = appointmentMapper.selectByScheduleId(schedule.getId())
+            .stream()
+            .filter(apt -> !"CANCELLED".equals(apt.getStatus()))
+            .collect(Collectors.toList());
+
+        if (affectedAppointments.isEmpty()) {
+            // 如果没有患者预约，直接更新排班时间
+            schedule.setScheduleDate(newDate);
+            schedule.setTimeSlot(newTimeSlot);
+                scheduleMapper.updateById(schedule);
+            return;
+        }
+
+        // 2. 如果有预约，需要重新安排
+        // 首先检查医生自己是否在新时间有排班（医生改期到自己的其他时间）
+        Schedule existingNewSchedule = scheduleMapper.findScheduleByDoctorDateTime(
+            schedule.getDoctorId(), newDate, newTimeSlot);
+
+        Schedule targetSchedule;
+        if (existingNewSchedule != null) {
+            // 如果新时间医生已有排班，直接使用
+            targetSchedule = existingNewSchedule;
+            logger.info("医生改期：使用医生现有的新时间排班 scheduleId={}", targetSchedule.getId());
+        } else {
+            // 如果新时间没有排班，创建新的排班
+            Schedule newSchedule = new Schedule();
+            newSchedule.setDoctorId(schedule.getDoctorId());
+            newSchedule.setScheduleDate(newDate);
+            newSchedule.setTimeSlot(newTimeSlot);
+            newSchedule.setSlotType(schedule.getSlotType());
+            newSchedule.setTotalSlots(schedule.getTotalSlots());
+            newSchedule.setAvailableSlots(schedule.getTotalSlots()); // 新排班初始号源为满
+            scheduleMapper.insert(newSchedule);
+            targetSchedule = newSchedule;
+            logger.info("医生改期：创建新的排班 scheduleId={}", targetSchedule.getId());
+        }
+
+        // 3. 重新安排患者到新排班
+        for (Appointment oldAppointment : affectedAppointments) {
+            // 检查新排班是否有可用号源
+            if (targetSchedule.getAvailableSlots() > 0) {
+                // 更新原有预约记录，改为指向新排班
+                oldAppointment.setScheduleId(targetSchedule.getId());
+                oldAppointment.setDoctorId(targetSchedule.getDoctorId());
+                oldAppointment.setSourceType("RESCHEDULED"); // 标记为改期重新安排
+                // 标记重新安排时间为现在，患者重新选择窗口以此为准
+                oldAppointment.setCreatedAt(new Date());
+
+                // 计算新的预约时间
+                Date appointmentTime = calculateAppointmentTimeFromSchedule(targetSchedule.getScheduleDate(), targetSchedule.getTimeSlot());
+                oldAppointment.setAppointmentTime(appointmentTime);
+
+                appointmentMapper.updateById(oldAppointment);
+                scheduleMapper.decreaseAvailableSlots(targetSchedule.getId());
+
+                // 发送改期重新安排通知
+                sendRescheduleNotification(oldAppointment, schedule, targetSchedule);
+            } else {
+                // 新排班没有号源 -> 尝试按规则查找替代排班：
+                // 规则：只查找相同 timeSlot 的未来排班（其他医生），或同一医生的未来同 timeSlot 排班；排除原排班
+                try {
+                    Date todayStart = appointmentService.atStartOfDay(new Date());
+                    Date searchStart = newDate != null && newDate.after(todayStart) ? newDate : todayStart;
+                    // 若为当天但时间段已过，则从明天开始
+                    try {
+                        int origOrder = appointmentService.timeSlotOrder(newTimeSlot);
+                        int nowOrder = appointmentService.timeSlotOrderFromNow();
+                        if (searchStart.equals(todayStart) && origOrder > 0 && origOrder < nowOrder) {
+                            searchStart = appointmentService.atStartOfNextDay(todayStart);
+                        }
+                    } catch (Exception ex) {
+                        // ignore
+                    }
+
+                    List<AvailableSlotDTO> candidates = scheduleMapper.searchAvailableSlots(
+                        null,
+                        null,
+                        searchStart,
+                        new Date(searchStart.getTime() + 30L * 24 * 60 * 60 * 1000),
+                        newTimeSlot,
+                        schedule.getId() // exclude original schedule
+                    );
+
+                    // 过滤掉患者已预约的排班
+                    List<AvailableSlotDTO> filtered = candidates.stream()
+                        .filter(s -> appointmentMapper.existsByPatientAndSchedule(oldAppointment.getPatientId(), s.getScheduleId()) == 0)
+                        .collect(Collectors.toList());
+
+                    // 仅保留与原排班相同号别（slotType）的候选（专家/普通/特需）
+                    String origSlotType = schedule.getSlotType();
+                    List<AvailableSlotDTO> sameSlotType = filtered.stream()
+                            .filter(s -> s.getSlotType() != null && origSlotType != null && s.getSlotType().trim().equalsIgnoreCase(origSlotType.trim()))
+                            .collect(Collectors.toList());
+
+                    // 优先选择相同号别的候选（避免分配回原始排班），并在分配前检查并扣减号源（原子性尝试）
+                    AvailableSlotDTO chosen = null;
+                    try {
+                        java.util.List<Long> candidateIds = candidates.stream()
+                            .map(AvailableSlotDTO::getScheduleId).collect(Collectors.toList());
+                        java.util.List<Long> filteredIds = filtered.stream()
+                            .map(AvailableSlotDTO::getScheduleId).collect(Collectors.toList());
+                        logger.info("自动分配候选: 原排班={}, candidates={}, filtered={}",
+                            schedule.getId(), candidateIds, filteredIds);
+                    } catch (Exception ignore) {}
+
+                    // 构造尝试列表：先尝试 sameSlotType，再尝试 filtered（去重）
+                    List<AvailableSlotDTO> tryList = new ArrayList<>();
+                    if (!sameSlotType.isEmpty()) tryList.addAll(sameSlotType);
+                    if (!filtered.isEmpty()) {
+                        for (AvailableSlotDTO s : filtered) {
+                            if (tryList.stream().noneMatch(x -> Objects.equals(x.getScheduleId(), s.getScheduleId()))) {
+                                tryList.add(s);
+                            }
+                        }
+                    }
+
+                    // 顺序尝试，从每个候选对应的排班尝试原子性扣减号源（decreaseAvailableSlots），成功则选中
+                    for (AvailableSlotDTO candidate : tryList) {
+                        Long sid = candidate.getScheduleId();
+                        if (Objects.equals(sid, schedule.getId()) || Objects.equals(sid, oldAppointment.getScheduleId())) {
+                            // 跳过与原排班相同的候选
+                            continue;
+                        }
+
+                        Schedule candSchedule = scheduleMapper.selectById(sid);
+                        if (candSchedule == null) continue;
+
+                        Integer avail = candSchedule.getAvailableSlots() != null ? candSchedule.getAvailableSlots() : 0;
+                        logger.info("尝试分配候选排班: scheduleId={}, availableSlots={}", sid, avail);
+
+                        int dec = 0;
+                        try {
+                            dec = scheduleMapper.decreaseAvailableSlots(sid);
+                        } catch (Exception e) {
+                            logger.warn("尝试扣减候选排班号源失败 scheduleId={}, error={}", sid, e.getMessage());
+                        }
+
+                        if (dec > 0) {
+                            chosen = candidate;
+                            // 重新读取最新排班信息
+                            Schedule chosenSchedule = scheduleMapper.selectById(sid);
+                            if (chosenSchedule == null) {
+                                // 防御性：若读取失败，尝试回滚已扣减（如果需要），然后继续尝试下一个
+                                logger.warn("已扣减但无法读取排班信息 scheduleId={}", sid);
+                                continue;
+                            }
+
+                            // 成功扣减并读取到排班 -> 执行迁移并发送通知
+                            oldAppointment.setScheduleId(chosenSchedule.getId());
+                            oldAppointment.setDoctorId(chosenSchedule.getDoctorId());
+                            oldAppointment.setSourceType("RESCHEDULED");
+                            oldAppointment.setCreatedAt(new Date());
+                            oldAppointment.setAppointmentTime(calculateAppointmentTimeFromSchedule(chosenSchedule.getScheduleDate(), chosenSchedule.getTimeSlot()));
+                            appointmentMapper.updateById(oldAppointment);
+                            logger.info("自动分配成功: appointmentId={}, fromSchedule={}, toSchedule={}",
+                                oldAppointment.getId(), schedule.getId(), chosenSchedule.getId());
+                            sendRescheduleNotification(oldAppointment, schedule, chosenSchedule);
+                            chosen = candidate;
+                            break; // 处理下一个 appointment
+                        } else {
+                            logger.info("候选排班无可用号或已被抢占 scheduleId={}, decResult={}", sid, dec);
+                        }
+                    }
+
+                    if (chosen != null) {
+                        continue; // 已完成迁移，处理下一个 appointment
+                    }
+                } catch (Exception ex) {
+                    logger.warn("尝试查找替代排班失败 scheduleId={}, error={}", schedule.getId(), ex.getMessage());
+                }
+
+                // 无可用替代 -> 取消并退款
+                oldAppointment.setStatus("CANCELLED");
+                appointmentMapper.updateById(oldAppointment);
+
+                // 发送退款通知
+                sendRescheduleRefundNotification(oldAppointment, schedule, newDate, newTimeSlot);
+            }
+        }
+
+        // 4. 处理原排班关联的预支付订单：将匹配到的订单迁移到新排班（按患者匹配），没有匹配的则标记为待退款
+        try {
+            List<PrepaymentOrder> relatedOrders = prepaymentOrderMapper.selectByScheduleId(schedule.getId());
+            if (relatedOrders != null && !relatedOrders.isEmpty()) {
+                for (PrepaymentOrder order : relatedOrders) {
+                    // 若订单属于已经被重新分配的患者，则迁移到新排班
+                    boolean migrated = false;
+                    for (Appointment apt : affectedAppointments) {
+                            if (apt.getPatientId() != null && apt.getPatientId().equals(order.getPatientId())) {
+                            prepaymentOrderMapper.updateScheduleId(order.getId(), targetSchedule.getId());
+                            // 清理 waitlist_id，订单已迁移为正式排班订单
+                            try {
+                                prepaymentOrderMapper.clearWaitlistId(order.getId());
+                            } catch (Exception e) {
+                                logger.warn("清除waitlist_id失败，订单已迁移但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                                // 不抛出异常，继续处理
+                            }
+                            migrated = true;
+                                            break;
+                                        }
+                    }
+                            if (!migrated) {
+                        // 标记为待退款并清理候补引用
+                        prepaymentOrderMapper.updateRefundInfo(order.getId(), "TO_REFUND", null, "原排班改期，订单待退款");
+                        try {
+                            prepaymentOrderMapper.clearWaitlistId(order.getId());
+                        } catch (Exception e) {
+                            logger.warn("清除waitlist_id失败，订单标记退款但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                            // 不抛出异常，继续处理
+                        }
+
+                        // 如果处于测试模式，立即模拟退款并通知患者（避免真实支付依赖）
+                        if (SIMULATE_REFUND) {
+                            try {
+                                prepaymentOrderMapper.updateRefundInfo(order.getId(), "REFUNDED", new Date(), "模拟退款：改期无可用安排");
+                                if (order.getPatientId() != null) {
+                                    Patient p = patientMapper.selectById(order.getPatientId());
+                                    if (p != null) {
+                                        Long userId = p.getUserId();
+                                        // 发送退款通知（使用原排班时间作为参考）
+                                        notificationService.sendAppointmentCancelledRefundNotification(
+                                            userId,
+                                            order.getPatientId(),
+                                            null,
+                                            schedule.getScheduleDate().toString(),
+                                            schedule.getTimeSlot()
+                                        );
+                                        WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                                            userId,
+                                            null,
+                                            schedule.getScheduleDate().toString(),
+                                            schedule.getTimeSlot()
+                                        );
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                logger.error("模拟退款失败 orderId={}, error={}", order.getId(), ex.getMessage(), ex);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("处理预支付订单迁移/退款失败 scheduleId={}, error={}", schedule.getId(), e.getMessage(), e);
+            // 不中断主流程，但记录日志供排查
+        }
+
+        // 5. 处理该排班下的候补关联预支付订单（通过 waitlist_id 关联），并取消候补记录，避免外键约束
+        try {
+            List<Waitlist> waitlists = waitlistMapper.selectByScheduleId(schedule.getId());
+            if (waitlists != null && !waitlists.isEmpty()) {
+                for (Waitlist wl : waitlists) {
+                    // 处理候补对应的预支付订单
+                    List<PrepaymentOrder> wlOrders = prepaymentOrderMapper.selectByWaitlistId(wl.getId());
+                    if (wlOrders != null && !wlOrders.isEmpty()) {
+                        for (PrepaymentOrder order : wlOrders) {
+                            boolean migrated = false;
+                            for (Appointment apt : affectedAppointments) {
+                            if (apt.getPatientId() != null && apt.getPatientId().equals(order.getPatientId())) {
+                                    prepaymentOrderMapper.updateScheduleId(order.getId(), apt.getScheduleId());
+                                    // 清理 waitlist_id
+                                    try {
+                                        prepaymentOrderMapper.clearWaitlistId(order.getId());
+                                    } catch (Exception e) {
+                                        logger.warn("清除waitlist_id失败，订单已迁移但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                                        // 不抛出异常，继续处理
+                                    }
+                                    migrated = true;
+                                            break;
+                                        }
+                            }
+                            if (!migrated) {
+                                prepaymentOrderMapper.updateRefundInfo(order.getId(), "TO_REFUND", null, "原排班改期，候补订单待退款");
+                                try {
+                                    prepaymentOrderMapper.clearWaitlistId(order.getId());
+                                } catch (Exception e) {
+                                    logger.warn("清除waitlist_id失败，候补订单标记退款但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                                    // 不抛出异常，继续处理
+                                }
+                                if (SIMULATE_REFUND) {
+                                    try {
+                                        prepaymentOrderMapper.updateRefundInfo(order.getId(), "REFUNDED", new Date(), "模拟退款：候补订单改期无可用安排");
+                                        if (order.getPatientId() != null) {
+                                            Patient p = patientMapper.selectById(order.getPatientId());
+                                            if (p != null) {
+                                                notificationService.sendAppointmentCancelledRefundNotification(
+                                                    p.getUserId(),
+                                                    order.getPatientId(),
+                                                    null,
+                                                    schedule.getScheduleDate().toString(),
+                                                    schedule.getTimeSlot()
+                                                );
+                                                WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                                                    p.getUserId(),
+                                                    null,
+                                                    schedule.getScheduleDate().toString(),
+                                                    schedule.getTimeSlot()
+                                                );
+                                            }
+                                        }
+                                    } catch (Exception ex) {
+                                        logger.error("模拟退款失败（候补订单） orderId={}, error={}", order.getId(), ex.getMessage(), ex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // 标记候补记录为取消，避免残留外键引用
+                    try {
+                        waitlistMapper.updateStatus(wl.getId(), "CANCELLED");
+                    } catch (Exception ex) {
+                        logger.warn("更新候补状态失败 waitlistId={}, error={}", wl.getId(), ex.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("处理候补关联预支付订单失败 scheduleId={}, error={}", schedule.getId(), e.getMessage(), e);
+        }
+
+        // 6. 删除原排班（现在没有appointment或候补引用它了），使用安全删除封装
+        safeDeleteSchedule(schedule.getId());
+    }
+
+    /**
+     * 处理排班取消，重新安排已预约的患者
+     */
+    private void handleScheduleCancellation(Schedule schedule) {
+        // 1. 查询该排班的所有有效预约
+        List<Appointment> affectedAppointments = appointmentMapper.selectByScheduleId(schedule.getId())
+            .stream()
+            .filter(apt -> !"CANCELLED".equals(apt.getStatus()))
+            .collect(Collectors.toList());
+
+        if (affectedAppointments.isEmpty()) {
+            // 如果没有患者预约，直接删除排班
+            safeDeleteSchedule(schedule.getId());
+            return;
+        }
+
+        // 2. 获取排班医生信息，用于查找替代方案
+        Doctor originalDoctor = doctorMapper.selectById(schedule.getDoctorId());
+        if (originalDoctor == null) {
+            throw new RuntimeException("医生信息不存在，无法重新安排");
+        }
+
+        // 3. 为每个预约查找替代方案
+        for (Appointment appointment : affectedAppointments) {
+            Schedule alternativeSchedule = findAlternativeSchedule(schedule, originalDoctor);
+            if (alternativeSchedule != null) {
+                // 找到替代排班，重新分配预约
+                reassignAppointment(appointment, alternativeSchedule, schedule);
+            } else {
+                // 没有找到替代方案，退款并通知
+                refundAndNotifyPatient(appointment, schedule);
+            }
+        }
+
+        // 4. 处理原排班关联的预支付订单：若已安排到替代排班则迁移，否则标记为待退款
+        try {
+            List<PrepaymentOrder> relatedOrders = prepaymentOrderMapper.selectByScheduleId(schedule.getId());
+            if (relatedOrders != null && !relatedOrders.isEmpty()) {
+                for (PrepaymentOrder order : relatedOrders) {
+                    boolean migrated = false;
+                    for (Appointment apt : affectedAppointments) {
+                            if (apt.getPatientId() != null && apt.getPatientId().equals(order.getPatientId())) {
+                            // 尝试找到该患者已重新分配到的新排班（appointment.scheduleId 已在 reassignAppointment 中更新）
+                            prepaymentOrderMapper.updateScheduleId(order.getId(), apt.getScheduleId());
+                            // 清理 waitlist_id
+                            try {
+                                prepaymentOrderMapper.clearWaitlistId(order.getId());
+                            } catch (Exception e) {
+                                logger.warn("清除waitlist_id失败，订单已迁移但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                                // 不抛出异常，继续处理
+                            }
+                            migrated = true;
+                                            break;
+                                        }
+                    }
+                    if (!migrated) {
+                        prepaymentOrderMapper.updateRefundInfo(order.getId(), "TO_REFUND", null, "原排班取消，订单待退款");
+
+                        // 测试模式下立即模拟退款并通知患者
+                        if (SIMULATE_REFUND) {
+                            try {
+                                prepaymentOrderMapper.updateRefundInfo(order.getId(), "REFUNDED", new Date(), "模拟退款：排班取消");
+                                if (order.getPatientId() != null) {
+                                    Patient p = patientMapper.selectById(order.getPatientId());
+                                    if (p != null) {
+                                        Long userId = p.getUserId();
+                                        notificationService.sendAppointmentCancelledRefundNotification(
+                                            userId,
+                                            order.getPatientId(),
+                                            null,
+                                            schedule.getScheduleDate().toString(),
+                                            schedule.getTimeSlot()
+                                        );
+                                        WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                                            userId,
+                                            null,
+                                            schedule.getScheduleDate().toString(),
+                                            schedule.getTimeSlot()
+                                        );
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                logger.error("模拟退款失败 orderId={}, error={}", order.getId(), ex.getMessage(), ex);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("处理预支付订单迁移/退款失败 scheduleId={}, error={}", schedule.getId(), e.getMessage(), e);
+        }
+
+        // 5. 处理该排班下的候补关联预支付订单（通过 waitlist_id 关联），并取消候补记录，避免外键约束
+        try {
+            List<Waitlist> waitlists = waitlistMapper.selectByScheduleId(schedule.getId());
+            if (waitlists != null && !waitlists.isEmpty()) {
+                for (Waitlist wl : waitlists) {
+                    // 处理候补对应的预支付订单
+                    List<PrepaymentOrder> wlOrders = prepaymentOrderMapper.selectByWaitlistId(wl.getId());
+                    if (wlOrders != null && !wlOrders.isEmpty()) {
+                        for (PrepaymentOrder order : wlOrders) {
+                            boolean migrated = false;
+                            for (Appointment apt : affectedAppointments) {
+                                if (apt.getPatientId() != null && apt.getPatientId().equals(order.getPatientId())) {
+                                    prepaymentOrderMapper.updateScheduleId(order.getId(), apt.getScheduleId());
+                                    migrated = true;
+                                    break;
+                                }
+                            }
+                            if (!migrated) {
+                                prepaymentOrderMapper.updateRefundInfo(order.getId(), "TO_REFUND", null, "原排班取消，候补订单待退款");
+                                try {
+                                    prepaymentOrderMapper.clearWaitlistId(order.getId());
+                                } catch (Exception e) {
+                                    logger.warn("清除waitlist_id失败，候补订单标记退款但保留原waitlist_id: orderId={}, error={}", order.getId(), e.getMessage());
+                                    // 不抛出异常，继续处理
+                                }
+                                if (SIMULATE_REFUND) {
+                                    try {
+                                        prepaymentOrderMapper.updateRefundInfo(order.getId(), "REFUNDED", new Date(), "模拟退款：候补订单排班取消");
+                                        if (order.getPatientId() != null) {
+                                            Patient p = patientMapper.selectById(order.getPatientId());
+                                            if (p != null) {
+                                                notificationService.sendAppointmentCancelledRefundNotification(
+                                                    p.getUserId(),
+                                                    order.getPatientId(),
+                                                    null,
+                                                    schedule.getScheduleDate().toString(),
+                                                    schedule.getTimeSlot()
+                                                );
+                                                WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                                                    p.getUserId(),
+                                                    null,
+                                                    schedule.getScheduleDate().toString(),
+                                                    schedule.getTimeSlot()
+                                                );
+                                            }
+                                        }
+                                    } catch (Exception ex) {
+                                        logger.error("模拟退款失败（候补订单） orderId={}, error={}", order.getId(), ex.getMessage(), ex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // 标记候补记录为取消，避免残留外键引用
+                    try {
+                        waitlistMapper.updateStatus(wl.getId(), "CANCELLED");
+                    } catch (Exception ex) {
+                        logger.warn("更新候补状态失败 waitlistId={}, error={}", wl.getId(), ex.getMessage());
+                    }
+                                }
+                            }
+                        } catch (Exception e) {
+            logger.error("处理候补关联预支付订单失败 scheduleId={}, error={}", schedule.getId(), e.getMessage(), e);
+        }
+
+        // 6. 删除原排班
+        safeDeleteSchedule(schedule.getId());
+    }
+
+    /**
+     * 按优先级查找替代排班
+     * 优先级：1. 同医生+最近时间 2. 同科室+同级别医生+最近时间 3. 同科室+任何医生+最近时间
+     */
+    private Schedule findAlternativeSchedule(Schedule originalSchedule, Doctor originalDoctor) {
+        // 1. 优先查找同一天的其他时段（更方便患者）
+        Schedule alternative = findSameDayAlternative(originalSchedule, originalDoctor);
+        if (alternative != null) return alternative;
+
+        // 2. 查找同医生最近时间的排班
+        alternative = findSameDoctorAlternative(originalSchedule, originalDoctor);
+        if (alternative != null) return alternative;
+
+        // 3. 查找同科室同级别医生最近时间的排班
+        alternative = findSameClinicSameLevelAlternative(originalSchedule, originalDoctor);
+        if (alternative != null) return alternative;
+
+        // 4. 查找同科室任何医生最近时间的排班
+        alternative = findSameClinicAnyDoctorAlternative(originalSchedule, originalDoctor);
+        return alternative;
+    }
+
+    /**
+     * 查找同一天其他时段的替代排班
+     */
+    private Schedule findSameDayAlternative(Schedule originalSchedule, Doctor doctor) {
+        return scheduleMapper.findAlternativeSchedule(
+            doctor.getId(),
+            originalSchedule.getScheduleDate(),
+            originalSchedule.getTimeSlot(),
+            null, // clinicId
+            null, // titleLevel
+            "SAME_DAY"
+        );
+    }
+
+    /**
+     * 查找同医生替代排班
+     */
+    private Schedule findSameDoctorAlternative(Schedule originalSchedule, Doctor doctor) {
+        // 查找该医生在原日期之后最近时间的排班（同一天的其他时段，或之后几天的相同或相近时段）
+        return scheduleMapper.findAlternativeSchedule(
+            doctor.getId(),
+            originalSchedule.getScheduleDate(),
+            originalSchedule.getTimeSlot(),
+            null, // clinicId
+            null, // titleLevel
+            "SAME_DOCTOR"
+        );
+    }
+
+    /**
+     * 查找同科室同级别医生替代排班
+     */
+    private Schedule findSameClinicSameLevelAlternative(Schedule originalSchedule, Doctor doctor) {
+        return scheduleMapper.findAlternativeSchedule(
+            null, // doctorId
+            originalSchedule.getScheduleDate(),
+            originalSchedule.getTimeSlot(),
+            doctor.getClinicId(),
+            doctor.getTitle(),
+            "SAME_CLINIC_SAME_LEVEL"
+        );
+    }
+
+    /**
+     * 查找同科室任何医生替代排班
+     */
+    private Schedule findSameClinicAnyDoctorAlternative(Schedule originalSchedule, Doctor doctor) {
+        return scheduleMapper.findAlternativeSchedule(
+            null, // doctorId
+            originalSchedule.getScheduleDate(),
+            originalSchedule.getTimeSlot(),
+            doctor.getClinicId(),
+            null, // titleLevel
+            "SAME_CLINIC_ANY_DOCTOR"
+        );
+    }
+
+    /**
+     * 安全删除排班：在删除前清理所有可能的外键引用并记录详细日志
+     */
+    private void safeDeleteSchedule(Long scheduleId) {
+        if (scheduleId == null) return;
+        logger.info("safeDeleteSchedule start scheduleId={}", scheduleId);
+        try {
+            // 0) 先处理仍然引用该排班的预约，避免外键约束阻止删除
+            try {
+                Schedule sched = scheduleMapper.selectById(scheduleId);
+                List<Appointment> remainingAppointments = appointmentMapper.selectByScheduleId(scheduleId);
+                if (remainingAppointments != null && !remainingAppointments.isEmpty()) {
+                    for (Appointment apt : remainingAppointments) {
+                        try {
+                            if (!"CANCELLED".equalsIgnoreCase(apt.getStatus())) {
+                                logger.info("safeDeleteSchedule: 取消并通知仍引用排班的预约 appointmentId={}, scheduleId={}", apt.getId(), scheduleId);
+                                refundAndNotifyPatient(apt, sched);
+                            }
+                        } catch (Exception ex) {
+                            logger.warn("处理仍引用排班的预约失败 appointmentId={}, error={}", apt.getId(), ex.getMessage());
+                            // 尽量继续处理其他预约
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                logger.warn("在 safeDeleteSchedule 处理预约时发生异常（忽略） scheduleId={}, error={}", scheduleId, ex.getMessage());
+            }
+
+                // 1) 先尝试删除引用该排班候补记录的预支付订单（如果存在），因为 waitlist_id 列不允许为 NULL
+                int deletedOrders = 0;
+                try {
+                    deletedOrders = prepaymentOrderMapper.deleteByWaitlistScheduleId(scheduleId);
+                    logger.info("deleteByWaitlistScheduleId affectedRows={}, scheduleId={}", deletedOrders, scheduleId);
+                } catch (Exception ex) {
+                    logger.warn("deleteByWaitlistScheduleId failed scheduleId={}, error={}", scheduleId, ex.getMessage());
+                    // 兜底：尝试清空 waitlist_id（若 DB 允许）
+                    try {
+                        int cleared = prepaymentOrderMapper.clearWaitlistIdByScheduleId(scheduleId);
+                        logger.info("clearWaitlistIdByScheduleId affectedRows={}, scheduleId={}", cleared, scheduleId);
+                    } catch (Exception ex2) {
+                        logger.warn("clearWaitlistIdByScheduleId failed scheduleId={}, error={}", scheduleId, ex2.getMessage());
+                    }
+                }
+
+            // 2) 将该排班下的候补记录统一标记为 CANCELLED（避免残留引用）
+            try {
+                int updated = waitlistMapper.updateStatusByScheduleId(scheduleId, "CANCELLED");
+                logger.info("waitlist updateStatusByScheduleId affectedRows={}, scheduleId={}", updated, scheduleId);
+            } catch (Exception ex) {
+                logger.warn("waitlist updateStatusByScheduleId failed scheduleId={}, error={}", scheduleId, ex.getMessage());
+            }
+
+            // 3) 最后尝试删除排班
+            try {
+                scheduleMapper.deleteById(scheduleId);
+                logger.info("safeDeleteSchedule completed scheduleId={}", scheduleId);
+            } catch (Exception exDel) {
+                // 如果仍有外键引用阻止删除（如仍有 appointment 引用），改为将排班标记为已停用（软删除式处理）
+                logger.warn("无法删除排班（可能存在残留外键），改为停用排班 scheduleId={}, error={}", scheduleId, exDel.getMessage());
+                try {
+                    com.example.springboot.entity.Schedule mark = new com.example.springboot.entity.Schedule();
+                    mark.setId(scheduleId);
+                    mark.setTotalSlots(0);
+                    mark.setAvailableSlots(0);
+                    mark.setSlotType("CANCELLED");
+                    // 通过 updateById 将其设为不可用，保留记录以避免外键问题
+                    scheduleMapper.updateById(mark);
+                    logger.info("safeDeleteSchedule: 已将排班标记为取消/停用 scheduleId={}", scheduleId);
+                } catch (Exception exUpd) {
+                    logger.error("safeDeleteSchedule: 无法停用排班 scheduleId={}, error={}", scheduleId, exUpd.getMessage(), exUpd);
+                    throw exDel; // 抛原始删除异常，向上层反馈
+                }
+            }
+        } catch (Exception e) {
+            logger.error("safeDeleteSchedule failed scheduleId={}, error={}", scheduleId, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 重新分配预约到新排班
+     */
+    private void reassignAppointment(Appointment appointment, Schedule newSchedule, Schedule originalSchedule) {
+        // 1. 更新预约的排班ID和医生ID
+        appointment.setScheduleId(newSchedule.getId());
+        appointment.setDoctorId(newSchedule.getDoctorId());
+        // 标记为系统自动重新安排，设置创建时间以作为重新选择窗口起点
+        appointment.setSourceType("RESCHEDULED");
+        Date now = new Date();
+        appointment.setCreatedAt(now);
+        // 设置重新选择窗口，默认 24 小时
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(now);
+        cal.add(Calendar.HOUR, 24);
+        appointment.setRescheduleWindowExpires(cal.getTime());
+        appointment.setAutoAssigned(true);
+        // 将状态设置为 RESCHEDULED，使前端能明显看到这个预约已被重新安排（并可重新选择）
+        appointment.setStatus("RESCHEDULED");
+        appointmentMapper.updateById(appointment);
+
+        // 迁移或更新该患者在原排班/候补下的预支付订单到新的 schedule（如果存在）
+        try {
+            List<PrepaymentOrder> orders = prepaymentOrderMapper.selectByScheduleId(originalSchedule.getId());
+            if (orders != null) {
+                for (PrepaymentOrder order : orders) {
+                    if (order.getPatientId() != null && order.getPatientId().equals(appointment.getPatientId())) {
+                        prepaymentOrderMapper.updateScheduleId(order.getId(), newSchedule.getId());
+                        // 清理 waitlist 引用，订单已成为正式预约关联
+                        try { prepaymentOrderMapper.clearWaitlistId(order.getId()); } catch (Exception ignored) {}
+                        // 记录迁移审计
+                        try {
+                            com.example.springboot.entity.AppointmentMigrationAudit audit = new com.example.springboot.entity.AppointmentMigrationAudit();
+                            audit.setAppointmentId(appointment.getId());
+                            audit.setFromScheduleId(originalSchedule.getId());
+                            audit.setToScheduleId(newSchedule.getId());
+                            Long operatorId = null;
+                            try { operatorId = com.example.springboot.config.SecurityUtils.getCurrentUserId(); } catch (Exception ignoredOp) {}
+                            audit.setOperatorId(operatorId);
+                            audit.setNote("Auto reassigned by system during schedule change approval");
+                            appointmentMigrationAuditMapper.insert(audit);
+                        } catch (Exception auditEx) {
+                            logger.warn("写入迁移审计失败 appointmentId={}, error={}", appointment.getId(), auditEx.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("迁移预支付订单到新排班失败 appointmentId={}, error={}", appointment.getId(), e.getMessage());
+        }
+
+        // 2. 扣减新排班的可用号源
+        scheduleMapper.decreaseAvailableSlots(newSchedule.getId());
+
+        // 3. 发送重新安排通知
+        sendReassignmentNotification(appointment, originalSchedule, newSchedule);
+        
+        // 4. （已由 sendReassignmentNotification 负责发送 APPOINTMENT_RESCHEDULED IN_APP 通知和 WS 推送）
+    }
+
+    /**
+     * 退款并通知患者
+     */
+    private void refundAndNotifyPatient(Appointment appointment, Schedule originalSchedule) {
+        // 1. 更新预约状态为取消
+        appointment.setStatus("CANCELLED");
+        appointmentMapper.updateById(appointment);
+
+        // 2. TODO: 处理退款逻辑（这里先标记，需要根据实际业务实现）
+        // refundOrder(appointment);
+
+        // 3. 发送退款通知
+        sendRefundNotification(appointment, originalSchedule);
+    }
+
+    /**
+     * 发送重新安排通知
+     */
+    private void sendReassignmentNotification(Appointment appointment, Schedule originalSchedule, Schedule newSchedule) {
+        try {
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) return;
+
+            Doctor newDoctor = doctorMapper.selectById(newSchedule.getDoctorId());
+            // 格式化为友好中文显示（例如：2025年12月27日 上午）
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy年MM月dd日");
+            String newDateStr = newSchedule != null && newSchedule.getScheduleDate() != null ? sdf.format(newSchedule.getScheduleDate()) : "";
+            String originalDateStr = originalSchedule != null && originalSchedule.getScheduleDate() != null ? sdf.format(originalSchedule.getScheduleDate()) : "";
+            String newTimeSlotCn = timeSlotToChinese(newSchedule != null ? newSchedule.getTimeSlot() : null);
+            String originalTimeSlotCn = timeSlotToChinese(originalSchedule != null ? originalSchedule.getTimeSlot() : null);
+
+            notificationService.sendAppointmentRescheduledNotification(
+                patient.getUserId(),
+                appointment.getPatientId(),
+                appointment.getId(),
+                newDoctor != null ? newDoctor.getName() : "医生",
+                originalDateStr,
+                originalTimeSlotCn,
+                newDateStr,
+                newTimeSlotCn
+            );
+
+            // WebSocket推送（payload 使用中文时间描述）
+            WaitlistWebSocketServer.pushAppointmentRescheduled(
+                patient.getUserId(),
+                appointment.getId(),
+                newDoctor != null ? newDoctor.getName() : "医生",
+                newDateStr,
+                newTimeSlotCn
+            );
+
+        } catch (Exception e) {
+            // 记录错误但不影响业务流程
+            System.err.println("发送重新安排通知失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 发送改期重新安排通知
+     */
+    private void sendRescheduleNotification(Appointment appointment, Schedule originalSchedule, Schedule newSchedule) {
+        try {
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) return;
+
+            Doctor newDoctor = doctorMapper.selectById(newSchedule.getDoctorId());
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy年MM月dd日");
+            String newDateStr = newSchedule != null && newSchedule.getScheduleDate() != null ? sdf.format(newSchedule.getScheduleDate()) : "";
+            String originalDateStr = originalSchedule != null && originalSchedule.getScheduleDate() != null ? sdf.format(originalSchedule.getScheduleDate()) : "";
+            String newTimeSlotCn = timeSlotToChinese(newSchedule != null ? newSchedule.getTimeSlot() : null);
+            String originalTimeSlotCn = timeSlotToChinese(originalSchedule != null ? originalSchedule.getTimeSlot() : null);
+
+            notificationService.sendAppointmentRescheduledNotification(
+                patient.getUserId(),
+                appointment.getPatientId(),
+                appointment.getId(),
+                newDoctor != null ? newDoctor.getName() : "医生",
+                originalDateStr,
+                originalTimeSlotCn,
+                newDateStr,
+                newTimeSlotCn
+            );
+
+            // WebSocket推送
+            WaitlistWebSocketServer.pushAppointmentRescheduled(
+                patient.getUserId(),
+                appointment.getId(),
+                newDoctor != null ? newDoctor.getName() : "医生",
+                newDateStr,
+                newTimeSlotCn
+            );
+
+        } catch (Exception e) {
+            System.err.println("发送改期重新安排通知失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 将 timeSlot 转为中文表示
+     */
+    private String timeSlotToChinese(String timeSlot) {
+        if (timeSlot == null) return "";
+        String s = timeSlot.trim().toLowerCase();
+        switch (s) {
+            case "morning":
+            case "上午":
+                return "上午";
+            case "afternoon":
+            case "下午":
+                return "下午";
+            case "evening":
+            case "晚上":
+                return "晚上";
+            default:
+                return timeSlot;
+        }
+    }
+
+    /**
+     * 发送改期退款通知
+     */
+    private void sendRescheduleRefundNotification(Appointment appointment, Schedule originalSchedule, Date newDate, String newTimeSlot) {
+        try {
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) return;
+
+            notificationService.sendAppointmentCancelledRefundNotification(
+                patient.getUserId(),
+                appointment.getPatientId(),
+                appointment.getId(),
+                originalSchedule.getScheduleDate().toString(),
+                originalSchedule.getTimeSlot()
+            );
+
+            // WebSocket推送
+            WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                patient.getUserId(),
+                appointment.getId(),
+                originalSchedule.getScheduleDate().toString(),
+                originalSchedule.getTimeSlot()
+            );
+
+        } catch (Exception e) {
+            System.err.println("发送改期退款通知失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 发送退款通知
+     */
+    private void sendRefundNotification(Appointment appointment, Schedule originalSchedule) {
+        try {
+            Patient patient = patientMapper.selectById(appointment.getPatientId());
+            if (patient == null) return;
+
+            notificationService.sendAppointmentCancelledRefundNotification(
+                patient.getUserId(),
+                appointment.getPatientId(),
+                appointment.getId(),
+                originalSchedule.getScheduleDate().toString(),
+                originalSchedule.getTimeSlot()
+            );
+
+            // WebSocket推送
+            WaitlistWebSocketServer.pushAppointmentCancelledRefund(
+                patient.getUserId(),
+                appointment.getId(),
+                originalSchedule.getScheduleDate().toString(),
+                originalSchedule.getTimeSlot()
+            );
+
+        } catch (Exception e) {
+            System.err.println("发送退款通知失败: " + e.getMessage());
         }
     }
 
@@ -453,6 +1365,39 @@ public class ApplicationRequestService {
             case "CANCELLED": return "已取消";
             default: return status;
         }
+    }
+
+    /**
+     * 根据排班日期和时段计算预约时间
+     */
+    private Date calculateAppointmentTimeFromSchedule(Date scheduleDate, String timeSlot) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(scheduleDate);
+
+        // 根据时段设置具体时间
+        switch (timeSlot != null ? timeSlot.toLowerCase() : "") {
+            case "morning":
+                calendar.set(Calendar.HOUR_OF_DAY, 9);
+                calendar.set(Calendar.MINUTE, 0);
+                break;
+            case "afternoon":
+                calendar.set(Calendar.HOUR_OF_DAY, 14);
+                calendar.set(Calendar.MINUTE, 0);
+                break;
+            case "evening":
+                calendar.set(Calendar.HOUR_OF_DAY, 18);
+                calendar.set(Calendar.MINUTE, 0);
+                break;
+            default:
+                calendar.set(Calendar.HOUR_OF_DAY, 9);
+                calendar.set(Calendar.MINUTE, 0);
+                break;
+        }
+
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+
+        return calendar.getTime();
     }
 }
 

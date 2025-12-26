@@ -5,6 +5,8 @@ import com.example.springboot.entity.Schedule;
 import com.example.springboot.mapper.ScheduleMapper;
 import com.example.springboot.mapper.DoctorMapper;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,8 @@ import java.util.*;
 
 @Service
 public class ScheduleService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ScheduleService.class);
 
     @Resource
     private ScheduleMapper scheduleMapper;
@@ -415,5 +419,54 @@ public class ScheduleService {
         result.put("message", String.format("成功增加 %d 个号源，并自动为 %d 位候补患者创建了预约。", slotsToAdd, filledCount));
 
         return result;
+    }
+
+    /**
+     * 统一释放号源并处理候补队列
+     * 确保每次号源释放时都会尝试处理候补队列
+     * @param scheduleId 排班ID
+     * @return 是否成功从候补队列中填充了预约
+     */
+    public boolean releaseSlotAndProcessWaitlist(Long scheduleId) {
+        logger.info("releaseSlotAndProcessWaitlist start scheduleId={}", scheduleId);
+
+        try {
+            // 1. 先尝试处理候补队列
+            boolean filled = appointmentService.processNextInWaitlist(scheduleId);
+            if (filled) {
+                logger.info("releaseSlotAndProcessWaitlist success: 从候补队列填充了预约 scheduleId={}", scheduleId);
+                return true;
+            }
+
+            // 2. 如果候补队列为空，才真正释放号源
+            scheduleMapper.increaseAvailableSlots(scheduleId);
+            logger.info("releaseSlotAndProcessWaitlist: 候补队列为空，释放号源完成 scheduleId={}", scheduleId);
+
+            // 3. 发送号源释放通知
+            try {
+                Schedule schedule = scheduleMapper.selectById(scheduleId);
+                if (schedule != null) {
+                    com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
+                    String doctorName = doctor != null ? doctor.getName() : "未知医生";
+                    String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(schedule.getScheduleDate());
+
+                    com.example.springboot.websocket.WaitlistWebSocketServer.pushSlotAvailable(
+                        scheduleId,
+                        doctorName,
+                        dateStr,
+                        schedule.getTimeSlot()
+                    );
+                    logger.info("releaseSlotAndProcessWaitlist: 已发送号源释放通知 scheduleId={}", scheduleId);
+                }
+            } catch (Exception e) {
+                logger.warn("releaseSlotAndProcessWaitlist: 发送号源释放通知失败: {}", e.getMessage());
+            }
+
+            return false;
+
+        } catch (Exception e) {
+            logger.error("releaseSlotAndProcessWaitlist error scheduleId={}, error={}", scheduleId, e.getMessage(), e);
+            throw e;
+        }
     }
 }

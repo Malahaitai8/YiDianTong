@@ -27,7 +27,12 @@ public interface PrepaymentOrderMapper {
     /**
      * 根据候补记录ID查询预支付订单
      */
-    PrepaymentOrder selectByWaitlistId(Long waitlistId);
+    List<PrepaymentOrder> selectByWaitlistId(Long waitlistId);
+    
+    /**
+     * 查询单条预支付订单（根据候补记录ID）
+     */
+    PrepaymentOrder selectOneByWaitlistId(Long waitlistId);
     
     /**
      * 根据患者ID查询预支付订单列表
@@ -85,4 +90,29 @@ public interface PrepaymentOrderMapper {
      * 查询需要退款的订单（候补失败、超时等）
      */
     List<PrepaymentOrder> selectOrdersForRefund();
+
+    /**
+     * 查询指定排班ID关联的预支付订单
+     */
+    List<PrepaymentOrder> selectByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * 将预支付订单绑定到新的排班（用于改期迁移）
+     */
+    int updateScheduleId(@Param("id") Long id, @Param("scheduleId") Long scheduleId);
+
+    /**
+     * 将预支付订单的 waitlist_id 置空（用于删除候补记录前清理外键）
+     */
+    int clearWaitlistId(@Param("id") Long id);
+    
+    /**
+     * 清理指定排班下所有预支付订单的 waitlist_id 引用（用于删除候补/排班前清理外键）
+     */
+    int clearWaitlistIdByScheduleId(@Param("scheduleId") Long scheduleId);
+    
+    /**
+     * 删除引用指定排班下候补记录的预支付订单（用于删除候补/排班前彻底移除引用）
+     */
+    int deleteByWaitlistScheduleId(@Param("scheduleId") Long scheduleId);
 }

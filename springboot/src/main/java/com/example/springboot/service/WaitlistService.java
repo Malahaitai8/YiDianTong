@@ -6,6 +6,7 @@ import com.example.springboot.entity.Doctor;
 import com.example.springboot.entity.Schedule;
 import com.example.springboot.entity.Waitlist;
 import com.example.springboot.exception.CustomerException;
+import com.example.springboot.mapper.AppointmentMapper;
 import com.example.springboot.mapper.DoctorMapper;
 import com.example.springboot.mapper.ScheduleMapper;
 import com.example.springboot.mapper.WaitlistMapper;
@@ -28,6 +29,9 @@ import java.util.Map;
 public class WaitlistService {
 
     private static final Logger logger = LoggerFactory.getLogger(WaitlistService.class);
+
+    @Resource
+    private AppointmentMapper appointmentMapper;
 
     @Resource
     private ScheduleMapper scheduleMapper; // <-- [保留] 仍然需要
@@ -81,6 +85,15 @@ public class WaitlistService {
         if (schedule == null) {
             logger.error("addInternal failed: schedule not found scheduleId={}", waitlist.getScheduleId());
             throw new CustomerException("排班不存在");
+        }
+
+        // [新增] 检查患者是否已预约同一医生同一日期同一时段
+        int existsSameDoctorTime = appointmentMapper.existsByPatientAndDoctorDateTime(
+            waitlist.getPatientId(), schedule.getDoctorId(), schedule.getScheduleDate(), schedule.getTimeSlot());
+        if (existsSameDoctorTime > 0) {
+            logger.warn("addInternal failed: patient already has appointment for same doctor/time patientId={} doctorId={} date={} timeSlot={}",
+                waitlist.getPatientId(), schedule.getDoctorId(), schedule.getScheduleDate(), schedule.getTimeSlot());
+            throw new CustomerException("您已预约该医生该时段的号源，请勿候补");
         }
         if (!skipAvailabilityCheck
                 && schedule.getAvailableSlots() != null

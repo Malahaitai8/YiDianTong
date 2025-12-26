@@ -150,6 +150,11 @@ public class SecurityConfig {
                         // 允许访问测试接口和健康检查
                         .requestMatchers("/hello", "/actuator/health", "/test/**").permitAll()
 
+                        // 允许访问WebSocket连接 (多种格式)
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/ws/waitlist/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/ws/waitlist/*").permitAll()
+
                         // ----------- [修改] -----------
                         // 患者相关接口 (移除)
                         // .requestMatchers("/patient/**").hasRole("PATIENT")

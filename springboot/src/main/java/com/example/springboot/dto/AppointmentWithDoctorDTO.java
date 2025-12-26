@@ -28,6 +28,10 @@ public class AppointmentWithDoctorDTO {
     private String timeSlot;
     private String slotType;
     
+    // 自动分配标记与重新选择窗口
+    private Boolean autoAssigned;
+    private Date rescheduleWindowExpires;
+    
     // Department/Clinic 信息
     private String departmentName;
     private String clinicName;
@@ -47,6 +51,8 @@ public class AppointmentWithDoctorDTO {
         dto.setActualFee(appointment.getActualFee());
         dto.setCreatedAt(appointment.getCreatedAt());
         dto.setSourceType(appointment.getSourceType());
+        dto.setAutoAssigned(appointment.getAutoAssigned());
+        dto.setRescheduleWindowExpires(appointment.getRescheduleWindowExpires());
         
         // 设置医生信息
         dto.setDoctorName(doctorName);

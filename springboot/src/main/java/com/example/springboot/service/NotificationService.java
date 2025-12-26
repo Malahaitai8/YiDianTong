@@ -59,7 +59,34 @@ public class NotificationService {
                 return;
             }
             
-            // 创建通知记录
+            // 1) 写入站内通知（IN_APP），保证离线用户也能看到
+            try {
+                Notification inApp = new Notification();
+                inApp.setUserId(userId);
+                inApp.setPatientId(patientId);
+                inApp.setNotificationType("WAITLIST_SUCCESS");
+                inApp.setTitle("候补成功");
+                inApp.setContent(String.format("您的候补已成功转为预约！医生：%s，时间：%s %s", 
+                    doctorName, appointmentDate, timeSlot));
+                inApp.setRelatedType("APPOINTMENT");
+                inApp.setRelatedId(appointmentId);
+                inApp.setChannel("IN_APP");
+                inApp.setStatus("SENT");
+                inApp.setTemplateId(TEMPLATE_WAITLIST_SUCCESS);
+                Map<String, Map<String, String>> templateDataInApp = wechatService.buildMessageData(
+                    "thing1", doctorName,
+                    "date2", appointmentDate,
+                    "time3", timeSlot,
+                    "thing4", "候补成功，请按时就诊"
+                );
+                inApp.setTemplateData(objectMapper.writeValueAsString(templateDataInApp));
+                notificationMapper.insert(inApp);
+            } catch (Exception e) {
+                logger.warn("写入 IN_APP 候补成功通知失败: userId={}, patientId={}, error={}", userId, patientId, e.getMessage());
+            }
+
+            // 2) 再尝试发送微信订阅消息（微信失败不影响站内通知）
+            try {
             Notification notification = new Notification();
             notification.setUserId(userId);
             notification.setPatientId(patientId);
@@ -72,8 +99,6 @@ public class NotificationService {
             notification.setChannel("WECHAT");
             notification.setStatus("PENDING");
             notification.setTemplateId(TEMPLATE_WAITLIST_SUCCESS);
-            
-            // 构建模板数据
             Map<String, Map<String, String>> templateData = wechatService.buildMessageData(
                 "thing1", doctorName,
                 "date2", appointmentDate,
@@ -81,14 +106,136 @@ public class NotificationService {
                 "thing4", "候补成功，请按时就诊"
             );
             notification.setTemplateData(objectMapper.writeValueAsString(templateData));
-            
             notificationMapper.insert(notification);
-            
-            // 发送微信订阅消息
             sendWechatNotification(notification, patient);
+            } catch (Exception e) {
+                logger.warn("尝试发送微信候补成功通知失败（已写入 IN_APP）: userId={}, patientId={}, error={}", userId, patientId, e.getMessage());
+            }
             
         } catch (Exception e) {
             logger.error("发送候补成功通知失败: userId={}, patientId={}, error={}", 
+                userId, patientId, e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 发送预约重新安排通知
+     */
+    @Async
+    public void sendAppointmentRescheduledNotification(Long userId, Long patientId, Long appointmentId,
+                                                      String doctorName, String originalDate, String originalTimeSlot,
+                                                      String newDate, String newTimeSlot) {
+        try {
+            Patient patient = patientMapper.selectById(patientId);
+            if (patient == null) {
+                logger.warn("患者不存在，无法发送重新安排通知: patientId={}", patientId);
+                return;
+            }
+
+            // 1) 先写入站内（IN_APP）通知，保证患者离线也能在 APP 内看到
+            try {
+                Notification inApp = new Notification();
+                inApp.setUserId(userId);
+                inApp.setPatientId(patientId);
+                inApp.setNotificationType("APPOINTMENT_RESCHEDULED");
+                inApp.setTitle("预约已重新安排");
+                inApp.setContent(String.format("您的预约因医生调班已重新安排至%s医生，时间：%s %s，原时间：%s %s",
+                    doctorName, newDate, newTimeSlot, originalDate, originalTimeSlot));
+                inApp.setRelatedType("APPOINTMENT");
+                inApp.setRelatedId(appointmentId);
+                inApp.setChannel("IN_APP");
+                inApp.setStatus("SENT");
+                inApp.setTemplateId("APPOINTMENT_RESCHEDULED_TEMPLATE");
+                inApp.setTemplateData(objectMapper.writeValueAsString(
+                    wechatService.buildMessageData(
+                        "thing1", "预约重新安排",
+                        "name2", doctorName,
+                        "date3", newDate + " " + newTimeSlot,
+                        "thing4", "原时间：" + originalDate + " " + originalTimeSlot
+                    )
+                ));
+                notificationMapper.insert(inApp);
+            } catch (Exception e) {
+                logger.warn("写入 IN_APP 通知失败: userId={}, error={}", userId, e.getMessage());
+            }
+
+            // 2) 同时尝试发送微信订阅消息（不影响站内通知）
+            try {
+                Notification notification = new Notification();
+                notification.setUserId(userId);
+                notification.setPatientId(patientId);
+                notification.setNotificationType("APPOINTMENT_RESCHEDULED");
+                notification.setTitle("预约已重新安排");
+                notification.setContent(String.format("您的预约因医生调班已重新安排至%s医生，时间：%s %s，原时间：%s %s",
+                    doctorName, newDate, newTimeSlot, originalDate, originalTimeSlot));
+                notification.setRelatedType("APPOINTMENT");
+                notification.setRelatedId(appointmentId);
+                notification.setChannel("WECHAT");
+                notification.setStatus("PENDING");
+                notification.setTemplateId("APPOINTMENT_RESCHEDULED_TEMPLATE");
+
+                // 构建模板数据
+                Map<String, Map<String, String>> templateData = wechatService.buildMessageData(
+                    "thing1", "预约重新安排",
+                    "name2", doctorName,
+                    "date3", newDate + " " + newTimeSlot,
+                    "thing4", "原时间：" + originalDate + " " + originalTimeSlot
+                );
+                notification.setTemplateData(objectMapper.writeValueAsString(templateData));
+
+                notificationMapper.insert(notification);
+                sendWechatNotification(notification, patient);
+            } catch (Exception e) {
+                logger.warn("尝试发送微信通知时发生异常（已写入 IN_APP 通知）: userId={}, error={}", userId, e.getMessage());
+            }
+
+        } catch (Exception e) {
+            logger.error("发送预约重新安排通知失败: userId={}, patientId={}, error={}",
+                userId, patientId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 发送预约取消退款通知
+     */
+    @Async
+    public void sendAppointmentCancelledRefundNotification(Long userId, Long patientId, Long appointmentId,
+                                                          String appointmentDate, String timeSlot) {
+        try {
+            Patient patient = patientMapper.selectById(patientId);
+            if (patient == null) {
+                logger.warn("患者不存在，无法发送退款通知: patientId={}", patientId);
+                return;
+            }
+
+            // 创建通知记录
+            Notification notification = new Notification();
+            notification.setUserId(userId);
+            notification.setPatientId(patientId);
+            notification.setNotificationType("APPOINTMENT_CANCELLED_REFUND");
+            notification.setTitle("预约已取消并退款");
+            notification.setContent(String.format("您的预约因医生调班已取消，费用已退还至原支付账户，时间：%s %s",
+                appointmentDate, timeSlot));
+            notification.setRelatedType("APPOINTMENT");
+            notification.setRelatedId(appointmentId);
+            notification.setChannel("WECHAT");
+            notification.setStatus("PENDING");
+            notification.setTemplateId("APPOINTMENT_CANCELLED_REFUND_TEMPLATE");
+
+            // 构建模板数据
+            Map<String, Map<String, String>> templateData = wechatService.buildMessageData(
+                "thing1", "预约已取消",
+                "thing2", "医生调班",
+                "amount3", "费用已退还",
+                "date4", appointmentDate + " " + timeSlot
+            );
+            notification.setTemplateData(objectMapper.writeValueAsString(templateData));
+
+            notificationMapper.insert(notification);
+            sendWechatNotification(notification, patient);
+
+        } catch (Exception e) {
+            logger.error("发送预约取消退款通知失败: userId={}, patientId={}, error={}",
                 userId, patientId, e.getMessage(), e);
         }
     }

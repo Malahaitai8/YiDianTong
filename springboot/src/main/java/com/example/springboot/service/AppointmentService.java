@@ -6,6 +6,7 @@ import com.example.springboot.entity.Patient;
 import com.example.springboot.entity.PrepaymentOrder;
 import com.example.springboot.entity.Waitlist;
 import com.example.springboot.entity.Schedule;
+import com.example.springboot.entity.Doctor;
 import com.example.springboot.exception.CustomerException;
 import com.example.springboot.mapper.AppointmentMapper;
 import com.example.springboot.mapper.PatientMapper;
@@ -17,11 +18,14 @@ import com.example.springboot.dto.AppointmentWithDoctorDTO;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Date;
 import java.util.Calendar;
 
@@ -56,6 +60,64 @@ public class AppointmentService {
 
     @Resource
     private DoctorMapper doctorMapper;
+
+    @Resource
+    @Lazy
+    private ScheduleService scheduleService;
+
+    // ============ 辅助方法 ============
+
+    /**
+     * 获取指定日期的开始时间
+     */
+    public Date atStartOfDay(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTime();
+    }
+
+    /**
+     * 获取指定日期下一天的开始时间
+     */
+    public Date atStartOfNextDay(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.add(Calendar.DAY_OF_MONTH, 1);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTime();
+    }
+
+    /**
+     * 根据时间段字符串获取序号
+     */
+    public int timeSlotOrder(String timeSlot) {
+        if (timeSlot == null) return 0;
+        String s = timeSlot.trim().toLowerCase();
+        if (s.equals("morning") || s.equals("上午")) return 1;
+        if (s.equals("afternoon") || s.equals("下午")) return 2;
+        if (s.equals("evening") || s.equals("晚上")) return 3;
+        return 0;
+    }
+
+    /**
+     * 根据当前小时判断当前时间段序号
+     */
+    public int timeSlotOrderFromNow() {
+        Calendar cal = Calendar.getInstance();
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        if (hour < 12) return 1;
+        if (hour < 18) return 2;
+        return 3;
+    }
+
+    // ============ 业务方法 ============
 
     public List<Appointment> selectAll() {
 
@@ -97,6 +159,13 @@ public class AppointmentService {
         if (exists > 0) {
             throw new CustomerException("请勿重复预约该排班");
         }
+
+        // [新增] 已预约同一医生同一日期同一时段的人不允许再预约
+        int existsSameDoctorTime = appointmentMapper.existsByPatientAndDoctorDateTime(
+            patientId, schedule.getDoctorId(), schedule.getScheduleDate(), schedule.getTimeSlot());
+        if (existsSameDoctorTime > 0) {
+            throw new CustomerException("您已预约该医生该时段的号源，请勿重复预约");
+        }
         
         // [修复] 检查已预约数量，防止超售
         int existingAppointments = appointmentMapper.countByScheduleId(appointment.getScheduleId());
@@ -114,7 +183,7 @@ public class AppointmentService {
         // [修复] 扣减号源后，再次检查是否已有相同患者的预约（防止并发重复预约）
         int duplicateCheck = appointmentMapper.existsByPatientAndSchedule(patientId, appointment.getScheduleId());
         if (duplicateCheck > 0) {
-            // 归还号源
+            // 归还号源（重复预约情况下，不触发候补队列处理）
             scheduleMapper.increaseAvailableSlots(schedule.getId());
             throw new CustomerException("检测到重复预约，操作已取消");
         }
@@ -231,6 +300,75 @@ public class AppointmentService {
     }
 
     /** [修改] 处理候补队列：为队首患者创建预约；返回是否已被候补填充 */
+    /**
+     * 发送候补成功通知 - 在事务外部调用，确保只在业务处理成功后发送
+     */
+    private void sendWaitlistSuccessNotifications(Long scheduleId, Waitlist waitlistEntry) {
+        try {
+            // 重新查询最新的排班和预约信息，确保数据准确性
+            Schedule scheduleInfo = scheduleMapper.selectById(scheduleId);
+            if (scheduleInfo == null) {
+                logger.warn("发送候补成功通知失败：排班不存在 scheduleId={}", scheduleId);
+                return;
+            }
+
+            // 查询刚创建的预约 - 查找该患者该排班的WAITLIST来源预约
+            Long patientId = waitlistEntry.getPatientId();
+            List<Appointment> patientAppointments = appointmentMapper.selectByPatientId(patientId);
+            Appointment newAppointment = null;
+
+            // 找到最新的WAITLIST来源预约
+            for (Appointment apt : patientAppointments) {
+                if (apt.getScheduleId().equals(scheduleId) &&
+                    "WAITLIST".equals(apt.getSourceType()) &&
+                    "scheduled".equals(apt.getStatus())) {
+                    if (newAppointment == null ||
+                        apt.getCreatedAt().after(newAppointment.getCreatedAt())) {
+                        newAppointment = apt;
+                    }
+                }
+            }
+
+            if (newAppointment == null) {
+                logger.warn("发送候补成功通知失败：未找到新创建的WAITLIST预约 patientId={}, scheduleId={}", patientId, scheduleId);
+                return;
+            }
+            com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(scheduleInfo.getDoctorId());
+            String doctorName = doctor != null ? doctor.getName() : "未知医生";
+            String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(scheduleInfo.getScheduleDate());
+            String timeSlot = scheduleInfo.getTimeSlot();
+
+            Patient patient = patientMapper.selectById(patientId);
+            if (patient != null) {
+                logger.info("发送候补成功通知：userId={}, patientId={}, appointmentId={}, doctorName={}",
+                    patient.getUserId(), patientId, newAppointment.getId(), doctorName);
+
+                // 发送微信订阅消息通知
+                notificationService.sendWaitlistSuccessNotification(
+                    patient.getUserId(),
+                    patientId,
+                    newAppointment.getId(),
+                    doctorName,
+                    dateStr,
+                    timeSlot
+                );
+
+                // 实时推送WebSocket消息（包含scheduleId和appointmentId以便前端匹配）
+                com.example.springboot.websocket.WaitlistWebSocketServer.pushWaitlistSuccess(
+                    patient.getUserId(),
+                    scheduleId,
+                    newAppointment.getId(),
+                    doctorName,
+                    dateStr,
+                    timeSlot
+                );
+            }
+        } catch (Exception e) {
+            logger.error("发送候补成功通知异常：scheduleId={}, waitlistId={}, error={}",
+                scheduleId, waitlistEntry.getId(), e.getMessage(), e);
+        }
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public boolean processNextInWaitlist(Long scheduleId) {
         // 只在需要排查问题时打开 DEBUG；正常运行不刷屏
@@ -247,6 +385,8 @@ public class AppointmentService {
             boolean processed = processSingleWaitlistEntry(scheduleId, waitlistEntry);
             if (processed) {
                 logger.info("processNextInWaitlist success scheduleId={} attempts={}", scheduleId, attempts);
+                // [修复] 事务成功提交后，发送候补成功通知 - 确保通知只在业务处理成功后发送
+                sendWaitlistSuccessNotifications(scheduleId, waitlistEntry);
                 return true;
             }
         }
@@ -432,41 +572,6 @@ public class AppointmentService {
                 logger.warn("清除候补统计缓存失败: {}", e.getMessage());
             }
 
-            // ========== 发送候补成功通知 ==========
-            try {
-                Schedule scheduleInfo = scheduleMapper.selectById(scheduleId);
-                if (scheduleInfo != null) {
-                    com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(scheduleInfo.getDoctorId());
-                    String doctorName = doctor != null ? doctor.getName() : "未知医生";
-                    String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(scheduleInfo.getScheduleDate());
-                    String timeSlot = scheduleInfo.getTimeSlot();
-                    
-                    Patient patient = patientMapper.selectById(nextPatientId);
-                    if (patient != null) {
-                        // 发送微信订阅消息通知
-                        notificationService.sendWaitlistSuccessNotification(
-                            patient.getUserId(),
-                            nextPatientId,
-                            newAppointment.getId(),
-                            doctorName,
-                            dateStr,
-                            timeSlot
-                        );
-                        
-                        // 实时推送WebSocket消息（包含scheduleId和appointmentId以便前端匹配）
-                        com.example.springboot.websocket.WaitlistWebSocketServer.pushWaitlistSuccess(
-                            patient.getUserId(),
-                            scheduleId,
-                            newAppointment.getId(),
-                            doctorName,
-                            dateStr,
-                            timeSlot
-                        );
-                    }
-                }
-            } catch (Exception e) {
-                logger.warn("发送候补成功通知失败: {}", e.getMessage());
-            }
 
             logger.info("候补队列自动创建预约成功: 患者ID={}, 排班ID={}, 预约ID={}, 订单号={}, waitlistId={}",
                     nextPatientId, scheduleId, newAppointment.getId(), prepaymentOrder.getOrderNo(), waitlistEntry.getId());
@@ -527,33 +632,14 @@ public class AppointmentService {
 
         int result = appointmentMapper.updateStatus(id, "cancelled");
 
-        // 如果取消成功，优先尝试用候补顶上；只有没有候补成功时才真正归还号源
+        // 如果取消成功，使用统一的号源释放方法处理候补队列
         if (result > 0) {
-            logger.info("cancelById -> scheduleId={} appointmentId={} start processNextInWaitlist", appointment.getScheduleId(), id);
-            boolean filled = processNextInWaitlist(appointment.getScheduleId());
-            logger.info("cancelById -> scheduleId={} appointmentId={} filled={}", appointment.getScheduleId(), id, filled);
-            if (!filled) {
-                // 无候补成功时，再归还号源并推送“号源释放”通知
-                try {
-                    scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
-                    logger.info("cancelById -> scheduleId={} 无候补成功，归还号源完成", appointment.getScheduleId());
-
-                    Schedule schedule = scheduleMapper.selectById(appointment.getScheduleId());
-                    if (schedule != null) {
-                        com.example.springboot.entity.Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
-                        String doctorName = doctor != null ? doctor.getName() : "未知医生";
-                        String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(schedule.getScheduleDate());
-
-                        com.example.springboot.websocket.WaitlistWebSocketServer.pushSlotAvailable(
-                            appointment.getScheduleId(),
-                            doctorName,
-                            dateStr,
-                            schedule.getTimeSlot()
-                        );
-                    }
-                } catch (Exception e) {
-                    logger.warn("取消预约归还号源失败: {}", e.getMessage());
-                }
+            logger.info("cancelById -> scheduleId={} appointmentId={} start releaseSlotAndProcessWaitlist", appointment.getScheduleId(), id);
+            try {
+                boolean filled = scheduleService.releaseSlotAndProcessWaitlist(appointment.getScheduleId());
+                logger.info("cancelById -> scheduleId={} appointmentId={} filled={}", appointment.getScheduleId(), id, filled);
+            } catch (Exception e) {
+                logger.warn("取消预约释放号源失败: {}", e.getMessage());
             }
             // ========== 发送取消预约通知 ==========
             try {
@@ -610,7 +696,7 @@ public class AppointmentService {
             Date startDate,
             Date endDate,
             String timeSlot) {
-        List<AvailableSlotDTO> slots = scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot);
+        List<AvailableSlotDTO> slots = scheduleMapper.searchAvailableSlots(departmentId, doctorId, startDate, endDate, timeSlot, null);
         if (slots == null) {
             return java.util.Collections.emptyList();
         }
@@ -631,6 +717,14 @@ public class AppointmentService {
             }
             java.math.BigDecimal fee = systemConfigService.getDecimalOrDefault(key, java.math.BigDecimal.ZERO);
             slot.setFee(fee.doubleValue());
+            // 填充医生级别 rank，供前端展示与筛选使用
+            try {
+                Doctor d = doctorMapper.selectById(slot.getDoctorId());
+                int rank = mapDoctorTitleToRank(d != null ? d.getTitle() : null);
+                slot.setDoctorRank(rank);
+            } catch (Exception ex) {
+                slot.setDoctorRank(2); // 默认中等等级
+            }
         }
 
         return slots;
@@ -668,27 +762,6 @@ public class AppointmentService {
             logger.warn("计算实际费用失败: {}", e.getMessage());
             return originalFee;
         }
-    }
-    
-    private Date atStartOfDay(Date date) {
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.setTime(date);
-        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
-        cal.set(java.util.Calendar.MINUTE, 0);
-        cal.set(java.util.Calendar.SECOND, 0);
-        cal.set(java.util.Calendar.MILLISECOND, 0);
-        return cal.getTime();
-    }
-
-    private Date atStartOfNextDay(Date date) {
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.setTime(date);
-        cal.add(java.util.Calendar.DATE, 1);
-        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
-        cal.set(java.util.Calendar.MINUTE, 0);
-        cal.set(java.util.Calendar.SECOND, 0);
-        cal.set(java.util.Calendar.MILLISECOND, 0);
-        return cal.getTime();
     }
     
     /**
@@ -737,5 +810,208 @@ public class AppointmentService {
         cal.set(java.util.Calendar.MILLISECOND, 0);
         
         return cal.getTime();
+    }
+
+
+    /** 检查预约是否可以重新选择 */
+    public boolean canReselectAppointment(Appointment appointment) {
+        // 仅针对系统自动重新安排（RESCHEDULED）允许患者重新选择一次
+        if (!"RESCHEDULED".equals(appointment.getSourceType())) {
+            return false;
+        }
+
+        // 如果存在 rescheduleWindowExpires 字段，以此为准（优先）
+        if (appointment.getRescheduleWindowExpires() != null) {
+            return System.currentTimeMillis() <= appointment.getRescheduleWindowExpires().getTime();
+        }
+
+        // 否则降级为创建时间 24 小时规则（兼容老数据）
+        long currentTime = System.currentTimeMillis();
+        long appointmentTime = appointment.getCreatedAt() != null ? appointment.getCreatedAt().getTime() : 0L;
+        long hoursDiff = (currentTime - appointmentTime) / (1000 * 60 * 60);
+        return hoursDiff <= 24;
+    }
+
+    /** 重新选择预约时间 */
+    @Transactional
+    public Appointment reselectAppointment(Appointment appointment, Long newScheduleId) {
+        // 仅允许从系统重新安排（RESCHEDULED）状态由患者主动重新选择一次
+        if (!"RESCHEDULED".equals(appointment.getSourceType())) {
+            throw new CustomerException("仅支持对系统重新安排的预约进行一次患者重新选择");
+        }
+
+        // 检查是否仍在允许的重新选择窗口内
+        if (!canReselectAppointment(appointment)) {
+            throw new CustomerException("已超过重新选择时间限制或不允许重新选择");
+        }
+
+        // 1. 验证新排班
+        Schedule newSchedule = scheduleMapper.selectById(newScheduleId);
+        if (newSchedule == null) {
+            throw new CustomerException("新排班不存在");
+        }
+        // 不允许选择与当前相同的排班
+        if (appointment.getScheduleId() != null && appointment.getScheduleId().equals(newScheduleId)) {
+            throw new CustomerException("请选择不同的时段，不能选择当前排班");
+        }
+
+        // 2. 检查患者是否重复预约
+        int exists = appointmentMapper.existsByPatientAndSchedule(appointment.getPatientId(), newScheduleId);
+        if (exists > 0) {
+            throw new CustomerException("您已预约该时段");
+        }
+
+        // 3. 并发安全：重新检查号源可用性
+        Schedule latestNewSchedule = scheduleMapper.selectById(newScheduleId);
+        if (latestNewSchedule.getAvailableSlots() <= 0) {
+            throw new CustomerException("该时段刚刚被预约完，请选择其他时段");
+        }
+
+        // 额外校验：重新选择的号别（slotType）必须与当前已分配的号别相同
+        Schedule currentSchedule = scheduleMapper.selectById(appointment.getScheduleId());
+        if (currentSchedule != null) {
+            String currSlotType = currentSchedule.getSlotType();
+            String candSlotType = latestNewSchedule.getSlotType();
+            if (currSlotType == null) currSlotType = "";
+            if (candSlotType == null) candSlotType = "";
+            if (!currSlotType.trim().equalsIgnoreCase(candSlotType.trim())) {
+                throw new CustomerException("只允许选择与当前号别相同的号源（如普通号/专家号/特需号）。");
+            }
+        }
+
+        // 4. 释放原排班号源（使用乐观锁方式）
+        int increaseResult = scheduleMapper.increaseAvailableSlots(appointment.getScheduleId());
+        if (increaseResult == 0) {
+            throw new CustomerException("释放原号源失败，请重试");
+        }
+
+        // 5. 占用新排班号源（使用乐观锁方式）
+        int decreaseResult = scheduleMapper.decreaseAvailableSlots(newScheduleId);
+        if (decreaseResult == 0) {
+            // 回滚：重新占用原号源
+            scheduleMapper.decreaseAvailableSlots(appointment.getScheduleId());
+            throw new CustomerException("该时段刚刚被预约完，请选择其他时段");
+        }
+
+        // 6. 更新预约信息
+        appointment.setScheduleId(newScheduleId);
+        appointment.setDoctorId(newSchedule.getDoctorId());
+        appointment.setAppointmentTime(calculateAppointmentTimeFromSchedule(newSchedule.getScheduleDate(), newSchedule.getTimeSlot()));
+        appointment.setSourceType("RESELECTED"); // 标记为患者主动重新选择
+
+        appointmentMapper.updateById(appointment);
+
+        return appointment;
+    }
+
+    /** 获取重新选择选项 */
+    public List<AvailableSlotDTO> findReselectOptions(Schedule originalSchedule, Doctor originalDoctor, Long patientId) {
+        // 目标：仅查找与原排班相同时间段（timeSlot）的未来可用排班，
+        // 包含：同一时段的其他医生（未来）与同一医生的未来时段，排除 originalSchedule 本身。
+        Date todayStart = atStartOfDay(new Date());
+        Date originalDate = originalSchedule != null ? originalSchedule.getScheduleDate() : todayStart;
+        Date startDate = (originalDate != null && originalDate.after(todayStart)) ? originalDate : todayStart;
+
+        // 如果起始日为今天且原 timeSlot 已过（例如现在为下午、原为上午），则从明天开始
+        try {
+            String origSlot = originalSchedule != null ? originalSchedule.getTimeSlot() : null;
+            if (origSlot != null && startDate.equals(todayStart)) {
+                int origOrder = timeSlotOrder(origSlot);
+                int nowOrder = timeSlotOrderFromNow();
+                if (origOrder > 0 && origOrder < nowOrder) {
+                    startDate = atStartOfNextDay(todayStart);
+                }
+            }
+        } catch (Exception ex) {
+            logger.warn("计算重新选择起始日期失败，使用默认 startDate", ex.getMessage());
+        }
+
+        // 从 SQL 层查询：仅限相同 timeSlot，排除原 scheduleId
+        List<AvailableSlotDTO> allOptions = scheduleMapper.searchAvailableSlots(
+            null,
+            null,
+            startDate,
+            new Date(startDate.getTime() + 30L * 24 * 60 * 60 * 1000),
+            originalSchedule != null ? originalSchedule.getTimeSlot() : null,
+            originalSchedule != null ? originalSchedule.getId() : null
+        );
+
+        // 过滤掉患者已预约的排班，并限制医生级别不高于原医生
+        int originalRank = originalDoctor != null ? mapDoctorTitleToRank(originalDoctor.getTitle()) : Integer.MAX_VALUE;
+        return allOptions.stream()
+            .filter(slot -> {
+                int exists = appointmentMapper.existsByPatientAndSchedule(patientId, slot.getScheduleId());
+                return exists == 0;
+            })
+            .filter(slot -> {
+                if (originalDoctor == null) return true;
+                // 仅允许相同号别（slotType）被返回为可选
+                String origSlotType = originalSchedule != null ? originalSchedule.getSlotType() : null;
+                if (origSlotType == null) return true;
+                String slotType = slot.getSlotType();
+                if (slotType == null) return false;
+                return origSlotType.trim().equalsIgnoreCase(slotType.trim());
+            })
+            .limit(20)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 将医生职称映射为等级值，值越大表示级别越高。
+     * 典型顺序示例： 住院医师(1) < 主治医师(2) < 副主任医师(3) < 主任医师(4)
+     * 未知职称返回中性值 2。
+     */
+    private int mapDoctorTitleToRank(String title) {
+        if (title == null) return 2;
+        String s = title.trim().toLowerCase();
+        if (s.contains("住院")) return 1;
+        if (s.contains("主治")) return 2;
+        if (s.contains("副主任") || s.contains("associate")) return 3;
+        if (s.contains("主任") || s.contains("chief")) return 4;
+        // 默认中间等级
+        return 2;
+    }
+
+
+
+    /**
+     * 医生查看预约患者详情 - 包含就诊历史等信息
+     * @param doctorUserId 医生用户ID
+     * @return 患者详情列表
+     */
+    public List<Map<String, Object>> getPatientDetailsByDoctorId(Long doctorUserId) {
+        try {
+            // 1. 根据用户ID获取医生信息
+            Doctor doctor = doctorMapper.selectByUserId(doctorUserId);
+            if (doctor == null) {
+                logger.warn("医生信息不存在: doctorUserId={}", doctorUserId);
+                return new java.util.ArrayList<>();
+            }
+
+            // 2. 查询该医生名下所有预约，按患者分组获取最新信息
+            List<Map<String, Object>> patientDetails = appointmentMapper.selectPatientDetailsByDoctorId(doctor.getId());
+
+            // 3. 为每个患者添加就诊历史统计信息
+            for (Map<String, Object> detail : patientDetails) {
+                Long patientId = (Long) detail.get("patientId");
+
+                // 获取该患者的完整就诊历史统计
+                Map<String, Object> stats = appointmentMapper.getPatientAppointmentStatsByDoctor(patientId, doctor.getId());
+                if (stats != null) {
+                    detail.putAll(stats);
+                }
+
+                // 设置hasVisited标志
+                Integer completedCount = (Integer) detail.get("completedAppointments");
+                detail.put("hasVisited", completedCount != null && completedCount > 0);
+            }
+
+            logger.info("医生{}查询到{}位患者详情", doctor.getName(), patientDetails.size());
+            return patientDetails;
+
+        } catch (Exception e) {
+            logger.error("获取医生患者详情失败: doctorUserId={}, error={}", doctorUserId, e.getMessage(), e);
+            return new java.util.ArrayList<>();
+        }
     }
 }

@@ -44,6 +44,12 @@
         where waitlist_id = #{waitlistId}
     </select>
 
+    <select id="selectOneByWaitlistId" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where waitlist_id = #{waitlistId}
+        limit 1
+    </select>
+
     <select id="selectByPatientId" resultMap="PrepaymentOrderResultMap">
         select * from prepayment_order
         where patient_id = #{patientId}
@@ -137,4 +143,40 @@
             where w.status = 'EXPIRED'
         )
     </select>
+
+    <select id="selectByScheduleId" resultMap="PrepaymentOrderResultMap">
+        select * from prepayment_order
+        where schedule_id = #{scheduleId}
+        order by created_at desc
+    </select>
+
+    <update id="updateScheduleId">
+        update prepayment_order
+        set schedule_id = #{scheduleId},
+            updated_at = now()
+        where id = #{id}
+    </update>
+
+    <update id="clearWaitlistId">
+        update prepayment_order
+        set waitlist_id = null,
+            updated_at = now()
+        where id = #{id}
+    </update>
+
+    <update id="clearWaitlistIdByScheduleId">
+        update prepayment_order
+        set waitlist_id = null,
+            updated_at = now()
+        where waitlist_id in (
+            select id from waitlist where schedule_id = #{scheduleId}
+        )
+    </update>
+
+    <delete id="deleteByWaitlistScheduleId">
+        delete from prepayment_order
+        where waitlist_id in (
+            select id from waitlist where schedule_id = #{scheduleId}
+        )
+    </delete>
 </mapper>

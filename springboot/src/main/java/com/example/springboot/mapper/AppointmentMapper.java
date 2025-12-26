@@ -30,6 +30,9 @@ public interface AppointmentMapper {
     /** 查询指定医生的预约列表 */
     List<Appointment> selectByDoctorId(Long doctorId);
 
+    /** 查询某排班的所有预约 */
+    List<Appointment> selectByScheduleId(Long scheduleId);
+
     /** 统计某排班的预约数量 */
     int countByScheduleId(Long scheduleId);
 
@@ -44,6 +47,12 @@ public interface AppointmentMapper {
 
     /** 判断是否已对同一排班预约（不含已取消） */
     int existsByPatientAndSchedule(Long patientId, Long scheduleId);
+
+    /** 判断患者是否已预约同一医生同一日期同一时段（不含已取消） */
+    int existsByPatientAndDoctorDateTime(Long patientId, Long doctorId, java.util.Date date, String timeSlot);
+
+    /** 查询医生名下的所有预约患者详情（包含就诊历史） */
+    java.util.List<java.util.Map<String, Object>> selectPatientDetailsByDoctorId(Long doctorId);
 
     // ========== 统计接口方法 ==========
 
@@ -106,4 +115,18 @@ public interface AppointmentMapper {
     List<Map<String, Object>> getAppointmentRawDetails(@Param("startDate") Date startDate,
                                                        @Param("endDate") Date endDate,
                                                        @Param("departmentId") Long departmentId);
+
+    /**
+     * 查询超期的系统自动重新安排的预约（source_type = 'RESCHEDULED' 且 created_at <= now - hours）
+     */
+    List<Appointment> selectRescheduledExpired(@Param("hours") int hours);
+
+    /**
+     * 获取患者在指定医生处的预约统计信息
+     * @param patientId 患者ID
+     * @param doctorId 医生ID
+     * @return 包含统计信息的Map
+     */
+    Map<String, Object> getPatientAppointmentStatsByDoctor(@Param("patientId") Long patientId,
+                                                           @Param("doctorId") Long doctorId);
 }

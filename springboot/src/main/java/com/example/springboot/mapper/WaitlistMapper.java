@@ -24,6 +24,12 @@ public interface WaitlistMapper {
     /** 根据患者 ID 查询其候补队列 */
     List<Waitlist> selectByPatientId(Long patientId);
 
+    /** 根据排班 ID 查询该排班下的候补记录列表 */
+    List<Waitlist> selectByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /** 根据排班 ID 批量更新候补记录的状态 */
+    int updateStatusByScheduleId(@Param("scheduleId") Long scheduleId, @Param("status") String status);
+
     /** 查询指定排班下最早的 WAITING 状态记录 */
     Waitlist selectNextWaiting(@org.apache.ibatis.annotations.Param("scheduleId") Long scheduleId);
 

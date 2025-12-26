@@ -42,6 +42,14 @@ public interface ScheduleMapper {
             "WHERE id = #{id}")
     int increaseAvailableSlots(@Param("id") Long id);
 
+    /** 增加指定数量的可用号源 */
+    @Update("UPDATE schedule SET available_slots = CASE " +
+            "WHEN total_slots IS NULL THEN available_slots + #{count} " +
+            "WHEN available_slots + #{count} <= total_slots THEN available_slots + #{count} " +
+            "ELSE total_slots END " +
+            "WHERE id = #{id}")
+    int increaseAvailableSlotsBy(@Param("id") Long id, @Param("count") int count);
+
     /**
      * 搜索可预约时段
      * @param departmentId 科室ID (可选)
@@ -56,7 +64,8 @@ public interface ScheduleMapper {
         @Param("doctorId") Long doctorId,
         @Param("startDate") Date startDate,
         @Param("endDate") Date endDate,
-        @Param("timeSlot") String timeSlot
+        @Param("timeSlot") String timeSlot,
+        @Param("excludeScheduleId") Long excludeScheduleId
     );
 
     // ========== 管理端排班管理接口 ==========
@@ -167,5 +176,18 @@ public interface ScheduleMapper {
     Integer sumAvailableSlots(@Param("departmentId") Long departmentId,
                               @Param("startDate") Date startDate,
                               @Param("endDate") Date endDate);
+
+    /** 查找可用的替代排班 */
+    Schedule findAlternativeSchedule(@Param("doctorId") Long doctorId,
+                                   @Param("originalDate") java.util.Date originalDate,
+                                   @Param("timeSlot") String timeSlot,
+                                   @Param("clinicId") Long clinicId,
+                                   @Param("titleLevel") String titleLevel,
+                                   @Param("searchType") String searchType);
+
+    /** 根据医生ID、日期和时段查找排班 */
+    Schedule findScheduleByDoctorDateTime(@Param("doctorId") Long doctorId,
+                                        @Param("scheduleDate") java.util.Date scheduleDate,
+                                        @Param("timeSlot") String timeSlot);
 
 }

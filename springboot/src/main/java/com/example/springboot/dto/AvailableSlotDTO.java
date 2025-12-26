@@ -14,9 +14,15 @@ public class AvailableSlotDTO {
     /** 排班ID */
     private Long scheduleId;
     
+    /** 医生ID */
+    private Long doctorId;
+
     /** 医生姓名 */
     private String doctorName;
-    
+
+    /** 医生职称 */
+    private String doctorTitle;
+
     /** 科室名称 */
     private String departmentName;
     
@@ -44,4 +50,48 @@ public class AvailableSlotDTO {
 
     /** 挂号费（由 Service 根据 slotType 和 system_config 计算填充） */
     private Double fee;
+    
+    /** 医生级别映射值（由后端填充，值越大表示职称越高） */
+    private Integer doctorRank;
+    
+    public Integer getDoctorRank() {
+        return doctorRank;
+    }
+
+    public void setDoctorRank(Integer doctorRank) {
+        this.doctorRank = doctorRank;
+    }
+
+    // 手动添加可能缺失的getter和setter方法
+    public Long getScheduleId() {
+        return scheduleId;
+    }
+
+    public void setScheduleId(Long scheduleId) {
+        this.scheduleId = scheduleId;
+    }
+
+    public Long getDoctorId() {
+        return doctorId;
+    }
+
+    public void setDoctorId(Long doctorId) {
+        this.doctorId = doctorId;
+    }
+
+    public String getSlotType() {
+        return slotType;
+    }
+
+    public void setSlotType(String slotType) {
+        this.slotType = slotType;
+    }
+
+    public Double getFee() {
+        return fee;
+    }
+
+    public void setFee(Double fee) {
+        this.fee = fee;
+    }
 }

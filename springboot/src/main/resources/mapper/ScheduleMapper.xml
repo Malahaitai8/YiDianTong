@@ -38,9 +38,11 @@
          说明：fee 字段不再写死，而是返回 slot_type；由 Service 层根据 system_config 中
          的 FEE_NORMAL/FEE_EXPERT/FEE_VIP 计算真实挂号费并填充到 DTO 中，确保与结算一致。 -->
     <select id="searchAvailableSlots" resultType="com.example.springboot.dto.AvailableSlotDTO">
-        SELECT 
+        SELECT
             s.id as scheduleId,
+            d.id as doctorId,
             d.name as doctorName,
+            d.title as doctorTitle,
             c.name as departmentName,
             s.schedule_date as date,
             s.time_slot as timeSlot,
@@ -65,6 +67,9 @@
         WHERE s.schedule_date &gt;= #{startDate} 
           AND s.schedule_date &lt;= #{endDate}
           AND s.available_slots &gt; 0
+        <if test="excludeScheduleId != null">
+          AND s.id != #{excludeScheduleId}
+        </if>
         <if test="departmentId != null">
           AND c.id = #{departmentId}
         </if>
@@ -235,6 +240,64 @@
                 AND s.schedule_date &lt;= #{endDate}
             </if>
         </where>
+    </select>
+
+    <!-- 查找可用的替代排班 -->
+    <select id="findAlternativeSchedule" resultType="com.example.springboot.entity.Schedule">
+        SELECT s.* FROM schedule s
+        LEFT JOIN doctor d ON s.doctor_id = d.id
+        LEFT JOIN clinic c ON d.clinic_id = c.id
+        <where>
+            s.available_slots > 0
+            AND s.schedule_date >= DATE_SUB(#{originalDate}, INTERVAL 7 DAY)
+            AND s.schedule_date &lt;= DATE_ADD(#{originalDate}, INTERVAL 30 DAY)
+            <choose>
+                <!-- 同一天其他时段 -->
+                <when test="searchType == 'SAME_DAY'">
+                    AND s.doctor_id = #{doctorId}
+                    AND s.schedule_date = #{originalDate}
+                    AND s.time_slot != #{timeSlot}
+                </when>
+                <!-- 同医生最近时间 -->
+                <when test="searchType == 'SAME_DOCTOR'">
+                    AND s.doctor_id = #{doctorId}
+                </when>
+                <!-- 同科室同级别医生最近时间 -->
+                <when test="searchType == 'SAME_CLINIC_SAME_LEVEL'">
+                    AND c.id = #{clinicId}
+                    AND d.title = #{titleLevel}
+                    AND s.doctor_id != #{doctorId}
+                </when>
+                <!-- 同科室任何医生最近时间 -->
+                <when test="searchType == 'SAME_CLINIC_ANY_DOCTOR'">
+                    AND c.id = #{clinicId}
+                    AND s.doctor_id != #{doctorId}
+                </when>
+            </choose>
+        </where>
+        ORDER BY
+            ABS(DATEDIFF(s.schedule_date, #{originalDate})) ASC,
+            CASE
+                WHEN s.time_slot = #{timeSlot} THEN 1
+                WHEN s.schedule_date = #{originalDate} THEN 2
+                ELSE 3
+            END ASC,
+            CASE s.time_slot
+                WHEN 'MORNING' THEN 1
+                WHEN 'AFTERNOON' THEN 2
+                WHEN 'EVENING' THEN 3
+                ELSE 4
+            END ASC
+        LIMIT 1
+    </select>
+
+    <!-- 根据医生ID、日期和时段查找排班 -->
+    <select id="findScheduleByDoctorDateTime" resultType="com.example.springboot.entity.Schedule">
+        SELECT * FROM schedule
+        WHERE doctor_id = #{doctorId}
+          AND schedule_date = #{scheduleDate}
+          AND time_slot = #{timeSlot}
+        LIMIT 1
     </select>
 
 </mapper>
