@@ -64,6 +64,8 @@
         :data="patientList"
         style="width: 100%"
         @sort-change="handleSortChange"
+        @row-click="viewPatientDetail"
+        :row-style="{ cursor: 'pointer' }"
       >
         <el-table-column prop="name" label="患者姓名" min-width="150" />
         <el-table-column prop="phone" label="联系电话" min-width="150" />
@@ -107,43 +109,73 @@
       </div>
     </el-card>
 
-    <!-- 预约详情对话框 -->
+    <!-- 患者详情对话框 -->
     <el-dialog
       v-model="patientDialogVisible"
-      title="预约详情"
-      width="800px"
+      title="患者详情"
+      width="900px"
     >
       <div v-if="selectedPatient" class="patient-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="患者姓名">
-            {{ selectedPatient.patientName || selectedPatient.name }}
-          </el-descriptions-item>
-          <el-descriptions-item label="联系电话">
-            {{ selectedPatient.phoneNumber || selectedPatient.phone }}
-          </el-descriptions-item>
-          <el-descriptions-item label="预约状态">
-            <el-tag :type="getStatusType(selectedPatient.statusName || selectedPatient.status)" size="small">
-              {{ getAppointmentStatusText(selectedPatient.statusName || selectedPatient.status) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="排班日期">
-            {{ formatDateOnly(selectedPatient.scheduleDate || selectedPatient.appointmentDate) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="预约时段">
-            {{ selectedPatient.timeSlotName || formatTimeSlot(selectedPatient.timeSlot) || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="预约时间">
-            {{ formatDateTime(selectedPatient.appointmentTime) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="挂号费用">
-            ¥{{ formatMoney(selectedPatient.fee) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="实际费用">
-            <span style="color: #67c23a; font-weight: 600;">
-              ¥{{ formatMoney(selectedPatient.actualFee) }}
-            </span>
-          </el-descriptions-item>
-        </el-descriptions>
+        <el-tabs v-model="activeTab">
+          <!-- 基本信息 -->
+          <el-tab-pane label="基本信息" name="basic">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="患者姓名">
+                {{ selectedPatient.name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="联系电话">
+                {{ selectedPatient.phoneNumber }}
+              </el-descriptions-item>
+              <el-descriptions-item label="患者身份">
+                {{ getSpecificRoleText(selectedPatient.specificRole) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="是否曾就诊">
+                <el-tag :type="selectedPatient.hasVisited ? 'success' : 'info'" size="small">
+                  {{ selectedPatient.hasVisited ? '是' : '否' }}
+                </el-tag>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-tab-pane>
+
+          <!-- 就诊历史 -->
+          <el-tab-pane label="就诊历史" name="history">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="总预约次数">
+                <el-tag type="primary">{{ selectedPatient.totalAppointments || 0 }} 次</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="已完成就诊">
+                <el-tag type="success">{{ selectedPatient.completedAppointments || 0 }} 次</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="最近就诊日期" :span="2">
+                {{ selectedPatient.lastVisitDate ? formatDateTime(selectedPatient.lastVisitDate) : '暂无记录' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="最近就诊状态" :span="2">
+                <el-tag v-if="selectedPatient.lastStatusName" :type="getStatusType(selectedPatient.lastStatusName)" size="small">
+                  {{ selectedPatient.lastStatusName }}
+                </el-tag>
+                <span v-else>-</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-tab-pane>
+
+          <!-- 即将到诊 -->
+          <el-tab-pane label="即将到诊" name="upcoming" v-if="selectedPatient.nextAppointmentId">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="预约ID">
+                {{ selectedPatient.nextAppointmentId }}
+              </el-descriptions-item>
+              <el-descriptions-item label="预约日期">
+                {{ formatDateTime(selectedPatient.nextAppointmentDate) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="预约时段" :span="2">
+                {{ formatTimeSlot(selectedPatient.nextAppointmentTimeSlot) }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-tab-pane>
+          <el-tab-pane label="即将到诊" name="upcoming" v-else>
+            <el-empty description="暂无即将到诊的预约" />
+          </el-tab-pane>
+        </el-tabs>
       </div>
 
       <template #footer>
@@ -157,7 +189,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { getMyPatients, getTodayPatients } from '@/api/doctor'
+import { getDoctorPatients } from '@/api/appointment'
 import { formatDate } from '@/utils'
 
 const viewMode = ref('today')
@@ -447,7 +481,6 @@ const handleCurrentChange = (page) => {
   loadPatients()
 }
 
-
 // 格式化金额
 const formatMoney = (amount) => {
   if (amount === null || amount === undefined) return '0.00'
@@ -517,17 +550,37 @@ const getSourceTypeText = (sourceType) => {
   return sourceMap[upperSource] || sourceType
 }
 
-const viewPatientDetail = (patient) => {
-  // 直接使用列表中的数据，包含所有后端返回的字段
-  selectedPatient.value = {
-    ...patient,
-    // 确保状态是中文
-    status: getAppointmentStatusText(patient.statusName || patient.status)
+const viewPatientDetail = async (patient) => {
+  try {
+    loading.value = true
+    // 调用新接口获取患者详细信息（包含就诊历史）
+    const resp = await getDoctorPatients()
+    const patientList = Array.isArray(resp?.data) ? resp.data : []
+    
+    // 根据 patientId 查找对应的患者详情
+    const patientDetail = patientList.find(p => p.patientId === patient.patientId)
+    
+    if (patientDetail) {
+      selectedPatient.value = patientDetail
+    } else {
+      // 如果没找到，使用列表中的基本数据
+      selectedPatient.value = {
+        ...patient,
+        hasVisited: false,
+        totalAppointments: 0,
+        completedAppointments: 0
+      }
+    }
+    
+    activeTab.value = 'basic'
+    patientDialogVisible.value = true
+  } catch (error) {
+    console.error('获取患者详情失败:', error)
+    ElMessage.error('获取患者详情失败')
+  } finally {
+    loading.value = false
   }
-  activeTab.value = 'basic'
-  patientDialogVisible.value = true
 }
-
 
 onMounted(() => {
   reload()

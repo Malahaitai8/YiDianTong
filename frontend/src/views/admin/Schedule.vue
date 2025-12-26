@@ -2185,11 +2185,11 @@ const getTimeSlotText = (timeSlot) => {
 
 const getSlotTypeColor = (slotType) => {
   const colorMap = {
-    normal: '',
+    normal: 'info',
     expert: 'warning',
     vip: 'danger'
   }
-  return colorMap[slotType] || ''
+  return colorMap[slotType] || 'info'
 }
 
 const getBookingPercentage = (schedule) => {

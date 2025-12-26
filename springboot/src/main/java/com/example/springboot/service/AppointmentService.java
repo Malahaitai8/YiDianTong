@@ -997,13 +997,21 @@ public class AppointmentService {
 
                 // 获取该患者的完整就诊历史统计
                 Map<String, Object> stats = appointmentMapper.getPatientAppointmentStatsByDoctor(patientId, doctor.getId());
+                logger.debug("患者{}的统计信息: {}", patientId, stats);
                 if (stats != null) {
                     detail.putAll(stats);
                 }
 
                 // 设置hasVisited标志
-                Integer completedCount = (Integer) detail.get("completedAppointments");
-                detail.put("hasVisited", completedCount != null && completedCount > 0);
+                Object completedObj = detail.get("completedAppointments");
+                long completedCount = 0;
+                if (completedObj instanceof Number) {
+                    completedCount = ((Number) completedObj).longValue();
+                }
+                detail.put("hasVisited", completedCount > 0);
+                
+                logger.debug("患者{}详情: totalAppointments={}, completedAppointments={}, hasVisited={}", 
+                    patientId, detail.get("totalAppointments"), completedCount, detail.get("hasVisited"));
             }
 
             logger.info("医生{}查询到{}位患者详情", doctor.getName(), patientDetails.size());

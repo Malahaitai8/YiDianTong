@@ -424,7 +424,7 @@
              AND a3.appointment_time > NOW() ORDER BY a3.appointment_time LIMIT 1) AS nextAppointmentTimeSlot,
             -- 统计信息
             COUNT(a.id) AS totalAppointments,
-            SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedAppointments
+            SUM(CASE WHEN LOWER(a.status) = 'completed' THEN 1 ELSE 0 END) AS completedAppointments
         FROM patient p
         INNER JOIN appointment a ON p.id = a.patient_id
         WHERE a.doctor_id = #{doctorId}
@@ -436,17 +436,17 @@
     <select id="getPatientAppointmentStatsByDoctor" resultType="java.util.Map">
         SELECT
             COUNT(*) AS totalAppointments,
-            SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedAppointments,
+            SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS completedAppointments,
             MAX(appointment_time) AS lastVisitDate,
             (SELECT status FROM appointment
              WHERE patient_id = #{patientId} AND doctor_id = #{doctorId}
              ORDER BY appointment_time DESC LIMIT 1) AS lastVisitStatus,
             (SELECT CASE
-                WHEN status = 'SCHEDULED' THEN '已预约'
-                WHEN status = 'CONFIRMED' THEN '已确认'
-                WHEN status = 'COMPLETED' THEN '已完成'
-                WHEN status = 'CANCELLED' THEN '已取消'
-                WHEN status = 'NOSHOW' THEN '未到诊'
+                WHEN LOWER(status) = 'scheduled' THEN '待就诊'
+                WHEN LOWER(status) = 'confirmed' THEN '已确认'
+                WHEN LOWER(status) = 'completed' THEN '已完成'
+                WHEN LOWER(status) = 'cancelled' THEN '已取消'
+                WHEN LOWER(status) = 'no_show' THEN '未到诊'
                 ELSE '未知'
              END FROM appointment
              WHERE patient_id = #{patientId} AND doctor_id = #{doctorId}

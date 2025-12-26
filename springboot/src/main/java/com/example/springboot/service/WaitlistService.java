@@ -381,7 +381,7 @@ public class WaitlistService {
         }
     }
 
-    /** 获取多个排班的候补队列人数 */
+    /** 获取多个排班的候补队列人数（从Redis） - 供小程序使用 */
     public Map<Long, Long> getQueueSizes(List<Long> scheduleIds) {
         Map<Long, Long> result = new HashMap<>();
         if (scheduleIds == null || scheduleIds.isEmpty()) {
@@ -392,6 +392,21 @@ public class WaitlistService {
             String key = WAITLIST_KEY_PREFIX + scheduleId;
             Long size = redisTemplate.opsForZSet().size(key);
             result.put(scheduleId, size != null ? size : 0L);
+        }
+        return result;
+    }
+
+    /** 获取多个排班的候补队列人数（从数据库） - 供管理端使用 */
+    public Map<Long, Long> getQueueSizesFromDatabase(List<Long> scheduleIds) {
+        Map<Long, Long> result = new HashMap<>();
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return result;
+        }
+        for (Long scheduleId : scheduleIds) {
+            if (scheduleId == null) continue;
+            // 从数据库统计 WAITING 状态的候补记录数量
+            int count = waitlistMapper.countByScheduleIdAndStatus(scheduleId, "WAITING");
+            result.put(scheduleId, (long) count);
         }
         return result;
     }

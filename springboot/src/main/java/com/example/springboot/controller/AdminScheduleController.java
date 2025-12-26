@@ -176,11 +176,11 @@ public class AdminScheduleController {
         }
     }
 
-    @Operation(summary = "批量查询候补人数", description = "返回多个排班的候补队列人数")
+    @Operation(summary = "批量查询候补人数（从数据库）", description = "返回多个排班的候补队列人数，从数据库统计")
     @GetMapping("/waitlist-count")
     @PreAuthorize("hasRole('ADMIN')")
     public Result getWaitlistCounts(@RequestParam("scheduleIds") List<Long> scheduleIds) {
-        return Result.success(waitlistService.getQueueSizes(scheduleIds));
+        return Result.success(waitlistService.getQueueSizesFromDatabase(scheduleIds));
     }
 }
 

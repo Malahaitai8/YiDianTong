@@ -61,5 +61,14 @@ public interface WaitlistMapper {
     Double calculateAvgWaitTime(@Param("doctorId") Long doctorId,
                                 @Param("timeSlot") String timeSlot,
                                 @Param("days") Integer days);
+    
+    /**
+     * 统计指定排班的候补人数（按状态）
+     * @param scheduleId 排班ID
+     * @param status 状态（WAITING/GRANTED/CANCELLED/EXPIRED）
+     * @return 候补人数
+     */
+    int countByScheduleIdAndStatus(@Param("scheduleId") Long scheduleId, 
+                                    @Param("status") String status);
 }
 

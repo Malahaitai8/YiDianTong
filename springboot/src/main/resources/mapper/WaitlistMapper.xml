@@ -131,5 +131,15 @@
             AND w.join_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
     </select>
 
+    <!-- 统计指定排班的候补人数（按状态） -->
+    <select id="countByScheduleIdAndStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM waitlist
+        WHERE schedule_id = #{scheduleId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
 </mapper>
 

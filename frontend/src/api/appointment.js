@@ -24,3 +24,10 @@ export const deleteAppointment = (id) => {
   })
 }
 
+// 医生查看患者详情（包含就诊历史）
+export const getDoctorPatients = () => {
+  return request({
+    url: '/appointment/doctor/patients',
+    method: 'get'
+  })
+}
