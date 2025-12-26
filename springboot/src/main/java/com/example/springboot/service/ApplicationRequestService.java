@@ -59,6 +59,9 @@ public class ApplicationRequestService {
     private NotificationService notificationService;
 
     @Resource
+    private ScheduleService scheduleService;
+
+    @Resource
     private com.example.springboot.mapper.PatientMapper patientMapper;
 
     /**
@@ -321,16 +324,27 @@ public class ApplicationRequestService {
                 if (request.getSlotAdjustment() == null) {
                     throw new RuntimeException("调整号源申请必须指定调整数量");
                 }
-                int newTotalSlots = schedule.getTotalSlots() + request.getSlotAdjustment();
-                int newAvailableSlots = schedule.getAvailableSlots() + request.getSlotAdjustment();
-                
-                if (newTotalSlots < 0 || newAvailableSlots < 0) {
-                    throw new RuntimeException("号源数量不能为负数");
+
+                // 如果是加号（slotAdjustment > 0），使用addSlots方法来触发候补检查
+                if (request.getSlotAdjustment() > 0) {
+                    logger.info("申请审核通过：执行加号操作，scheduleId={}, slotsToAdd={}", schedule.getId(), request.getSlotAdjustment());
+                    Map<String, Object> result = scheduleService.addSlots(schedule.getId(), request.getSlotAdjustment());
+                    logger.info("申请审核通过：加号操作完成，result={}", result);
+                } else {
+                    // 如果是减号（slotAdjustment < 0），直接修改数据库
+                    int newTotalSlots = schedule.getTotalSlots() + request.getSlotAdjustment();
+                    int newAvailableSlots = schedule.getAvailableSlots() + request.getSlotAdjustment();
+
+                    if (newTotalSlots < 0 || newAvailableSlots < 0) {
+                        throw new RuntimeException("号源数量不能为负数");
+                    }
+
+                    schedule.setTotalSlots(newTotalSlots);
+                    schedule.setAvailableSlots(newAvailableSlots);
+                    scheduleMapper.updateById(schedule);
+                    logger.info("申请审核通过：减号操作完成，scheduleId={}, newTotalSlots={}, newAvailableSlots={}",
+                        schedule.getId(), newTotalSlots, newAvailableSlots);
                 }
-                
-                schedule.setTotalSlots(newTotalSlots);
-                schedule.setAvailableSlots(newAvailableSlots);
-                scheduleMapper.updateById(schedule);
                 break;
                 
             default:

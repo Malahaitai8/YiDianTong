@@ -1,17 +1,9 @@
 import request from './request'
 
-// 批量查询候补人数
-export const getWaitlistCounts = (scheduleIds) => {
-  const params = new URLSearchParams()
-  scheduleIds.forEach(id => params.append('scheduleIds', id))
-
-  return request({
-    url: `/api/admin/schedules/waitlist-count?${params.toString()}`,
-    method: 'get'
-  })
-}
-
-// 弹出下一个候补患者（管理员手动操作）
+/**
+ * 管理员弹出指定排班的候补队首
+ * @param {number|string} scheduleId
+ */
 export const popNextWaitlist = (scheduleId) => {
   return request({
     url: `/waitlist/next/${scheduleId}`,
@@ -19,27 +11,24 @@ export const popNextWaitlist = (scheduleId) => {
   })
 }
 
-// 加入候补队列
-export const addToWaitlist = (data) => {
+/**
+ * 批量查询多个排班的候补人数
+ * @param {Array<number|string>} scheduleIds - 排班ID列表
+ * @returns {Promise} 返回格式: { "574": 3, "588": 0, ... }
+ */
+export const getWaitlistCounts = (scheduleIds = []) => {
+  const validIds = (Array.isArray(scheduleIds) ? scheduleIds : [])
+    .map((id) => Number(id))
+    .filter((id) => !Number.isNaN(id))
+
+  if (validIds.length === 0) {
+    return Promise.reject(new Error('scheduleIds 不能为空'))
+  }
+
   return request({
-    url: '/waitlist',
+    url: '/waitlist/count',
     method: 'post',
-    data
+    data: { scheduleIds: validIds }
   })
 }
 
-// 查看我的候补
-export const getMyWaitlist = () => {
-  return request({
-    url: '/waitlist/me',
-    method: 'get'
-  })
-}
-
-// 退出候补队列
-export const cancelWaitlist = (scheduleId) => {
-  return request({
-    url: `/waitlist/${scheduleId}`,
-    method: 'delete'
-  })
-}

@@ -389,6 +389,8 @@ public class ScheduleService {
      */
     @Transactional
     public Map<String, Object> addSlots(Long id, Integer slotsToAdd) {
+        logger.info("管理员手动加号开始：scheduleId={}, slotsToAdd={}", id, slotsToAdd);
+
         // 1. 查询排班
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
@@ -399,18 +401,26 @@ public class ScheduleService {
         schedule.setTotalSlots(schedule.getTotalSlots() + slotsToAdd);
         schedule.setAvailableSlots(schedule.getAvailableSlots() + slotsToAdd);
         scheduleMapper.updateById(schedule);
+        logger.info("管理员手动加号：号源数量已更新，totalSlots={}, availableSlots={}",
+            schedule.getTotalSlots(), schedule.getAvailableSlots());
 
-        // 3. 循环处理候补队列，直到新增的号源被用完或候补队列为空
+        // 3. 参考退号逻辑：每次加号都触发一次候补检查
         int filledCount = 0;
+        logger.info("管理员手动加号：开始处理候补队列，预计处理{}个号源", slotsToAdd);
         for (int i = 0; i < slotsToAdd; i++) {
+            logger.info("管理员手动加号：第{}次尝试处理候补", i + 1);
+            // 直接调用候补处理逻辑，和退号一样
             boolean filled = appointmentService.processNextInWaitlist(id);
+            logger.info("管理员手动加号：第{}次处理结果 filled={}", i + 1, filled);
             if (filled) {
                 filledCount++;
             } else {
                 // 候补队列已空，无需继续
+                logger.info("管理员手动加号：候补队列为空，停止处理");
                 break;
             }
         }
+        logger.info("管理员手动加号：候补处理完成，filledCount={}", filledCount);
 
         // 4. 准备返回结果
         Map<String, Object> result = new HashMap<>();
@@ -428,21 +438,24 @@ public class ScheduleService {
      * @return 是否成功从候补队列中填充了预约
      */
     public boolean releaseSlotAndProcessWaitlist(Long scheduleId) {
-        logger.info("releaseSlotAndProcessWaitlist start scheduleId={}", scheduleId);
+        logger.info("退号释放号源开始：scheduleId={}", scheduleId);
 
         try {
             // 1. 先尝试处理候补队列
+            logger.info("退号释放号源：开始尝试处理候补队列 scheduleId={}", scheduleId);
             boolean filled = appointmentService.processNextInWaitlist(scheduleId);
+            logger.info("退号释放号源：候补处理结果 filled={} scheduleId={}", filled, scheduleId);
             if (filled) {
-                logger.info("releaseSlotAndProcessWaitlist success: 从候补队列填充了预约 scheduleId={}", scheduleId);
-            } else {
-                // 2. 如果候补队列为空，才真正释放号源
-                scheduleMapper.increaseAvailableSlots(scheduleId);
-                logger.info("releaseSlotAndProcessWaitlist: 候补队列为空，释放号源完成 scheduleId={}", scheduleId);
+                logger.info("退号释放号源成功：从候补队列填充了预约 scheduleId={}", scheduleId);
+                return true;
             }
 
-            // 3. 无论是否从候补队列填充，都发送号源释放通知（触发候补检查）
-            // 因为号源确实被释放了，需要让候补患者更新他们的可视化数据
+            // 2. 如果候补队列为空，才真正释放号源
+            logger.info("退号释放号源：候补队列为空，开始释放号源 scheduleId={}", scheduleId);
+            scheduleMapper.increaseAvailableSlots(scheduleId);
+            logger.info("退号释放号源：号源释放完成 scheduleId={}", scheduleId);
+
+            // 3. 发送号源释放通知
             try {
                 Schedule schedule = scheduleMapper.selectById(scheduleId);
                 if (schedule != null) {
@@ -462,7 +475,7 @@ public class ScheduleService {
                 logger.warn("releaseSlotAndProcessWaitlist: 发送号源释放通知失败: {}", e.getMessage());
             }
 
-            return filled;
+            return false;
 
         } catch (Exception e) {
             logger.error("releaseSlotAndProcessWaitlist error scheduleId={}, error={}", scheduleId, e.getMessage(), e);

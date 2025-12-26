@@ -13,6 +13,8 @@ import com.example.springboot.service.PrepaymentOrderService;
 import com.example.springboot.service.WaitlistService;
 import jakarta.annotation.Resource;
 import io.swagger.v3.oas.annotations.Operation;
+import java.util.Map;
+import java.util.List;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -155,5 +157,25 @@ public class WaitlistController {
         }
 
         return Result.success("已退出候补队列");
+    }
+
+    /**
+     * 查询候补队列人数（公开接口，所有登录用户可访问）
+     */
+    @Operation(summary = "查询候补队列人数", description = "查询指定排班的候补队列人数")
+    @PostMapping("/count")
+    @PreAuthorize("isAuthenticated()") // 只需要登录即可
+    public Result getQueueCounts(@RequestBody Map<String, List<Long>> request) {
+        List<Long> scheduleIds = request.get("scheduleIds");
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return Result.error("scheduleIds不能为空");
+        }
+
+        try {
+            Map<Long, Long> counts = waitlistService.getQueueSizes(scheduleIds);
+            return Result.success(counts);
+        } catch (Exception e) {
+            return Result.error("查询候补人数失败: " + e.getMessage());
+        }
     }
 }

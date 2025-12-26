@@ -327,7 +327,7 @@ class WebSocketClient {
    */
   getReadyState() {
     if (!this.ws) return -1;
-    
+
     // #ifdef H5
     return this.ws.readyState;
     // #endif
@@ -336,6 +336,33 @@ class WebSocketClient {
     // uni-app 没有直接获取状态的方法，返回一个估计值
     return this.isConnecting ? 0 : (this.ws ? 1 : 3);
     // #endif
+  }
+
+  /**
+   * 检查是否已连接
+   */
+  isConnected() {
+    return this.getReadyState() === 1;
+  }
+
+  /**
+   * 订阅候补队列更新
+   * @param {Number} scheduleId - 排班ID
+   */
+  subscribeWaitlist(scheduleId) {
+    if (!this.isConnected()) {
+      console.warn('WebSocket 未连接，无法订阅候补队列');
+      return;
+    }
+
+    const message = {
+      type: 'SUBSCRIBE_WAITLIST',
+      scheduleId: scheduleId,
+      timestamp: Date.now()
+    };
+
+    console.log('订阅候补队列更新:', scheduleId);
+    this.send(message);
   }
 }
 

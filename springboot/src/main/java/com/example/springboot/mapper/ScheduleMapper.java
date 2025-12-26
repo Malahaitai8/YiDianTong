@@ -51,6 +51,15 @@ public interface ScheduleMapper {
     int increaseAvailableSlotsBy(@Param("id") Long id, @Param("count") int count);
 
     /**
+     * 更新可用号源数量
+     * @param id 排班ID
+     * @param availableSlots 可用号源数量
+     * @return 影响行数
+     */
+    @Update("UPDATE schedule SET available_slots = #{availableSlots} WHERE id = #{id}")
+    int updateAvailableSlots(@Param("id") Long id, @Param("availableSlots") int availableSlots);
+
+    /**
      * 搜索可预约时段
      * @param departmentId 科室ID (可选)
      * @param doctorId 医生ID (可选)

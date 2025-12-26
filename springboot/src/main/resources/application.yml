@@ -10,29 +10,15 @@ spring:
     #url: jdbc:mysql://120.46.206.75:3306/yi_dian_tong?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
     # 数据库连接池优化（HikariCP）
     hikari:
-      maximum-pool-size: 20  # 最大连接数
-      minimum-idle: 5        # 最小空闲连接数
-      connection-timeout: 30000        # 连接超时时间（毫秒）
-      idle-timeout: 600000             # 空闲连接超时时间（毫秒）
-      max-lifetime: 1800000            # 连接最大生命周期（毫秒）
+      maximum-pool-size: 100           # 高并发：增加最大连接数到100
+      minimum-idle: 20                 # 最小空闲连接数
+      connection-timeout: 20000        # 连接超时时间（毫秒）
+      idle-timeout: 300000             # 空闲连接超时时间（毫秒）
+      max-lifetime: 1200000            # 连接最大生命周期（毫秒）
       leak-detection-threshold: 60000  # 连接泄漏检测阈值（毫秒）
+      validation-timeout: 5000         # 验证超时时间
 
-  # Redis配置
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      # 本地 Redis 不需要密码
-      password: ""
-      lettuce:
-        pool:
-          max-active: 20   # 高并发优化：增加最大连接数
-          max-idle: 10
-          min-idle: 5
-          max-wait: 1000ms
-
-
-# MyBatis配置
+  # MyBatis配置
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.example.springboot.entity
@@ -50,28 +36,48 @@ jwt:
   secret: YiDianTongSecretKeyForJWTTokenGenerationAndValidation2025
   expiration: 604800000 # 7天(毫秒)
 
-# 日志配置（恢复为更详细的输出）
+# 日志配置（高并发优化）
 logging:
   level:
     root: INFO
-    # Spring Security 恢复 DEBUG 级别，看到完整过滤器链等日志
-    org.springframework.security: DEBUG
-    # 业务代码使用 DEBUG，方便排查候补、号源等逻辑
-    com.example.springboot: DEBUG
+    # 高并发场景下的关键日志
+    org.springframework.security: WARN  # 减少安全日志输出
+    com.example.springboot: INFO        # 业务日志设为INFO，减少DEBUG输出
+    # 数据库连接池监控
+    com.zaxxer.hikari: WARN
+    # Redis连接监控
+    org.springframework.data.redis: WARN
 
-# Redis配置
+# 高并发监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    metrics:
+      enabled: true
+    health:
+      enabled: true
+  metrics:
+    export:
+      jmx:
+        enabled: true
+    tags:
+      application: yi-dian-tong
+
+# Redis配置 - 高并发优化
   data:
     redis:
       host: localhost
       port: 6379
-      # 本地 Redis 不需要密码
       password: ""
       lettuce:
         pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-          max-wait: -1ms
+          max-active: 50   # 高并发：增加Redis连接数
+          max-idle: 20
+          min-idle: 10
+          max-wait: 2000ms  # 等待超时时间
 
 
 # deepseek配置(wzm)

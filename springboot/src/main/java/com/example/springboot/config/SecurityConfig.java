@@ -53,9 +53,8 @@ public class SecurityConfig {
      */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(passwordEncoder);
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
@@ -128,12 +127,16 @@ public class SecurityConfig {
 
                 // 配置授权规则
                 .authorizeHttpRequests(auth -> auth
+                        // 允许访问WebSocket连接 (必须放在最前面)
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/ws/waitlist/**").permitAll()
+
                         // 允许所有人访问登录接口
                         .requestMatchers("/auth/**").permitAll()
 
                         // 患者端匿名访问：医生详情页排班接口
                         .requestMatchers(HttpMethod.GET, "/doctor/*/schedules").permitAll()
-                        
+
                         // 允许访问排班详情接口（挂号确认页需要）
                         .requestMatchers(HttpMethod.GET, "/schedule/selectById/*").permitAll()
 
@@ -147,13 +150,8 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
 
-                        // 允许访问测试接口和健康检查
-                        .requestMatchers("/hello", "/actuator/health", "/test/**").permitAll()
-
-                        // 允许访问WebSocket连接 (多种格式)
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/ws/waitlist/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/ws/waitlist/*").permitAll()
+                        // 允许访问健康检查
+                        .requestMatchers("/hello", "/actuator/health").permitAll()
 
                         // ----------- [修改] -----------
                         // 患者相关接口 (移除)

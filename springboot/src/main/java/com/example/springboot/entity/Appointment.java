@@ -18,5 +18,6 @@ public class Appointment {
     private String sourceType;
     private Boolean autoAssigned; // 系统自动分配标记
     private Date rescheduleWindowExpires; // 自动分配的患者可重新选择窗口截止时间
+    private Date updatedAt; // 更新时间
 }
 
