@@ -1561,11 +1561,15 @@ const submitAddSlots = async () => {
     })
     addSlotsDialog.loading = true
     const id = addSlotsDialog.schedule?.id
-    await addScheduleSlots(id, {
+    const result = await addScheduleSlots(id, {
       slotsToAdd: addSlotsForm.slotsToAdd,
       reason: addSlotsForm.reason || undefined
     })
-    ElMessage.success('加号成功')
+
+    // 显示详细的加号结果，包括候补成功信息
+    const message = result?.message || '加号成功'
+    ElMessage.success(message)
+
     addSlotsDialog.visible = false
     await loadScheduleList()
   } catch (error) {

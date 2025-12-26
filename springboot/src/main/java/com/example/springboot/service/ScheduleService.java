@@ -435,14 +435,14 @@ public class ScheduleService {
             boolean filled = appointmentService.processNextInWaitlist(scheduleId);
             if (filled) {
                 logger.info("releaseSlotAndProcessWaitlist success: 从候补队列填充了预约 scheduleId={}", scheduleId);
-                return true;
+            } else {
+                // 2. 如果候补队列为空，才真正释放号源
+                scheduleMapper.increaseAvailableSlots(scheduleId);
+                logger.info("releaseSlotAndProcessWaitlist: 候补队列为空，释放号源完成 scheduleId={}", scheduleId);
             }
 
-            // 2. 如果候补队列为空，才真正释放号源
-            scheduleMapper.increaseAvailableSlots(scheduleId);
-            logger.info("releaseSlotAndProcessWaitlist: 候补队列为空，释放号源完成 scheduleId={}", scheduleId);
-
-            // 3. 发送号源释放通知
+            // 3. 无论是否从候补队列填充，都发送号源释放通知（触发候补检查）
+            // 因为号源确实被释放了，需要让候补患者更新他们的可视化数据
             try {
                 Schedule schedule = scheduleMapper.selectById(scheduleId);
                 if (schedule != null) {
@@ -462,7 +462,7 @@ public class ScheduleService {
                 logger.warn("releaseSlotAndProcessWaitlist: 发送号源释放通知失败: {}", e.getMessage());
             }
 
-            return false;
+            return filled;
 
         } catch (Exception e) {
             logger.error("releaseSlotAndProcessWaitlist error scheduleId={}, error={}", scheduleId, e.getMessage(), e);
