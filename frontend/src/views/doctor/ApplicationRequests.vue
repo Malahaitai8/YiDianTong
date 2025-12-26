@@ -615,7 +615,7 @@ const submitScheduleRequest = async () => {
       payload.newTimeSlot = scheduleForm.newTimeSlot
     }
     if (scheduleForm.changeType === 'ADJUST_SLOTS') {
-      payload.slotsAdjustment = scheduleForm.slotsAdjustment
+      payload.slotAdjustment = scheduleForm.slotsAdjustment
     }
     await createApplicationRequest(payload)
     ElMessage.success('调班申请已提交')
